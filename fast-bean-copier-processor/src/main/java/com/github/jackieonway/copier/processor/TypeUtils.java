@@ -1,9 +1,13 @@
 package com.github.jackieonway.copier.processor;
 
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 类型检查和处理的工具类。
@@ -32,8 +36,13 @@ public final class TypeUtils {
      * @return 如果是基本类型，返回 true；否则返回 false
      */
     public static boolean isPrimitive(TypeMirror type) {
-        // 暂时为空实现，后续补充具体逻辑
-        return false;
+        if (type == null) {
+            return false;
+        }
+        TypeKind kind = type.getKind();
+        return kind == TypeKind.INT || kind == TypeKind.LONG || kind == TypeKind.SHORT ||
+                kind == TypeKind.BYTE || kind == TypeKind.FLOAT || kind == TypeKind.DOUBLE ||
+                kind == TypeKind.CHAR || kind == TypeKind.BOOLEAN;
     }
 
     /**
@@ -45,8 +54,14 @@ public final class TypeUtils {
      * @return 如果是包装类型，返回 true；否则返回 false
      */
     public static boolean isWrapper(TypeMirror type) {
-        // 暂时为空实现，后续补充具体逻辑
-        return false;
+        if (type == null || type.getKind() != TypeKind.DECLARED) {
+            return false;
+        }
+        String typeName = type.toString();
+        return typeName.equals("java.lang.Integer") || typeName.equals("java.lang.Long") ||
+                typeName.equals("java.lang.Short") || typeName.equals("java.lang.Byte") ||
+                typeName.equals("java.lang.Float") || typeName.equals("java.lang.Double") ||
+                typeName.equals("java.lang.Character") || typeName.equals("java.lang.Boolean");
     }
 
     /**
@@ -61,8 +76,58 @@ public final class TypeUtils {
      * @return 如果两个类型兼容，返回 true；否则返回 false
      */
     public static boolean isTypeCompatible(TypeMirror source, TypeMirror target) {
-        // 暂时为空实现，后续补充具体逻辑
+        if (source == null || target == null) {
+            return false;
+        }
+
+        // 完全相同的类型
+        if (source.toString().equals(target.toString())) {
+            return true;
+        }
+
+        // 基本类型与包装类型的兼容性
+        if (isPrimitive(source) && isWrapper(target)) {
+            return isPrimitiveWrapperMatch(source, target);
+        }
+
+        if (isWrapper(source) && isPrimitive(target)) {
+            return isPrimitiveWrapperMatch(target, source);
+        }
+
         return false;
+    }
+
+    /**
+     * 判断基本类型和包装类型是否匹配。
+     *
+     * @param primitiveType 基本类型
+     * @param wrapperType   包装类型
+     * @return 如果匹配，返回 true；否则返回 false
+     */
+    private static boolean isPrimitiveWrapperMatch(TypeMirror primitiveType, TypeMirror wrapperType) {
+        TypeKind kind = primitiveType.getKind();
+        String wrapperName = wrapperType.toString();
+
+        switch (kind) {
+            case INT:
+                return wrapperName.equals("java.lang.Integer");
+            case LONG:
+                return wrapperName.equals("java.lang.Long");
+            case SHORT:
+                return wrapperName.equals("java.lang.Short");
+            case BYTE:
+                return wrapperName.equals("java.lang.Byte");
+            case FLOAT:
+                return wrapperName.equals("java.lang.Float");
+            case DOUBLE:
+                return wrapperName.equals("java.lang.Double");
+            case CHAR:
+                return wrapperName.equals("java.lang.Character");
+            case BOOLEAN:
+                return wrapperName.equals("java.lang.Boolean");
+            default:
+                return false;
+        }
     }
 
     /**
@@ -74,8 +139,24 @@ public final class TypeUtils {
      * @return 字段列表
      */
     public static List<VariableElement> getAllFields(TypeElement element) {
-        // 暂时为空实现，后续补充具体逻辑
-        return null;
+        List<VariableElement> fields = new ArrayList<>();
+        if (element == null) {
+            return fields;
+        }
+
+        // 获取当前类的所有字段
+        for (Object enclosedElement : element.getEnclosedElements()) {
+            if (enclosedElement instanceof VariableElement) {
+                VariableElement field = (VariableElement) enclosedElement;
+                Set<Modifier> modifiers = field.getModifiers();
+                // 过滤掉 static 和 transient 字段
+                if (!modifiers.contains(Modifier.STATIC) && !modifiers.contains(Modifier.TRANSIENT)) {
+                    fields.add(field);
+                }
+            }
+        }
+
+        return fields;
     }
 
     /**
@@ -85,7 +166,9 @@ public final class TypeUtils {
      * @return 字段的类型
      */
     public static TypeMirror getFieldType(VariableElement field) {
-        // 暂时为空实现，后续补充具体逻辑
-        return null;
+        if (field == null) {
+            return null;
+        }
+        return field.asType();
     }
 }
