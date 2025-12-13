@@ -277,7 +277,7 @@ src/
 ## 获取帮助
 
 ### Q: 如何报告 Bug？
-**A**: 在 [GitHub Issues](https://github.com/jackieonway/fast-bean-copier/issues) 中提出问题，包括：
+**A**: 在 [GitHub Issues](https://github.com/fast-bean-copier/fast-bean-copier/issues) 中提出问题，包括：
 1. 问题描述
 2. 复现步骤
 3. 期望行为
@@ -285,7 +285,7 @@ src/
 5. 环境信息（Java 版本、Maven 版本等）
 
 ### Q: 如何提出功能请求？
-**A**: 在 [GitHub Issues](https://github.com/jackieonway/fast-bean-copier/issues) 中提出，描述：
+**A**: 在 [GitHub Issues](https://github.com/fast-bean-copier/fast-bean-copier/issues) 中提出，描述：
 1. 功能描述
 2. 使用场景
 3. 期望的 API

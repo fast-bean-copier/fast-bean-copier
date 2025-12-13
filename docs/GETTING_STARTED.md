@@ -175,7 +175,7 @@ Set<User> userSet = UserDtoCopier.fromDtoSet(dtoSet);
 
 - 查看 [参考文档](REFERENCE.md) 了解更多功能
 - 查看 [示例代码](../fast-bean-copier-examples) 了解更多用法
-- 在 [GitHub Issues](https://github.com/jackieonway/fast-bean-copier/issues) 中提出问题
+- 在 [GitHub Issues](https://github.com/fast-bean-copier/fast-bean-copier/issues) 中提出问题
 
 ## 提示
 

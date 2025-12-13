@@ -4,7 +4,7 @@
 
 本文档是 Fast Bean Copier 的参考文档，Fast Bean Copier 是一个基于注解处理器的 Java Bean 拷贝工具，用于生成类型安全、高性能且零依赖的 Bean 映射代码。
 
-本指南涵盖了 Fast Bean Copier 提供的所有功能。如果本指南无法回答您的所有问题，请在 [GitHub Issues](https://github.com/jackieonway/fast-bean-copier/issues) 中提出问题以获得帮助。
+本指南涵盖了 Fast Bean Copier 提供的所有功能。如果本指南无法回答您的所有问题，请在 [GitHub Issues](https://github.com/fast-bean-copier/fast-bean-copier/issues) 中提出问题以获得帮助。
 
 如果您在本指南中发现了错别字或其他错误，请通过在 GitHub 仓库中开启 Issue 或发送 Pull Request 来帮助我们改进。
 
@@ -579,8 +579,8 @@ Fast Bean Copier 采用 Apache License 2.0 许可证。
 如有问题，请：
 
 1. 查看本参考文档
-2. 在 [GitHub Issues](https://github.com/jackieonway/fast-bean-copier/issues) 中搜索相关问题
-3. 在 [GitHub Issues](https://github.com/jackieonway/fast-bean-copier/issues) 中提出新问题
+2. 在 [GitHub Issues](https://github.com/fast-bean-copier/fast-bean-copier/issues) 中搜索相关问题
+3. 在 [GitHub Issues](https://github.com/fast-bean-copier/fast-bean-copier/issues) 中提出新问题
 
 ## 16. 版本历史
 
