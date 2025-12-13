@@ -260,7 +260,7 @@ mvn clean test
 
 ### 报告 Bug
 
-在 [GitHub Issues](https://github.com/jackieonway/fast-bean-copier/issues) 中提出，包括：
+在 [GitHub Issues](https://github.com/fast-bean-copier/fast-bean-copier/issues) 中提出，包括：
 1. 问题描述
 2. 复现步骤
 3. 期望行为和实际行为
@@ -288,8 +288,8 @@ mvn clean test
 
 ## 联系方式
 
-- **GitHub Issues**：[https://github.com/jackieonway/fast-bean-copier/issues](https://github.com/jackieonway/fast-bean-copier/issues)
-- **GitHub Discussions**：[https://github.com/jackieonway/fast-bean-copier/discussions](https://github.com/jackieonway/fast-bean-copier/discussions)
+- **GitHub Issues**：[https://github.com/fast-bean-copier/fast-bean-copier/issues](https://github.com/fast-bean-copier/fast-bean-copier/issues)
+- **GitHub Discussions**：[https://github.com/fast-bean-copier/fast-bean-copier/discussions](https://github.com/fast-bean-copier/fast-bean-copier/discussions)
 
 ## 版本历史
 
