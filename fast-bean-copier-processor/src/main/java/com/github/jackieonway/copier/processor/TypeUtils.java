@@ -171,4 +171,127 @@ public final class TypeUtils {
         }
         return field.asType();
     }
+
+    /**
+     * 获取基本类型对应的包装类型名称。
+     *
+     * @param primitiveType 基本类型
+     * @return 包装类型的全限定名
+     */
+    public static String getWrapperTypeName(TypeMirror primitiveType) {
+        if (primitiveType == null) {
+            return null;
+        }
+        TypeKind kind = primitiveType.getKind();
+        switch (kind) {
+            case INT:
+                return "java.lang.Integer";
+            case LONG:
+                return "java.lang.Long";
+            case SHORT:
+                return "java.lang.Short";
+            case BYTE:
+                return "java.lang.Byte";
+            case FLOAT:
+                return "java.lang.Float";
+            case DOUBLE:
+                return "java.lang.Double";
+            case CHAR:
+                return "java.lang.Character";
+            case BOOLEAN:
+                return "java.lang.Boolean";
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * 获取包装类型对应的基本类型名称。
+     *
+     * @param wrapperType 包装类型
+     * @return 基本类型的名称
+     */
+    public static String getPrimitiveTypeName(TypeMirror wrapperType) {
+        if (wrapperType == null || wrapperType.getKind() != TypeKind.DECLARED) {
+            return null;
+        }
+        String typeName = wrapperType.toString();
+        switch (typeName) {
+            case "java.lang.Integer":
+                return "int";
+            case "java.lang.Long":
+                return "long";
+            case "java.lang.Short":
+                return "short";
+            case "java.lang.Byte":
+                return "byte";
+            case "java.lang.Float":
+                return "float";
+            case "java.lang.Double":
+                return "double";
+            case "java.lang.Character":
+                return "char";
+            case "java.lang.Boolean":
+                return "boolean";
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * 获取基本类型的默认值。
+     *
+     * @param primitiveType 基本类型
+     * @return 默认值的字符串表示
+     */
+    public static String getDefaultValue(TypeMirror primitiveType) {
+        if (primitiveType == null) {
+            return null;
+        }
+        TypeKind kind = primitiveType.getKind();
+        switch (kind) {
+            case INT:
+            case LONG:
+            case SHORT:
+            case BYTE:
+                return "0";
+            case FLOAT:
+            case DOUBLE:
+                return "0.0";
+            case CHAR:
+                return "'\\u0000'";
+            case BOOLEAN:
+                return "false";
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * 判断是否为List类型。
+     *
+     * @param type 要检查的类型
+     * @return 如果是List类型，返回 true；否则返回 false
+     */
+    public static boolean isList(TypeMirror type) {
+        if (type == null || type.getKind() != TypeKind.DECLARED) {
+            return false;
+        }
+        String typeName = type.toString();
+        return typeName.startsWith("java.util.List") || typeName.startsWith("java.util.ArrayList");
+    }
+
+    /**
+     * 判断是否为Set类型。
+     *
+     * @param type 要检查的类型
+     * @return 如果是Set类型，返回 true；否则返回 false
+     */
+    public static boolean isSet(TypeMirror type) {
+        if (type == null || type.getKind() != TypeKind.DECLARED) {
+            return false;
+        }
+        String typeName = type.toString();
+        return typeName.startsWith("java.util.Set") || typeName.startsWith("java.util.HashSet");
+    }
 }
