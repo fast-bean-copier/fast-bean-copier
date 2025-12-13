@@ -214,7 +214,9 @@ public final class CodeGenerator {
      * 生成 toDtoList 方法。
      *
      * 该方法将源对象列表拷贝到目标对象列表。
-     * 方法签名：public static List<TargetType> toDtoList(List<SourceType> sources)
+     * 方法签名：public static List&lt;TargetType&gt; toDtoList(List&lt;SourceType&gt; sources)
+     *
+     * @return MethodSpec 对象
      */
     public MethodSpec generateToDtoList() {
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDtoList")
@@ -245,7 +247,9 @@ public final class CodeGenerator {
      * 生成 toDtoSet 方法。
      *
      * 该方法将源对象集合拷贝到目标对象集合。
-     * 方法签名：public static Set<TargetType> toDtoSet(Set<SourceType> sources)
+     * 方法签名：public static Set&lt;TargetType&gt; toDtoSet(Set&lt;SourceType&gt; sources)
+     *
+     * @return MethodSpec 对象
      */
     public MethodSpec generateToDtoSet() {
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDtoSet")
@@ -276,7 +280,9 @@ public final class CodeGenerator {
      * 生成 fromDtoList 方法。
      *
      * 该方法将目标对象列表拷贝回源对象列表（反向拷贝）。
-     * 方法签名：public static List<SourceType> fromDtoList(List<TargetType> sources)
+     * 方法签名：public static List&lt;SourceType&gt; fromDtoList(List&lt;TargetType&gt; sources)
+     *
+     * @return MethodSpec 对象
      */
     public MethodSpec generateFromDtoList() {
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDtoList")
@@ -307,7 +313,9 @@ public final class CodeGenerator {
      * 生成 fromDtoSet 方法。
      *
      * 该方法将目标对象集合拷贝回源对象集合（反向拷贝）。
-     * 方法签名：public static Set<SourceType> fromDtoSet(Set<TargetType> sources)
+     * 方法签名：public static Set&lt;SourceType&gt; fromDtoSet(Set&lt;TargetType&gt; sources)
+     *
+     * @return MethodSpec 对象
      */
     public MethodSpec generateFromDtoSet() {
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDtoSet")

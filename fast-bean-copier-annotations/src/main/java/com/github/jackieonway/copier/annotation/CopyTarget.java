@@ -10,23 +10,21 @@ import java.lang.annotation.Target;
  *
  * 使用示例：
  * <pre>
- * {@code
- * @CopyTarget(source = User.class, ignore = {"password"})
+ * &#64;CopyTarget(source = User.class, ignore = {"password"})
  * public class UserDto {
  *     private Long id;
  *     private String name;
  *     // password 字段被忽略，不会被拷贝
- * }
  * }
  * </pre>
  *
  * 编译后会自动生成 UserDtoCopier 类，包含以下方法：
  * - toDto(User source): 将 User 对象拷贝到 UserDto
  * - fromDto(UserDto source): 将 UserDto 对象拷贝回 User
- * - toDtoList(List<User> sources): 批量拷贝 List
- * - toDtoSet(Set<User> sources): 批量拷贝 Set
- * - fromDtoList(List<UserDto> sources): 反向批量拷贝 List
- * - fromDtoSet(Set<UserDto> sources): 反向批量拷贝 Set
+ * - toDtoList(List&lt;User&gt; sources): 批量拷贝 List
+ * - toDtoSet(Set&lt;User&gt; sources): 批量拷贝 Set
+ * - fromDtoList(List&lt;UserDto&gt; sources): 反向批量拷贝 List
+ * - fromDtoSet(Set&lt;UserDto&gt; sources): 反向批量拷贝 Set
  *
  * @author jackieonway
  * @since 1.0.0
@@ -49,11 +47,9 @@ public @interface CopyTarget {
      *
      * 示例：
      * <pre>
-     * {@code
-     * @CopyTarget(source = User.class, ignore = {"password", "secretKey"})
+     * &#64;CopyTarget(source = User.class, ignore = {"password", "secretKey"})
      * public class UserDto {
      *     // password 和 secretKey 字段不会被拷贝
-     * }
      * }
      * </pre>
      *
