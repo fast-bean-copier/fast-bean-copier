@@ -3,6 +3,9 @@ package com.github.jackieonway.copier.processor;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import com.github.jackieonway.copier.annotation.CopyTarget;
+
+import javax.lang.model.element.Element;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
@@ -308,6 +311,65 @@ public final class TypeUtils {
      */
     public static boolean isArrayType(TypeMirror type) {
         return type != null && type.getKind() == TypeKind.ARRAY;
+    }
+
+    /**
+     * 判断是否为基本类型或其包装类型。
+     *
+     * @param type 要检查的类型
+     * @return 如果是基本类型或包装类型，返回 true；否则返回 false
+     */
+    public static boolean isBasicType(TypeMirror type) {
+        return isPrimitive(type) || isWrapper(type);
+    }
+
+    /**
+     * 判断是否为 String 类型。
+     *
+     * @param type 要检查的类型
+     * @return 如果是 String 类型，返回 true；否则返回 false
+     */
+    public static boolean isStringType(TypeMirror type) {
+        return isDeclaredType(type, "java.lang.String");
+    }
+
+    /**
+     * 判断元素类型是否需要深拷贝。
+     *
+     * 基本类型、包装类型和 String 直接返回 false；
+     * 被 @CopyTarget 标注的类型或用户自定义对象返回 true；
+     * 其他情况默认返回 false。
+     *
+     * @param elementType 元素类型
+     * @return 是否需要深拷贝
+     */
+    public static boolean needsDeepCopy(TypeMirror elementType) {
+        if (elementType == null) {
+            return false;
+        }
+
+        if (isBasicType(elementType) || isStringType(elementType)) {
+            return false;
+        }
+
+        // 数组：查看元素类型是否需要深拷贝
+        if (isArrayType(elementType)) {
+            TypeMirror component = getArrayComponentType(elementType);
+            return needsDeepCopy(component);
+        }
+
+        if (elementType.getKind() != TypeKind.DECLARED) {
+            return false;
+        }
+
+        Element element = ((DeclaredType) elementType).asElement();
+        if (element.getAnnotation(CopyTarget.class) != null) {
+            return true;
+        }
+
+        // 非 JDK 的自定义对象视为需要深拷贝（嵌套对象）
+        String typeName = elementType.toString();
+        return !typeName.startsWith("java.");
     }
 
     /**
