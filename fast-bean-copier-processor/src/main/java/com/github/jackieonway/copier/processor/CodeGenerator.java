@@ -4,6 +4,7 @@ import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeSpec;
+import com.squareup.javapoet.TypeName;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Modifier;
@@ -122,9 +123,6 @@ public final class CodeGenerator {
      * 方法签名：public static TargetType toDto(SourceType source)
      */
     private MethodSpec generateToDto() {
-        String sourceClassName = sourceType.getSimpleName().toString();
-        String targetClassName = targetType.getSimpleName().toString();
-        
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDto")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .returns(ClassName.get(targetType))
@@ -140,22 +138,7 @@ public final class CodeGenerator {
         
         // 生成字段拷贝代码
         for (FieldMapping mapping : fieldMappings) {
-            String sourceFieldName = mapping.getSourceFieldName();
-            String targetFieldName = mapping.getTargetFieldName();
-            
-            // 使用 getter/setter 方法
-            String getterName = "get" + capitalize(sourceFieldName);
-            String setterName = "set" + capitalize(targetFieldName);
-            
-            // 检查是否需要类型转换
-            if (needsTypeConversion(mapping.getSourceType(), mapping.getTargetType())) {
-                // 需要类型转换
-                String conversionCode = generateConversionCode(mapping.getSourceType(), mapping.getTargetType(), "source." + getterName + "()");
-                methodBuilder.addStatement("target.$L($L)", setterName, conversionCode);
-            } else {
-                // 直接拷贝
-                methodBuilder.addStatement("target.$L(source.$L())", setterName, getterName);
-            }
+            generateFieldCopyCode(methodBuilder, mapping, false);
         }
         
         // 返回目标对象
@@ -186,22 +169,7 @@ public final class CodeGenerator {
         
         // 生成反向字段拷贝代码
         for (FieldMapping mapping : fieldMappings) {
-            String sourceFieldName = mapping.getSourceFieldName();
-            String targetFieldName = mapping.getTargetFieldName();
-            
-            // 反向拷贝：从目标字段拷贝到源字段
-            String setterName = "set" + capitalize(sourceFieldName);
-            String getterName = "get" + capitalize(targetFieldName);
-            
-            // 检查是否需要类型转换（反向转换）
-            if (needsTypeConversion(mapping.getTargetType(), mapping.getSourceType())) {
-                // 需要反向类型转换
-                String conversionCode = generateConversionCode(mapping.getTargetType(), mapping.getSourceType(), "source." + getterName + "()");
-                methodBuilder.addStatement("target.$L($L)", setterName, conversionCode);
-            } else {
-                // 直接拷贝
-                methodBuilder.addStatement("target.$L(source.$L())", setterName, getterName);
-            }
+            generateFieldCopyCode(methodBuilder, mapping, true);
         }
         
         // 返回源对象
@@ -424,5 +392,89 @@ public final class CodeGenerator {
         }
         
         return valueCode;
+    }
+
+    /**
+     * 生成字段拷贝代码，支持集合深拷贝的扩展。
+     *
+     * @param methodBuilder 方法构建器
+     * @param mapping       字段映射
+     * @param reverse       是否反向拷贝（fromDto）
+     */
+    private void generateFieldCopyCode(MethodSpec.Builder methodBuilder, FieldMapping mapping, boolean reverse) {
+        String sourceFieldName = reverse ? mapping.getTargetFieldName() : mapping.getSourceFieldName();
+        String targetFieldName = reverse ? mapping.getSourceFieldName() : mapping.getTargetFieldName();
+
+        String getterName = "get" + capitalize(sourceFieldName);
+        String setterName = "set" + capitalize(targetFieldName);
+
+        javax.lang.model.type.TypeMirror sourceFieldType = reverse ? mapping.getTargetType() : mapping.getSourceType();
+        javax.lang.model.type.TypeMirror targetFieldType = reverse ? mapping.getSourceType() : mapping.getTargetType();
+
+        if (TypeUtils.isList(sourceFieldType) && TypeUtils.isList(targetFieldType)) {
+            generateListDeepCopyCode(methodBuilder, getterName, setterName, sourceFieldType, targetFieldType, mapping, reverse);
+            return;
+        }
+
+        if (needsTypeConversion(sourceFieldType, targetFieldType)) {
+            String conversionCode = generateConversionCode(sourceFieldType, targetFieldType, "source." + getterName + "()");
+            methodBuilder.addStatement("target.$L($L)", setterName, conversionCode);
+            return;
+        }
+
+        methodBuilder.addStatement("target.$L(source.$L())", setterName, getterName);
+    }
+
+    /**
+     * 生成 List 字段的深拷贝代码。
+     *
+     * @param methodBuilder   方法构建器
+     * @param getterName      源字段 getter 方法名
+     * @param setterName      目标字段 setter 方法名
+     * @param sourceFieldType 源字段类型
+     * @param targetFieldType 目标字段类型
+     * @param mapping         字段映射
+     * @param reverse         是否为反向拷贝
+     */
+    private void generateListDeepCopyCode(MethodSpec.Builder methodBuilder,
+                                          String getterName,
+                                          String setterName,
+                                          javax.lang.model.type.TypeMirror sourceFieldType,
+                                          javax.lang.model.type.TypeMirror targetFieldType,
+                                          FieldMapping mapping,
+                                          boolean reverse) {
+        methodBuilder.beginControlFlow("if (source.$L() != null)", getterName)
+                .addStatement("java.util.List sourceList = source.$L()", getterName)
+                .addStatement("java.util.List targetList = new java.util.ArrayList(sourceList.size())")
+                .beginControlFlow("for (Object item : sourceList)");
+
+        java.util.List<javax.lang.model.type.TypeMirror> sourceArgs = TypeUtils.extractTypeArguments(sourceFieldType);
+        java.util.List<javax.lang.model.type.TypeMirror> targetArgs = TypeUtils.extractTypeArguments(targetFieldType);
+        java.util.List<javax.lang.model.type.TypeMirror> dtoArgs = TypeUtils.extractTypeArguments(mapping.getTargetType());
+
+        javax.lang.model.type.TypeMirror sourceElementType = sourceArgs.isEmpty() ? null : sourceArgs.get(0);
+        javax.lang.model.type.TypeMirror targetElementType = targetArgs.isEmpty() ? null : targetArgs.get(0);
+        javax.lang.model.type.TypeMirror dtoElementType = dtoArgs.isEmpty() ? null : dtoArgs.get(0);
+
+        if (sourceElementType != null && TypeUtils.needsDeepCopy(sourceElementType) && dtoElementType != null) {
+            ClassName copierClass = ClassName.bestGuess(dtoElementType.toString() + "Copier");
+            String methodName = reverse ? "fromDto" : "toDto";
+            TypeName castType = TypeName.get(sourceElementType);
+            methodBuilder.addStatement("targetList.add($T.$L(($T) item))", copierClass, methodName, castType);
+        } else if (targetElementType != null && TypeUtils.needsDeepCopy(targetElementType) && dtoElementType != null) {
+            ClassName copierClass = ClassName.bestGuess(dtoElementType.toString() + "Copier");
+            String methodName = reverse ? "fromDto" : "toDto";
+            TypeName castType = TypeName.get(sourceElementType != null ? sourceElementType : targetElementType);
+            methodBuilder.addStatement("targetList.add($T.$L(($T) item))", copierClass, methodName, castType);
+        } else {
+            methodBuilder.addStatement("targetList.add(item)");
+        }
+
+        methodBuilder.endControlFlow()
+                .addStatement("target.$L(targetList)", setterName)
+                .endControlFlow()
+                .beginControlFlow("else")
+                .addStatement("target.$L(null)", setterName)
+                .endControlFlow();
     }
 }

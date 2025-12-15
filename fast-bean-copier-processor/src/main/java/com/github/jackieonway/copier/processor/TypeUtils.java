@@ -100,6 +100,20 @@ public final class TypeUtils {
             return isPrimitiveWrapperMatch(target, source);
         }
 
+        // 同类型的集合/数组，允许泛型不同以便后续深拷贝处理
+        if (isList(source) && isList(target)) {
+            return true;
+        }
+        if (isSet(source) && isSet(target)) {
+            return true;
+        }
+        if (isMap(source) && isMap(target)) {
+            return true;
+        }
+        if (isArrayType(source) && isArrayType(target)) {
+            return true;
+        }
+
         return false;
     }
 
