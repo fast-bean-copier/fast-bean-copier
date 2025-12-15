@@ -23,8 +23,8 @@
 **A**: 可以。在 `build.gradle` 中添加：
 ```gradle
 dependencies {
-    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.0.0'
-    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.0.0'
+    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.1.0-SNAPSHOT'
+    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.1.0-SNAPSHOT'
 }
 ```
 

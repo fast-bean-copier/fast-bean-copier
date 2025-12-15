@@ -10,13 +10,13 @@
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-annotations</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0-SNAPSHOT</version>
 </dependency>
 
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-processor</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0-SNAPSHOT</version>
     <scope>provided</scope>
 </dependency>
 ```

@@ -20,14 +20,14 @@ Fast Bean Copier 是一个高性能的 Java Bean 拷贝工具，使用 APT（注
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-annotations</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0-SNAPSHOT</version>
 </dependency>
 
 <!-- 处理器模块（编译时依赖） -->
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-processor</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0-SNAPSHOT</version>
     <scope>provided</scope>
 </dependency>
 ```
