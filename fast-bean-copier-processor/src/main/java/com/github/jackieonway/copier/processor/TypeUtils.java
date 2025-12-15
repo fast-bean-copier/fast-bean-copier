@@ -3,8 +3,11 @@ package com.github.jackieonway.copier.processor;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.ArrayType;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.WildcardType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -274,11 +277,7 @@ public final class TypeUtils {
      * @return 如果是List类型，返回 true；否则返回 false
      */
     public static boolean isList(TypeMirror type) {
-        if (type == null || type.getKind() != TypeKind.DECLARED) {
-            return false;
-        }
-        String typeName = type.toString();
-        return typeName.startsWith("java.util.List") || typeName.startsWith("java.util.ArrayList");
+        return isDeclaredType(type, "java.util.List", "java.util.ArrayList");
     }
 
     /**
@@ -288,10 +287,136 @@ public final class TypeUtils {
      * @return 如果是Set类型，返回 true；否则返回 false
      */
     public static boolean isSet(TypeMirror type) {
+        return isDeclaredType(type, "java.util.Set", "java.util.HashSet", "java.util.LinkedHashSet");
+    }
+
+    /**
+     * 判断是否为Map类型。
+     *
+     * @param type 要检查的类型
+     * @return 如果是Map类型，返回 true；否则返回 false
+     */
+    public static boolean isMap(TypeMirror type) {
+        return isDeclaredType(type, "java.util.Map", "java.util.HashMap", "java.util.LinkedHashMap", "java.util.concurrent.ConcurrentHashMap");
+    }
+
+    /**
+     * 判断是否为数组类型。
+     *
+     * @param type 要检查的类型
+     * @return 如果是数组类型，返回 true；否则返回 false
+     */
+    public static boolean isArrayType(TypeMirror type) {
+        return type != null && type.getKind() == TypeKind.ARRAY;
+    }
+
+    /**
+     * 判断是否为集合类型（List/Set/Map/数组）。
+     *
+     * @param type 要检查的类型
+     * @return 如果是集合类型，返回 true；否则返回 false
+     */
+    public static boolean isCollectionType(TypeMirror type) {
+        return isList(type) || isSet(type) || isMap(type) || isArrayType(type);
+    }
+
+    /**
+     * 提取泛型参数列表。
+     *
+     * @param type 目标类型
+     * @return 泛型参数列表，若无泛型参数则返回空列表
+     */
+    public static List<TypeMirror> extractTypeArguments(TypeMirror type) {
+        List<TypeMirror> result = new ArrayList<>();
+        if (type == null || type.getKind() != TypeKind.DECLARED) {
+            return result;
+        }
+        DeclaredType declaredType = (DeclaredType) type;
+        List<? extends TypeMirror> typeArguments = declaredType.getTypeArguments();
+        if (typeArguments == null || typeArguments.isEmpty()) {
+            return result;
+        }
+        for (TypeMirror arg : typeArguments) {
+            result.add(resolveWildcard(arg));
+        }
+        return result;
+    }
+
+    /**
+     * 提取 Map 的 Key 类型。
+     *
+     * @param mapType Map 类型
+     * @return Key 的类型，如果无法获取则返回 null
+     */
+    public static TypeMirror extractMapKeyType(TypeMirror mapType) {
+        List<TypeMirror> args = extractTypeArguments(mapType);
+        return args.isEmpty() ? null : args.get(0);
+    }
+
+    /**
+     * 提取 Map 的 Value 类型。
+     *
+     * @param mapType Map 类型
+     * @return Value 的类型，如果无法获取则返回 null
+     */
+    public static TypeMirror extractMapValueType(TypeMirror mapType) {
+        List<TypeMirror> args = extractTypeArguments(mapType);
+        return args.size() < 2 ? null : args.get(1);
+    }
+
+    /**
+     * 获取数组的元素类型（支持多维数组）。
+     *
+     * @param arrayType 数组类型
+     * @return 元素类型，如果不是数组则返回 null
+     */
+    public static TypeMirror getArrayComponentType(TypeMirror arrayType) {
+        if (!isArrayType(arrayType)) {
+            return null;
+        }
+        TypeMirror component = arrayType;
+        while (component.getKind() == TypeKind.ARRAY) {
+            component = ((ArrayType) component).getComponentType();
+        }
+        return component;
+    }
+
+    /**
+     * 判断声明类型是否匹配指定的前缀集合。
+     *
+     * @param type           要检查的类型
+     * @param expectedPrefix 允许的类型前缀
+     * @return 如果匹配返回 true，否则返回 false
+     */
+    private static boolean isDeclaredType(TypeMirror type, String... expectedPrefix) {
         if (type == null || type.getKind() != TypeKind.DECLARED) {
             return false;
         }
         String typeName = type.toString();
-        return typeName.startsWith("java.util.Set") || typeName.startsWith("java.util.HashSet");
+        for (String prefix : expectedPrefix) {
+            if (typeName.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 解析通配符类型，返回其上界或下界（优先上界）。
+     *
+     * @param type 可能的通配符类型
+     * @return 非通配符或解析后的边界类型
+     */
+    private static TypeMirror resolveWildcard(TypeMirror type) {
+        if (type instanceof WildcardType) {
+            WildcardType wildcardType = (WildcardType) type;
+            if (wildcardType.getExtendsBound() != null) {
+                return wildcardType.getExtendsBound();
+            }
+            if (wildcardType.getSuperBound() != null) {
+                return wildcardType.getSuperBound();
+            }
+        }
+        return type;
     }
 }
