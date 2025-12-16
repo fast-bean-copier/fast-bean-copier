@@ -416,6 +416,11 @@ public final class CodeGenerator {
             return;
         }
 
+        if (TypeUtils.isSet(sourceFieldType) && TypeUtils.isSet(targetFieldType)) {
+            generateSetDeepCopyCode(methodBuilder, getterName, setterName, sourceFieldType, targetFieldType, mapping, reverse);
+            return;
+        }
+
         if (needsTypeConversion(sourceFieldType, targetFieldType)) {
             String conversionCode = generateConversionCode(sourceFieldType, targetFieldType, "source." + getterName + "()");
             methodBuilder.addStatement("target.$L($L)", setterName, conversionCode);
@@ -472,6 +477,59 @@ public final class CodeGenerator {
 
         methodBuilder.endControlFlow()
                 .addStatement("target.$L(targetList)", setterName)
+                .endControlFlow()
+                .beginControlFlow("else")
+                .addStatement("target.$L(null)", setterName)
+                .endControlFlow();
+    }
+
+    /**
+     * 生成 Set 字段的深拷贝代码。
+     *
+     * @param methodBuilder   方法构建器
+     * @param getterName      源字段 getter 方法名
+     * @param setterName      目标字段 setter 方法名
+     * @param sourceFieldType 源字段类型
+     * @param targetFieldType 目标字段类型
+     * @param mapping         字段映射
+     * @param reverse         是否为反向拷贝
+     */
+    private void generateSetDeepCopyCode(MethodSpec.Builder methodBuilder,
+                                         String getterName,
+                                         String setterName,
+                                         javax.lang.model.type.TypeMirror sourceFieldType,
+                                         javax.lang.model.type.TypeMirror targetFieldType,
+                                         FieldMapping mapping,
+                                         boolean reverse) {
+        methodBuilder.beginControlFlow("if (source.$L() != null)", getterName)
+                .addStatement("java.util.Set sourceSet = source.$L()", getterName)
+                .addStatement("java.util.Set targetSet = new java.util.LinkedHashSet(sourceSet.size())")
+                .beginControlFlow("for (Object item : sourceSet)");
+
+        java.util.List<javax.lang.model.type.TypeMirror> sourceArgs = TypeUtils.extractTypeArguments(sourceFieldType);
+        java.util.List<javax.lang.model.type.TypeMirror> targetArgs = TypeUtils.extractTypeArguments(targetFieldType);
+        java.util.List<javax.lang.model.type.TypeMirror> dtoArgs = TypeUtils.extractTypeArguments(mapping.getTargetType());
+
+        javax.lang.model.type.TypeMirror sourceElementType = sourceArgs.isEmpty() ? null : sourceArgs.get(0);
+        javax.lang.model.type.TypeMirror targetElementType = targetArgs.isEmpty() ? null : targetArgs.get(0);
+        javax.lang.model.type.TypeMirror dtoElementType = dtoArgs.isEmpty() ? null : dtoArgs.get(0);
+
+        if (sourceElementType != null && TypeUtils.needsDeepCopy(sourceElementType) && dtoElementType != null) {
+            ClassName copierClass = ClassName.bestGuess(dtoElementType.toString() + "Copier");
+            String methodName = reverse ? "fromDto" : "toDto";
+            TypeName castType = TypeName.get(sourceElementType);
+            methodBuilder.addStatement("targetSet.add($T.$L(($T) item))", copierClass, methodName, castType);
+        } else if (targetElementType != null && TypeUtils.needsDeepCopy(targetElementType) && dtoElementType != null) {
+            ClassName copierClass = ClassName.bestGuess(dtoElementType.toString() + "Copier");
+            String methodName = reverse ? "fromDto" : "toDto";
+            TypeName castType = TypeName.get(sourceElementType != null ? sourceElementType : targetElementType);
+            methodBuilder.addStatement("targetSet.add($T.$L(($T) item))", copierClass, methodName, castType);
+        } else {
+            methodBuilder.addStatement("targetSet.add(item)");
+        }
+
+        methodBuilder.endControlFlow()
+                .addStatement("target.$L(targetSet)", setterName)
                 .endControlFlow()
                 .beginControlFlow("else")
                 .addStatement("target.$L(null)", setterName)
