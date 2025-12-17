@@ -421,6 +421,11 @@ public final class CodeGenerator {
             return;
         }
 
+        if (TypeUtils.isArrayType(sourceFieldType) && TypeUtils.isArrayType(targetFieldType)) {
+            generateArrayDeepCopyCode(methodBuilder, getterName, setterName, sourceFieldType, targetFieldType, mapping, reverse);
+            return;
+        }
+
         if (needsTypeConversion(sourceFieldType, targetFieldType)) {
             String conversionCode = generateConversionCode(sourceFieldType, targetFieldType, "source." + getterName + "()");
             methodBuilder.addStatement("target.$L($L)", setterName, conversionCode);
@@ -530,6 +535,54 @@ public final class CodeGenerator {
 
         methodBuilder.endControlFlow()
                 .addStatement("target.$L(targetSet)", setterName)
+                .endControlFlow()
+                .beginControlFlow("else")
+                .addStatement("target.$L(null)", setterName)
+                .endControlFlow();
+    }
+
+    /**
+     * 生成数组字段的深拷贝代码。
+     *
+     * @param methodBuilder   方法构建器
+     * @param getterName      源字段 getter 方法名
+     * @param setterName      目标字段 setter 方法名
+     * @param sourceFieldType 源字段类型
+     * @param targetFieldType 目标字段类型
+     * @param mapping         字段映射
+     * @param reverse         是否为反向拷贝
+     */
+    private void generateArrayDeepCopyCode(MethodSpec.Builder methodBuilder,
+                                           String getterName,
+                                           String setterName,
+                                           javax.lang.model.type.TypeMirror sourceFieldType,
+                                           javax.lang.model.type.TypeMirror targetFieldType,
+                                           FieldMapping mapping,
+                                           boolean reverse) {
+        methodBuilder.beginControlFlow("if (source.$L() != null)", getterName)
+                .addStatement("$T sourceArray = source.$L()", TypeName.get(sourceFieldType), getterName);
+
+        javax.lang.model.type.TypeMirror targetComponentType = TypeUtils.getArrayComponentType(targetFieldType);
+        javax.lang.model.type.TypeMirror sourceComponentType = TypeUtils.getArrayComponentType(sourceFieldType);
+        javax.lang.model.type.TypeMirror dtoComponentType = TypeUtils.getArrayComponentType(mapping.getTargetType());
+
+        methodBuilder.addStatement("$T targetArray = new $T[sourceArray.length]",
+                TypeName.get(targetFieldType),
+                TypeName.get(targetComponentType));
+
+        methodBuilder.beginControlFlow("for (int i = 0; i < sourceArray.length; i++)");
+
+        if (sourceComponentType != null && TypeUtils.needsDeepCopy(sourceComponentType) && dtoComponentType != null) {
+            ClassName copierClass = ClassName.bestGuess(dtoComponentType.toString() + "Copier");
+            String methodName = reverse ? "fromDto" : "toDto";
+            TypeName castType = TypeName.get(sourceComponentType);
+            methodBuilder.addStatement("targetArray[i] = $T.$L(($T) sourceArray[i])", copierClass, methodName, castType);
+        } else {
+            methodBuilder.addStatement("targetArray[i] = sourceArray[i]");
+        }
+
+        methodBuilder.endControlFlow()
+                .addStatement("target.$L(targetArray)", setterName)
                 .endControlFlow()
                 .beginControlFlow("else")
                 .addStatement("target.$L(null)", setterName)
