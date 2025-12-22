@@ -68,6 +68,23 @@ public class SetDeepCopyTest {
         assertNotNull(emptyDto.getMembers());
         assertTrue(emptyDto.getMembers().isEmpty());
     }
+
+    /**
+     * 测试 Set 中包含 null 元素时的处理。
+     */
+    @Test
+    public void shouldHandleNullElementInSet() {
+        Set<User> members = new LinkedHashSet<>();
+        members.add(null);
+        members.add(new User(1L, "Tom", "t@e.com", 20));
+
+        Group group = new Group(5L, null, members);
+        GroupDto dto = GroupDtoCopier.toDto(group);
+
+        assertNotNull(dto.getMembers());
+        assertEquals(2, dto.getMembers().size());
+        assertTrue("应包含一个 null 元素", dto.getMembers().contains(null));
+    }
 }
 
 

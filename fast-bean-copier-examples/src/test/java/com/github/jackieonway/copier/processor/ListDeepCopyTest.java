@@ -67,5 +67,23 @@ public class ListDeepCopyTest {
         assertNotNull(emptyDto.getUsers());
         assertTrue(emptyDto.getUsers().isEmpty());
     }
+
+    /**
+     * 测试 List 中包含 null 元素时的处理。
+     */
+    @Test
+    public void shouldHandleNullElementInList() {
+        List<User> users = new ArrayList<>();
+        users.add(null);
+        users.add(new User(1L, "Tom", "t@e.com", 20));
+
+        Order order = new Order(5L, null, users);
+        OrderDto dto = OrderDtoCopier.toDto(order);
+
+        assertNotNull(dto.getUsers());
+        assertEquals(2, dto.getUsers().size());
+        assertNull("第一个元素应保持为 null", dto.getUsers().get(0));
+        assertNotNull("第二个元素应被正常深拷贝", dto.getUsers().get(1));
+    }
 }
 

@@ -75,6 +75,24 @@ public class ArrayDeepCopyTest {
         assertNotNull(emptyDto.getUsers());
         assertEquals(0, emptyDto.getUsers().length);
     }
+
+    /**
+     * 测试对象数组中包含 null 元素时的处理。
+     */
+    @Test
+    public void shouldHandleNullElementInObjectArray() {
+        User[] users = new User[]{
+                null,
+                new User(1L, "Tom", "t@e.com", 20)
+        };
+        ArrayHolder holder = new ArrayHolder(5L, null, null, users);
+        ArrayHolderDto dto = ArrayHolderDtoCopier.toDto(holder);
+
+        assertNotNull(dto.getUsers());
+        assertEquals(2, dto.getUsers().length);
+        assertNull("第一个元素应保持为 null", dto.getUsers()[0]);
+        assertNotNull("第二个元素应被正常深拷贝", dto.getUsers()[1]);
+    }
 }
 
 

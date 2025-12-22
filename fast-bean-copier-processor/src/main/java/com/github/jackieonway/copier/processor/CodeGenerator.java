@@ -513,11 +513,20 @@ public final class CodeGenerator {
         if (sourceElementType != null && TypeUtils.needsDeepCopy(sourceElementType) && dtoElementType != null) {
             ClassName copierClass = ClassName.bestGuess(dtoElementType.toString() + "Copier");
             String methodName = reverse ? "fromDto" : "toDto";
-            methodBuilder.addStatement("targetList.add($T.$L(item))", copierClass, methodName);
+            // 集合元素为对象类型时，需要对 null 元素安全处理，避免 NPE
+            methodBuilder.beginControlFlow("if (item != null)")
+                    .addStatement("targetList.add($T.$L(item))", copierClass, methodName)
+                    .nextControlFlow("else")
+                    .addStatement("targetList.add(null)")
+                    .endControlFlow();
         } else if (targetElementType != null && TypeUtils.needsDeepCopy(targetElementType) && dtoElementType != null) {
             ClassName copierClass = ClassName.bestGuess(dtoElementType.toString() + "Copier");
             String methodName = reverse ? "fromDto" : "toDto";
-            methodBuilder.addStatement("targetList.add($T.$L(item))", copierClass, methodName);
+            methodBuilder.beginControlFlow("if (item != null)")
+                    .addStatement("targetList.add($T.$L(item))", copierClass, methodName)
+                    .nextControlFlow("else")
+                    .addStatement("targetList.add(null)")
+                    .endControlFlow();
         }
         // 嵌套 List：例如 List<List<User>> / List<Map<K, V>>
         else if (sourceElementType != null && TypeUtils.isList(sourceElementType)) {
@@ -680,11 +689,20 @@ public final class CodeGenerator {
         if (sourceElementType != null && TypeUtils.needsDeepCopy(sourceElementType) && dtoElementType != null) {
             ClassName copierClass = ClassName.bestGuess(dtoElementType.toString() + "Copier");
             String methodName = reverse ? "fromDto" : "toDto";
-            methodBuilder.addStatement("targetSet.add($T.$L(item))", copierClass, methodName);
+            // Set 元素为对象类型时，对 null 元素做安全处理
+            methodBuilder.beginControlFlow("if (item != null)")
+                    .addStatement("targetSet.add($T.$L(item))", copierClass, methodName)
+                    .nextControlFlow("else")
+                    .addStatement("targetSet.add(null)")
+                    .endControlFlow();
         } else if (targetElementType != null && TypeUtils.needsDeepCopy(targetElementType) && dtoElementType != null) {
             ClassName copierClass = ClassName.bestGuess(dtoElementType.toString() + "Copier");
             String methodName = reverse ? "fromDto" : "toDto";
-            methodBuilder.addStatement("targetSet.add($T.$L(item))", copierClass, methodName);
+            methodBuilder.beginControlFlow("if (item != null)")
+                    .addStatement("targetSet.add($T.$L(item))", copierClass, methodName)
+                    .nextControlFlow("else")
+                    .addStatement("targetSet.add(null)")
+                    .endControlFlow();
         } else if (sourceElementType != null && TypeUtils.isList(sourceElementType)) {
             // Set<List<T>> 场景：对内部 List 做深拷贝，使用强类型声明
             TypeName nestedSourceListType = TypeName.get(sourceElementType);
@@ -777,9 +795,13 @@ public final class CodeGenerator {
         if (sourceComponentType != null && TypeUtils.needsDeepCopy(sourceComponentType) && dtoComponentType != null) {
             ClassName copierClass = ClassName.bestGuess(dtoComponentType.toString() + "Copier");
             String methodName = reverse ? "fromDto" : "toDto";
-            // 先取出强类型元素，再交给 Copier，避免在生成代码中出现强制类型转换
+            // 先取出强类型元素，再交给 Copier，避免在生成代码中出现强制类型转换，并保证 null 元素安全
             methodBuilder.addStatement("$T element = sourceArray[i]", TypeName.get(sourceComponentType))
-                    .addStatement("targetArray[i] = $T.$L(element)", copierClass, methodName);
+                    .beginControlFlow("if (element != null)")
+                    .addStatement("targetArray[i] = $T.$L(element)", copierClass, methodName)
+                    .nextControlFlow("else")
+                    .addStatement("targetArray[i] = null")
+                    .endControlFlow();
         } else {
             methodBuilder.addStatement("targetArray[i] = sourceArray[i]");
         }
