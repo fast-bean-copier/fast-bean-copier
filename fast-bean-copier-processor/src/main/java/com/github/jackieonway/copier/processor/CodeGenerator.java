@@ -426,6 +426,11 @@ public final class CodeGenerator {
             return;
         }
 
+        if (TypeUtils.isMap(sourceFieldType) && TypeUtils.isMap(targetFieldType)) {
+            generateMapDeepCopyCode(methodBuilder, getterName, setterName, sourceFieldType, targetFieldType, mapping, reverse);
+            return;
+        }
+
         if (needsTypeConversion(sourceFieldType, targetFieldType)) {
             String conversionCode = generateConversionCode(sourceFieldType, targetFieldType, "source." + getterName + "()");
             methodBuilder.addStatement("target.$L($L)", setterName, conversionCode);
@@ -583,6 +588,64 @@ public final class CodeGenerator {
 
         methodBuilder.endControlFlow()
                 .addStatement("target.$L(targetArray)", setterName)
+                .endControlFlow()
+                .beginControlFlow("else")
+                .addStatement("target.$L(null)", setterName)
+                .endControlFlow();
+    }
+
+    /**
+     * 生成 Map 字段的深拷贝代码。
+     *
+     * @param methodBuilder   方法构建器
+     * @param getterName      源字段 getter 方法名
+     * @param setterName      目标字段 setter 方法名
+     * @param sourceFieldType 源字段类型
+     * @param targetFieldType 目标字段类型
+     * @param mapping         字段映射
+     * @param reverse         是否为反向拷贝
+     */
+    private void generateMapDeepCopyCode(MethodSpec.Builder methodBuilder,
+                                         String getterName,
+                                         String setterName,
+                                         javax.lang.model.type.TypeMirror sourceFieldType,
+                                         javax.lang.model.type.TypeMirror targetFieldType,
+                                         FieldMapping mapping,
+                                         boolean reverse) {
+        methodBuilder.beginControlFlow("if (source.$L() != null)", getterName)
+                .addStatement("java.util.Map sourceMap = source.$L()", getterName)
+                .addStatement("java.util.Map targetMap = new java.util.HashMap(sourceMap.size())")
+                .beginControlFlow("for (Object entryObj : sourceMap.entrySet())")
+                .addStatement("java.util.Map.Entry entry = (java.util.Map.Entry) entryObj")
+                .addStatement("Object key = entry.getKey()")
+                .addStatement("Object value = entry.getValue()")
+                .beginControlFlow("if (value != null)");
+
+        javax.lang.model.type.TypeMirror sourceValueType = TypeUtils.extractMapValueType(sourceFieldType);
+        javax.lang.model.type.TypeMirror targetValueType = TypeUtils.extractMapValueType(targetFieldType);
+        javax.lang.model.type.TypeMirror dtoValueType = TypeUtils.extractMapValueType(mapping.getTargetType());
+
+        if (sourceValueType != null && TypeUtils.needsDeepCopy(sourceValueType) && dtoValueType != null) {
+            ClassName copierClass = ClassName.bestGuess(dtoValueType.toString() + "Copier");
+            String methodName = reverse ? "fromDto" : "toDto";
+            TypeName castType = TypeName.get(sourceValueType);
+            methodBuilder.addStatement("targetMap.put(key, $T.$L(($T) value))", copierClass, methodName, castType);
+        } else if (targetValueType != null && TypeUtils.needsDeepCopy(targetValueType) && dtoValueType != null) {
+            ClassName copierClass = ClassName.bestGuess(dtoValueType.toString() + "Copier");
+            String methodName = reverse ? "fromDto" : "toDto";
+            javax.lang.model.type.TypeMirror castMirror = sourceValueType != null ? sourceValueType : targetValueType;
+            TypeName castType = TypeName.get(castMirror);
+            methodBuilder.addStatement("targetMap.put(key, $T.$L(($T) value))", copierClass, methodName, castType);
+        } else {
+            methodBuilder.addStatement("targetMap.put(key, value)");
+        }
+
+        methodBuilder.endControlFlow()
+                .beginControlFlow("else")
+                .addStatement("targetMap.put(key, null)")
+                .endControlFlow()
+                .endControlFlow()
+                .addStatement("target.$L(targetMap)", setterName)
                 .endControlFlow()
                 .beginControlFlow("else")
                 .addStatement("target.$L(null)", setterName)
