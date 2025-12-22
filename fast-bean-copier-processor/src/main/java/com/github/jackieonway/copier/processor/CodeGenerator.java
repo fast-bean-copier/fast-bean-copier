@@ -5,6 +5,7 @@ import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeName;
+import com.squareup.javapoet.ParameterizedTypeName;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Modifier;
@@ -187,27 +188,35 @@ public final class CodeGenerator {
      * @return MethodSpec 对象
      */
     public MethodSpec generateToDtoList() {
+        // 使用 List<SourceType> / List<TargetType> 的强类型声明，避免原始类型和强制类型转换
+        TypeName sourceTypeName = ClassName.get(sourceType);
+        TypeName targetTypeName = ClassName.get(targetType);
+        TypeName listOfSource = ParameterizedTypeName.get(ClassName.get(java.util.List.class), sourceTypeName);
+        TypeName listOfTarget = ParameterizedTypeName.get(ClassName.get(java.util.List.class), targetTypeName);
+
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDtoList")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .returns(java.util.List.class)
-                .addParameter(java.util.List.class, "sources");
-        
+                .returns(listOfTarget)
+                .addParameter(listOfSource, "sources");
+
         // 添加 null 检查
         methodBuilder.beginControlFlow("if (sources == null)")
                 .addStatement("return null")
                 .endControlFlow();
-        
-        // 创建结果列表
-        methodBuilder.addStatement("java.util.List result = new java.util.ArrayList(sources.size())");
-        
-        // 遍历源列表并拷贝
-        methodBuilder.beginControlFlow("for (Object source : sources)")
-                .addStatement("result.add(toDto(($T) source))", ClassName.get(sourceType))
+
+        // 创建结果列表：List<TargetType> result = new ArrayList<>(sources.size());
+        methodBuilder.addStatement("$T result = new $T<>(sources.size())",
+                listOfTarget,
+                ClassName.get(java.util.ArrayList.class));
+
+        // 遍历源列表并拷贝（无 Object，无强转）
+        methodBuilder.beginControlFlow("for ($T source : sources)", sourceTypeName)
+                .addStatement("result.add(toDto(source))")
                 .endControlFlow();
-        
+
         // 返回结果
         methodBuilder.addStatement("return result");
-        
+
         return methodBuilder.build();
     }
 
@@ -220,27 +229,35 @@ public final class CodeGenerator {
      * @return MethodSpec 对象
      */
     public MethodSpec generateToDtoSet() {
+        // 使用 Set<SourceType> / Set<TargetType> 的强类型声明
+        TypeName sourceTypeName = ClassName.get(sourceType);
+        TypeName targetTypeName = ClassName.get(targetType);
+        TypeName setOfSource = ParameterizedTypeName.get(ClassName.get(java.util.Set.class), sourceTypeName);
+        TypeName setOfTarget = ParameterizedTypeName.get(ClassName.get(java.util.Set.class), targetTypeName);
+
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDtoSet")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .returns(java.util.Set.class)
-                .addParameter(java.util.Set.class, "sources");
-        
+                .returns(setOfTarget)
+                .addParameter(setOfSource, "sources");
+
         // 添加 null 检查
         methodBuilder.beginControlFlow("if (sources == null)")
                 .addStatement("return null")
                 .endControlFlow();
-        
-        // 创建结果集合
-        methodBuilder.addStatement("java.util.Set result = new java.util.HashSet()");
-        
+
+        // 创建结果集合：Set<TargetType> result = new LinkedHashSet<>(sources.size());
+        methodBuilder.addStatement("$T result = new $T<>(sources.size())",
+                setOfTarget,
+                ClassName.get(java.util.LinkedHashSet.class));
+
         // 遍历源集合并拷贝
-        methodBuilder.beginControlFlow("for (Object source : sources)")
-                .addStatement("result.add(toDto(($T) source))", ClassName.get(sourceType))
+        methodBuilder.beginControlFlow("for ($T source : sources)", sourceTypeName)
+                .addStatement("result.add(toDto(source))")
                 .endControlFlow();
-        
+
         // 返回结果
         methodBuilder.addStatement("return result");
-        
+
         return methodBuilder.build();
     }
 
@@ -253,27 +270,35 @@ public final class CodeGenerator {
      * @return MethodSpec 对象
      */
     public MethodSpec generateFromDtoList() {
+        // List<SourceType> 和 List<TargetType> 的强类型声明（fromDto 方向 source/target 角色反转）
+        TypeName sourceTypeName = ClassName.get(sourceType);
+        TypeName targetTypeName = ClassName.get(targetType);
+        TypeName listOfSource = ParameterizedTypeName.get(ClassName.get(java.util.List.class), sourceTypeName);
+        TypeName listOfTarget = ParameterizedTypeName.get(ClassName.get(java.util.List.class), targetTypeName);
+
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDtoList")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .returns(java.util.List.class)
-                .addParameter(java.util.List.class, "sources");
-        
+                .returns(listOfSource)
+                .addParameter(listOfTarget, "sources");
+
         // 添加 null 检查
         methodBuilder.beginControlFlow("if (sources == null)")
                 .addStatement("return null")
                 .endControlFlow();
-        
-        // 创建结果列表
-        methodBuilder.addStatement("java.util.List result = new java.util.ArrayList(sources.size())");
-        
+
+        // 创建结果列表：List<SourceType> result = new ArrayList<>(sources.size());
+        methodBuilder.addStatement("$T result = new $T<>(sources.size())",
+                listOfSource,
+                ClassName.get(java.util.ArrayList.class));
+
         // 遍历源列表并反向拷贝
-        methodBuilder.beginControlFlow("for (Object source : sources)")
-                .addStatement("result.add(fromDto(($T) source))", ClassName.get(targetType))
+        methodBuilder.beginControlFlow("for ($T source : sources)", targetTypeName)
+                .addStatement("result.add(fromDto(source))")
                 .endControlFlow();
-        
+
         // 返回结果
         methodBuilder.addStatement("return result");
-        
+
         return methodBuilder.build();
     }
 
@@ -286,27 +311,35 @@ public final class CodeGenerator {
      * @return MethodSpec 对象
      */
     public MethodSpec generateFromDtoSet() {
+        // Set<SourceType> 和 Set<TargetType> 的强类型声明（fromDto 方向 source/target 角色反转）
+        TypeName sourceTypeName = ClassName.get(sourceType);
+        TypeName targetTypeName = ClassName.get(targetType);
+        TypeName setOfSource = ParameterizedTypeName.get(ClassName.get(java.util.Set.class), sourceTypeName);
+        TypeName setOfTarget = ParameterizedTypeName.get(ClassName.get(java.util.Set.class), targetTypeName);
+
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDtoSet")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .returns(java.util.Set.class)
-                .addParameter(java.util.Set.class, "sources");
-        
+                .returns(setOfSource)
+                .addParameter(setOfTarget, "sources");
+
         // 添加 null 检查
         methodBuilder.beginControlFlow("if (sources == null)")
                 .addStatement("return null")
                 .endControlFlow();
-        
-        // 创建结果集合
-        methodBuilder.addStatement("java.util.Set result = new java.util.HashSet()");
-        
+
+        // 创建结果集合：Set<SourceType> result = new LinkedHashSet<>(sources.size());
+        methodBuilder.addStatement("$T result = new $T<>(sources.size())",
+                setOfSource,
+                ClassName.get(java.util.LinkedHashSet.class));
+
         // 遍历源集合并反向拷贝
-        methodBuilder.beginControlFlow("for (Object source : sources)")
-                .addStatement("result.add(fromDto(($T) source))", ClassName.get(targetType))
+        methodBuilder.beginControlFlow("for ($T source : sources)", targetTypeName)
+                .addStatement("result.add(fromDto(source))")
                 .endControlFlow();
-        
+
         // 返回结果
         methodBuilder.addStatement("return result");
-        
+
         return methodBuilder.build();
     }
 
@@ -488,10 +521,13 @@ public final class CodeGenerator {
         }
         // 嵌套 List：例如 List<List<User>> / List<Map<K, V>>
         else if (sourceElementType != null && TypeUtils.isList(sourceElementType)) {
+            // List<List<...>> 或 List<Map<...>>，此处我们在生成代码时使用强类型 List
+            TypeName nestedSourceListType = TypeName.get(sourceElementType);
+            TypeName nestedTargetListType = targetElementType != null ? TypeName.get(targetElementType) : nestedSourceListType;
+
             methodBuilder.beginControlFlow("if (item != null)")
-                    .addStatement("java.util.List nestedSource = (java.util.List) item")
-                    .addStatement("java.util.List nestedTarget = new java.util.ArrayList(nestedSource.size())")
-                    .beginControlFlow("for (Object nestedItem : nestedSource)");
+                    .addStatement("$T nestedSource = item", nestedSourceListType)
+                    .addStatement("$T nestedTarget = new java.util.ArrayList(nestedSource.size())", nestedTargetListType);
 
             java.util.List<javax.lang.model.type.TypeMirror> nestedSourceArgs = TypeUtils.extractTypeArguments(sourceElementType);
             java.util.List<javax.lang.model.type.TypeMirror> nestedTargetArgs = targetElementType != null
@@ -503,17 +539,24 @@ public final class CodeGenerator {
             javax.lang.model.type.TypeMirror nestedTargetElementType = nestedTargetArgs.isEmpty() ? null : nestedTargetArgs.get(0);
             javax.lang.model.type.TypeMirror nestedDtoElementType = nestedDtoArgs.isEmpty() ? null : nestedDtoArgs.get(0);
 
+            // 计算内部循环元素类型（尽量用具体泛型，而不是 Object）
+            javax.lang.model.type.TypeMirror loopNestedMirror =
+                    nestedSourceElementType != null ? nestedSourceElementType :
+                            (nestedTargetElementType != null ? nestedTargetElementType : null);
+            TypeName loopNestedType = loopNestedMirror != null
+                    ? TypeName.get(loopNestedMirror)
+                    : TypeName.get(Object.class);
+
+            methodBuilder.beginControlFlow("for ($T nestedItem : nestedSource)", loopNestedType);
+
             if (nestedSourceElementType != null && TypeUtils.needsDeepCopy(nestedSourceElementType) && nestedDtoElementType != null) {
                 ClassName copierClass = ClassName.bestGuess(nestedDtoElementType.toString() + "Copier");
                 String methodName = reverse ? "fromDto" : "toDto";
-                TypeName castType = TypeName.get(nestedSourceElementType);
-                methodBuilder.addStatement("nestedTarget.add($T.$L(($T) nestedItem))", copierClass, methodName, castType);
+                methodBuilder.addStatement("nestedTarget.add($T.$L(nestedItem))", copierClass, methodName);
             } else if (nestedTargetElementType != null && TypeUtils.needsDeepCopy(nestedTargetElementType) && nestedDtoElementType != null) {
                 ClassName copierClass = ClassName.bestGuess(nestedDtoElementType.toString() + "Copier");
                 String methodName = reverse ? "fromDto" : "toDto";
-                javax.lang.model.type.TypeMirror castMirror = nestedSourceElementType != null ? nestedSourceElementType : nestedTargetElementType;
-                TypeName castType = TypeName.get(castMirror);
-                methodBuilder.addStatement("nestedTarget.add($T.$L(($T) nestedItem))", copierClass, methodName, castType);
+                methodBuilder.addStatement("nestedTarget.add($T.$L(nestedItem))", copierClass, methodName);
             } else {
                 methodBuilder.addStatement("nestedTarget.add(nestedItem)");
             }
@@ -527,14 +570,12 @@ public final class CodeGenerator {
         }
         // 嵌套 Map：例如 List<Map<K, V>>
         else if (sourceElementType != null && TypeUtils.isMap(sourceElementType)) {
-            methodBuilder.beginControlFlow("if (item != null)")
-                    .addStatement("java.util.Map nestedSource = (java.util.Map) item")
-                    .addStatement("java.util.Map nestedTarget = new java.util.HashMap(nestedSource.size())")
-                    .beginControlFlow("for (Object nestedEntryObj : nestedSource.entrySet())")
-                    .addStatement("java.util.Map.Entry nestedEntry = (java.util.Map.Entry) nestedEntryObj")
-                    .addStatement("Object nestedKey = nestedEntry.getKey()")
-                    .addStatement("Object nestedValue = nestedEntry.getValue()")
-                    .beginControlFlow("if (nestedValue != null)");
+            TypeName nestedSourceMapType = TypeName.get(sourceElementType);
+            TypeName nestedTargetMapType = targetElementType != null ? TypeName.get(targetElementType) : nestedSourceMapType;
+
+            javax.lang.model.type.TypeMirror nestedSourceKeyType = TypeUtils.extractMapKeyType(sourceElementType);
+            javax.lang.model.type.TypeMirror nestedTargetKeyType = targetElementType != null
+                    ? TypeUtils.extractMapKeyType(targetElementType) : null;
 
             javax.lang.model.type.TypeMirror nestedSourceValueType = TypeUtils.extractMapValueType(sourceElementType);
             javax.lang.model.type.TypeMirror nestedTargetValueType = targetElementType != null
@@ -542,17 +583,38 @@ public final class CodeGenerator {
             javax.lang.model.type.TypeMirror nestedDtoValueType = dtoElementType != null
                     ? TypeUtils.extractMapValueType(dtoElementType) : null;
 
+            // key 的循环类型
+            javax.lang.model.type.TypeMirror nestedLoopKeyMirror =
+                    nestedSourceKeyType != null ? nestedSourceKeyType :
+                            (nestedTargetKeyType != null ? nestedTargetKeyType : null);
+            TypeName nestedKeyTypeName = nestedLoopKeyMirror != null
+                    ? TypeName.get(nestedLoopKeyMirror)
+                    : TypeName.get(Object.class);
+
+            // value 的循环类型
+            javax.lang.model.type.TypeMirror nestedLoopValueMirror =
+                    nestedSourceValueType != null ? nestedSourceValueType :
+                            (nestedTargetValueType != null ? nestedTargetValueType : null);
+            TypeName nestedValueTypeName = nestedLoopValueMirror != null
+                    ? TypeName.get(nestedLoopValueMirror)
+                    : TypeName.get(Object.class);
+
+            methodBuilder.beginControlFlow("if (item != null)")
+                    .addStatement("$T nestedSource = item", nestedSourceMapType)
+                    .addStatement("$T nestedTarget = new java.util.HashMap(nestedSource.size())", nestedTargetMapType)
+                    .beginControlFlow("for (java.util.Map.Entry<$T, $T> nestedEntry : nestedSource.entrySet())", nestedKeyTypeName, nestedValueTypeName)
+                    .addStatement("$T nestedKey = nestedEntry.getKey()", nestedKeyTypeName)
+                    .addStatement("$T nestedValue = nestedEntry.getValue()", nestedValueTypeName)
+                    .beginControlFlow("if (nestedValue != null)");
+
             if (nestedSourceValueType != null && TypeUtils.needsDeepCopy(nestedSourceValueType) && nestedDtoValueType != null) {
                 ClassName copierClass = ClassName.bestGuess(nestedDtoValueType.toString() + "Copier");
                 String methodName = reverse ? "fromDto" : "toDto";
-                TypeName castType = TypeName.get(nestedSourceValueType);
-                methodBuilder.addStatement("nestedTarget.put(nestedKey, $T.$L(($T) nestedValue))", copierClass, methodName, castType);
+                methodBuilder.addStatement("nestedTarget.put(nestedKey, $T.$L(nestedValue))", copierClass, methodName);
             } else if (nestedTargetValueType != null && TypeUtils.needsDeepCopy(nestedTargetValueType) && nestedDtoValueType != null) {
                 ClassName copierClass = ClassName.bestGuess(nestedDtoValueType.toString() + "Copier");
                 String methodName = reverse ? "fromDto" : "toDto";
-                javax.lang.model.type.TypeMirror castMirror = nestedSourceValueType != null ? nestedSourceValueType : nestedTargetValueType;
-                TypeName castType = TypeName.get(castMirror);
-                methodBuilder.addStatement("nestedTarget.put(nestedKey, $T.$L(($T) nestedValue))", copierClass, methodName, castType);
+                methodBuilder.addStatement("nestedTarget.put(nestedKey, $T.$L(nestedValue))", copierClass, methodName);
             } else {
                 methodBuilder.addStatement("nestedTarget.put(nestedKey, nestedValue)");
             }
@@ -624,11 +686,13 @@ public final class CodeGenerator {
             String methodName = reverse ? "fromDto" : "toDto";
             methodBuilder.addStatement("targetSet.add($T.$L(item))", copierClass, methodName);
         } else if (sourceElementType != null && TypeUtils.isList(sourceElementType)) {
-            // Set<List<T>> 场景：对内部 List 做深拷贝
+            // Set<List<T>> 场景：对内部 List 做深拷贝，使用强类型声明
+            TypeName nestedSourceListType = TypeName.get(sourceElementType);
+            TypeName nestedTargetListType = targetElementType != null ? TypeName.get(targetElementType) : nestedSourceListType;
+
             methodBuilder.beginControlFlow("if (item != null)")
-                    .addStatement("java.util.List nestedSource = (java.util.List) item")
-                    .addStatement("java.util.List nestedTarget = new java.util.ArrayList(nestedSource.size())")
-                    .beginControlFlow("for (Object nestedItem : nestedSource)");
+                    .addStatement("$T nestedSource = item", nestedSourceListType)
+                    .addStatement("$T nestedTarget = new java.util.ArrayList(nestedSource.size())", nestedTargetListType);
 
             java.util.List<javax.lang.model.type.TypeMirror> nestedSourceArgs = TypeUtils.extractTypeArguments(sourceElementType);
             java.util.List<javax.lang.model.type.TypeMirror> nestedTargetArgs = targetElementType != null
@@ -640,17 +704,23 @@ public final class CodeGenerator {
             javax.lang.model.type.TypeMirror nestedTargetElementType = nestedTargetArgs.isEmpty() ? null : nestedTargetArgs.get(0);
             javax.lang.model.type.TypeMirror nestedDtoElementType = nestedDtoArgs.isEmpty() ? null : nestedDtoArgs.get(0);
 
+            javax.lang.model.type.TypeMirror loopNestedMirror =
+                    nestedSourceElementType != null ? nestedSourceElementType :
+                            (nestedTargetElementType != null ? nestedTargetElementType : null);
+            TypeName loopNestedType = loopNestedMirror != null
+                    ? TypeName.get(loopNestedMirror)
+                    : TypeName.get(Object.class);
+
+            methodBuilder.beginControlFlow("for ($T nestedItem : nestedSource)", loopNestedType);
+
             if (nestedSourceElementType != null && TypeUtils.needsDeepCopy(nestedSourceElementType) && nestedDtoElementType != null) {
                 ClassName copierClass = ClassName.bestGuess(nestedDtoElementType.toString() + "Copier");
                 String methodName = reverse ? "fromDto" : "toDto";
-                TypeName castType = TypeName.get(nestedSourceElementType);
-                methodBuilder.addStatement("nestedTarget.add($T.$L(($T) nestedItem))", copierClass, methodName, castType);
+                methodBuilder.addStatement("nestedTarget.add($T.$L(nestedItem))", copierClass, methodName);
             } else if (nestedTargetElementType != null && TypeUtils.needsDeepCopy(nestedTargetElementType) && nestedDtoElementType != null) {
                 ClassName copierClass = ClassName.bestGuess(nestedDtoElementType.toString() + "Copier");
                 String methodName = reverse ? "fromDto" : "toDto";
-                javax.lang.model.type.TypeMirror castMirror = nestedSourceElementType != null ? nestedSourceElementType : nestedTargetElementType;
-                TypeName castType = TypeName.get(castMirror);
-                methodBuilder.addStatement("nestedTarget.add($T.$L(($T) nestedItem))", copierClass, methodName, castType);
+                methodBuilder.addStatement("nestedTarget.add($T.$L(nestedItem))", copierClass, methodName);
             } else {
                 methodBuilder.addStatement("nestedTarget.add(nestedItem)");
             }
@@ -707,8 +777,9 @@ public final class CodeGenerator {
         if (sourceComponentType != null && TypeUtils.needsDeepCopy(sourceComponentType) && dtoComponentType != null) {
             ClassName copierClass = ClassName.bestGuess(dtoComponentType.toString() + "Copier");
             String methodName = reverse ? "fromDto" : "toDto";
-            TypeName castType = TypeName.get(sourceComponentType);
-            methodBuilder.addStatement("targetArray[i] = $T.$L(($T) sourceArray[i])", copierClass, methodName, castType);
+            // 先取出强类型元素，再交给 Copier，避免在生成代码中出现强制类型转换
+            methodBuilder.addStatement("$T element = sourceArray[i]", TypeName.get(sourceComponentType))
+                    .addStatement("targetArray[i] = $T.$L(element)", copierClass, methodName);
         } else {
             methodBuilder.addStatement("targetArray[i] = sourceArray[i]");
         }
@@ -767,7 +838,7 @@ public final class CodeGenerator {
         methodBuilder.beginControlFlow("if (source.$L() != null)", getterName)
                 .addStatement("$T sourceMap = source.$L()", TypeName.get(sourceFieldType), getterName)
                 .addStatement("$T targetMap = new java.util.HashMap(sourceMap.size())", TypeName.get(targetFieldType))
-                // 使用带泛型的 Map.Entry<K, V>，避免原来的 Object + 强制类型转换写法
+                // 使用带泛型的 Map.Entry<K, V>，避免 Object + 强制类型转换
                 .beginControlFlow("for (java.util.Map.Entry<$T, $T> entry : sourceMap.entrySet())", keyTypeName, loopValueTypeName)
                 .addStatement("$T key = entry.getKey()", keyTypeName)
                 .addStatement("$T value = entry.getValue()", loopValueTypeName)
@@ -782,13 +853,12 @@ public final class CodeGenerator {
             String methodName = reverse ? "fromDto" : "toDto";
             methodBuilder.addStatement("targetMap.put(key, $T.$L(value))", copierClass, methodName);
         } else if (sourceValueType != null && TypeUtils.isList(sourceValueType)) {
-            // Map<K, List<V>> 场景：对 Value 中的 List 做深拷贝
+            // Map<K, List<V>> 场景：对 Value 中的 List 做深拷贝，生成代码中不出现强制类型转换
             TypeName nestedSourceListType = TypeName.get(sourceValueType);
             TypeName nestedTargetListType = targetValueType != null ? TypeName.get(targetValueType) : nestedSourceListType;
 
-            methodBuilder.addStatement("$T nestedSource = ($T) value", nestedSourceListType, nestedSourceListType)
-                    .addStatement("$T nestedTarget = new java.util.ArrayList(nestedSource.size())", nestedTargetListType)
-                    .beginControlFlow("for (Object nestedItem : nestedSource)");
+            methodBuilder.addStatement("$T nestedSource = value", nestedSourceListType)
+                    .addStatement("$T nestedTarget = new java.util.ArrayList(nestedSource.size())", nestedTargetListType);
 
             java.util.List<javax.lang.model.type.TypeMirror> nestedSourceArgs = TypeUtils.extractTypeArguments(sourceValueType);
             java.util.List<javax.lang.model.type.TypeMirror> nestedTargetArgs = targetValueType != null
@@ -800,17 +870,23 @@ public final class CodeGenerator {
             javax.lang.model.type.TypeMirror nestedTargetElementType = nestedTargetArgs.isEmpty() ? null : nestedTargetArgs.get(0);
             javax.lang.model.type.TypeMirror nestedDtoElementType = nestedDtoArgs.isEmpty() ? null : nestedDtoArgs.get(0);
 
+            javax.lang.model.type.TypeMirror loopNestedMirror =
+                    nestedSourceElementType != null ? nestedSourceElementType :
+                            (nestedTargetElementType != null ? nestedTargetElementType : null);
+            TypeName loopNestedType = loopNestedMirror != null
+                    ? TypeName.get(loopNestedMirror)
+                    : TypeName.get(Object.class);
+
+            methodBuilder.beginControlFlow("for ($T nestedItem : nestedSource)", loopNestedType);
+
             if (nestedSourceElementType != null && TypeUtils.needsDeepCopy(nestedSourceElementType) && nestedDtoElementType != null) {
                 ClassName copierClass = ClassName.bestGuess(nestedDtoElementType.toString() + "Copier");
                 String methodName = reverse ? "fromDto" : "toDto";
-                TypeName castType = TypeName.get(nestedSourceElementType);
-                methodBuilder.addStatement("nestedTarget.add($T.$L(($T) nestedItem))", copierClass, methodName, castType);
+                methodBuilder.addStatement("nestedTarget.add($T.$L(nestedItem))", copierClass, methodName);
             } else if (nestedTargetElementType != null && TypeUtils.needsDeepCopy(nestedTargetElementType) && nestedDtoElementType != null) {
                 ClassName copierClass = ClassName.bestGuess(nestedDtoElementType.toString() + "Copier");
                 String methodName = reverse ? "fromDto" : "toDto";
-                javax.lang.model.type.TypeMirror castMirror = nestedSourceElementType != null ? nestedSourceElementType : nestedTargetElementType;
-                TypeName castType = TypeName.get(castMirror);
-                methodBuilder.addStatement("nestedTarget.add($T.$L(($T) nestedItem))", copierClass, methodName, castType);
+                methodBuilder.addStatement("nestedTarget.add($T.$L(nestedItem))", copierClass, methodName);
             } else {
                 methodBuilder.addStatement("nestedTarget.add(nestedItem)");
             }
