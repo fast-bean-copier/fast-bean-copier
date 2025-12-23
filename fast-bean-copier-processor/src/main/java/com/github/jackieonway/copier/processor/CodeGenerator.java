@@ -435,6 +435,13 @@ public final class CodeGenerator {
     }
 
     /**
+     * 计算集合或 Map 的初始容量，减少扩容带来的开销。
+     */
+    private String buildInitialCapacity(String sizeExpression) {
+        return "Math.max((int)(" + sizeExpression + " / 0.75f) + 1, 16)";
+    }
+
+    /**
      * 判断是否需要类型转换。
      *
      * @param sourceType 源类型
@@ -494,14 +501,15 @@ public final class CodeGenerator {
         javax.lang.model.type.TypeMirror sourceFieldType = reverse ? mapping.getTargetType() : mapping.getSourceType();
         javax.lang.model.type.TypeMirror targetFieldType = reverse ? mapping.getSourceType() : mapping.getTargetType();
 
-        boolean targetHasWildcard = TypeUtils.hasWildcard(targetFieldType);
-        if (hasUnsupportedGenerics(sourceFieldType) || hasUnsupportedGenerics(targetFieldType) || targetHasWildcard) {
+        if (TypeUtils.hasWildcard(targetFieldType)) {
             warnUnsupportedGenerics(mapping, sourceFieldType, targetFieldType);
-            if (targetHasWildcard) {
-                methodBuilder.addStatement("target.$L(null)", setterName);
-            } else {
-                methodBuilder.addStatement("target.$L(source.$L())", setterName, getterName);
-            }
+            methodBuilder.addStatement("target.$L(null)", setterName);
+            return;
+        }
+
+        if (hasUnsupportedGenerics(sourceFieldType) || hasUnsupportedGenerics(targetFieldType)) {
+            warnUnsupportedGenerics(mapping, sourceFieldType, targetFieldType);
+            methodBuilder.addStatement("target.$L(source.$L())", setterName, getterName);
             return;
         }
 
@@ -671,7 +679,8 @@ public final class CodeGenerator {
 
             methodBuilder.beginControlFlow("if (item != null)")
                     .addStatement("$T nestedSource = item", nestedSourceMapType)
-                    .addStatement("$T nestedTarget = new java.util.HashMap(nestedSource.size())", nestedTargetMapType)
+                    .addStatement("$T nestedTarget = new java.util.HashMap($L)", nestedTargetMapType,
+                            buildInitialCapacity("nestedSource.size()"))
                     .beginControlFlow("for (java.util.Map.Entry<$T, $T> nestedEntry : nestedSource.entrySet())", nestedKeyTypeName, nestedValueTypeName)
                     .addStatement("$T nestedKey = nestedEntry.getKey()", nestedKeyTypeName)
                     .addStatement("$T nestedValue = nestedEntry.getValue()", nestedValueTypeName)
@@ -744,7 +753,8 @@ public final class CodeGenerator {
 
         methodBuilder.beginControlFlow("if (source.$L() != null)", getterName)
                 .addStatement("$T sourceSet = source.$L()", TypeName.get(sourceFieldType), getterName)
-                .addStatement("$T targetSet = new java.util.LinkedHashSet(sourceSet.size())", TypeName.get(targetFieldType))
+                .addStatement("$T targetSet = new java.util.LinkedHashSet($L)", TypeName.get(targetFieldType),
+                        buildInitialCapacity("sourceSet.size()"))
                 .beginControlFlow("for ($T item : sourceSet)", loopElementType);
 
         if (sourceElementType != null && TypeUtils.needsDeepCopy(sourceElementType) && dtoElementType != null) {
@@ -929,7 +939,8 @@ public final class CodeGenerator {
 
         methodBuilder.beginControlFlow("if (source.$L() != null)", getterName)
                 .addStatement("$T sourceMap = source.$L()", TypeName.get(sourceFieldType), getterName)
-                .addStatement("$T targetMap = new java.util.HashMap(sourceMap.size())", TypeName.get(targetFieldType))
+                .addStatement("$T targetMap = new java.util.HashMap($L)", TypeName.get(targetFieldType),
+                        buildInitialCapacity("sourceMap.size()"))
                 // 使用带泛型的 Map.Entry<K, V>，避免 Object + 强制类型转换
                 .beginControlFlow("for (java.util.Map.Entry<$T, $T> entry : sourceMap.entrySet())", entryKeyTypeName, entryValueTypeName)
                 .addStatement("$T key = entry.getKey()", keyTypeName)
