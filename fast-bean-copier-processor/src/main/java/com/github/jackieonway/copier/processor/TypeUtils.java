@@ -413,7 +413,10 @@ public final class TypeUtils {
             return result;
         }
         for (TypeMirror arg : typeArguments) {
-            result.add(resolveWildcard(arg));
+            TypeMirror resolved = resolveWildcard(arg);
+            if (resolved != null) {
+                result.add(resolved);
+            }
         }
         return result;
     }
@@ -492,7 +495,71 @@ public final class TypeUtils {
             if (wildcardType.getSuperBound() != null) {
                 return wildcardType.getSuperBound();
             }
+            // 无界通配符无法提供具体类型，返回 null 让调用方退回默认处理
+            return null;
         }
         return type;
+    }
+
+    /**
+     * 判断是否为原始类型（raw type）。
+     *
+     * @param type 目标类型
+     * @return 如果是原始类型返回 true，否则返回 false
+     */
+    public static boolean isRawType(TypeMirror type) {
+        if (!(type instanceof DeclaredType)) {
+            return false;
+        }
+        DeclaredType declaredType = (DeclaredType) type;
+        return declaredType.getTypeArguments() == null || declaredType.getTypeArguments().isEmpty();
+    }
+
+    /**
+     * 判断类型是否包含通配符。
+     *
+     * @param type 目标类型
+     * @return 包含通配符返回 true，否则返回 false
+     */
+    public static boolean hasWildcard(TypeMirror type) {
+        if (!(type instanceof DeclaredType)) {
+            return false;
+        }
+        for (TypeMirror arg : ((DeclaredType) type).getTypeArguments()) {
+            if (arg instanceof WildcardType) {
+                return true;
+            }
+            if (hasWildcard(arg)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 判断是否包含不受支持的通配符（无界或 super 通配符）。
+     *
+     * @param type 目标类型
+     * @return 如果存在无界或 super 通配符返回 true
+     */
+    public static boolean hasUnboundedWildcard(TypeMirror type) {
+        if (!(type instanceof DeclaredType)) {
+            return false;
+        }
+        for (TypeMirror arg : ((DeclaredType) type).getTypeArguments()) {
+            if (arg instanceof WildcardType) {
+                WildcardType wildcardType = (WildcardType) arg;
+                // 无界或 super 通配符无法安全读取元素类型
+                if (wildcardType.getExtendsBound() == null || wildcardType.getSuperBound() != null) {
+                    return true;
+                }
+                if (hasUnboundedWildcard(wildcardType.getExtendsBound())) {
+                    return true;
+                }
+            } else if (hasUnboundedWildcard(arg)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

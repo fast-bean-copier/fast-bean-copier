@@ -7,12 +7,16 @@ import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.ParameterizedTypeName;
 
+import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.WildcardType;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import javax.tools.Diagnostic;
 
 /**
  * 代码生成器。
@@ -29,6 +33,11 @@ public final class CodeGenerator {
      * 处理环境，用于访问编译时的各种信息。
      */
     private final ProcessingEnvironment processingEnv;
+
+    /**
+     * 用于输出编译期提示。
+     */
+    private final Messager messager;
 
     /**
      * 源类型元素。
@@ -54,6 +63,7 @@ public final class CodeGenerator {
      */
     public CodeGenerator(ProcessingEnvironment processingEnv, TypeElement sourceType, TypeElement targetType) {
         this.processingEnv = processingEnv;
+        this.messager = processingEnv.getMessager();
         this.sourceType = sourceType;
         this.targetType = targetType;
     }
@@ -385,6 +395,46 @@ public final class CodeGenerator {
     }
 
     /**
+     * 在存在原始类型或不受支持的通配符时，不生成深拷贝代码，直接回退为普通赋值。
+     */
+    private boolean hasUnsupportedGenerics(TypeMirror typeMirror) {
+        return TypeUtils.isCollectionType(typeMirror) &&
+                (TypeUtils.isRawType(typeMirror) || TypeUtils.hasUnboundedWildcard(typeMirror));
+    }
+
+    private void warnUnsupportedGenerics(FieldMapping mapping, TypeMirror sourceFieldType, TypeMirror targetFieldType) {
+        messager.printMessage(Diagnostic.Kind.WARNING,
+                "集合字段使用了原始类型或不受支持的通配符，已跳过深拷贝生成。请为字段添加明确的泛型参数。source="
+                        + sourceFieldType + ", target=" + targetFieldType,
+                mapping.getTargetField());
+    }
+
+    private TypeName safeTypeName(TypeMirror typeMirror) {
+        if (typeMirror == null) {
+            return TypeName.get(Object.class);
+        }
+        if (typeMirror instanceof WildcardType) {
+            WildcardType wildcardType = (WildcardType) typeMirror;
+            TypeMirror bound = wildcardType.getExtendsBound() != null
+                    ? wildcardType.getExtendsBound()
+                    : wildcardType.getSuperBound();
+            return bound != null ? TypeName.get(bound) : TypeName.get(Object.class);
+        }
+        return TypeName.get(typeMirror);
+    }
+
+    private TypeMirror getTypeArgument(TypeMirror typeMirror, int index) {
+        if (!(typeMirror instanceof javax.lang.model.type.DeclaredType)) {
+            return null;
+        }
+        java.util.List<? extends TypeMirror> args = ((javax.lang.model.type.DeclaredType) typeMirror).getTypeArguments();
+        if (args == null || args.size() <= index) {
+            return null;
+        }
+        return args.get(index);
+    }
+
+    /**
      * 判断是否需要类型转换。
      *
      * @param sourceType 源类型
@@ -444,6 +494,17 @@ public final class CodeGenerator {
         javax.lang.model.type.TypeMirror sourceFieldType = reverse ? mapping.getTargetType() : mapping.getSourceType();
         javax.lang.model.type.TypeMirror targetFieldType = reverse ? mapping.getSourceType() : mapping.getTargetType();
 
+        boolean targetHasWildcard = TypeUtils.hasWildcard(targetFieldType);
+        if (hasUnsupportedGenerics(sourceFieldType) || hasUnsupportedGenerics(targetFieldType) || targetHasWildcard) {
+            warnUnsupportedGenerics(mapping, sourceFieldType, targetFieldType);
+            if (targetHasWildcard) {
+                methodBuilder.addStatement("target.$L(null)", setterName);
+            } else {
+                methodBuilder.addStatement("target.$L(source.$L())", setterName, getterName);
+            }
+            return;
+        }
+
         if (TypeUtils.isList(sourceFieldType) && TypeUtils.isList(targetFieldType)) {
             generateListDeepCopyCode(methodBuilder, getterName, setterName, sourceFieldType, targetFieldType, mapping, reverse);
             return;
@@ -501,8 +562,8 @@ public final class CodeGenerator {
 
         // List 循环元素类型：优先使用源元素类型，其次目标元素类型，最后退回 Object
         TypeName loopElementType = sourceElementType != null
-                ? TypeName.get(sourceElementType)
-                : (targetElementType != null ? TypeName.get(targetElementType) : TypeName.get(Object.class));
+                ? safeTypeName(sourceElementType)
+                : (targetElementType != null ? safeTypeName(targetElementType) : TypeName.get(Object.class));
 
         methodBuilder.beginControlFlow("if (source.$L() != null)", getterName)
                 .addStatement("$T sourceList = source.$L()", TypeName.get(sourceFieldType), getterName)
@@ -531,8 +592,8 @@ public final class CodeGenerator {
         // 嵌套 List：例如 List<List<User>> / List<Map<K, V>>
         else if (sourceElementType != null && TypeUtils.isList(sourceElementType)) {
             // List<List<...>> 或 List<Map<...>>，此处我们在生成代码时使用强类型 List
-            TypeName nestedSourceListType = TypeName.get(sourceElementType);
-            TypeName nestedTargetListType = targetElementType != null ? TypeName.get(targetElementType) : nestedSourceListType;
+            TypeName nestedSourceListType = safeTypeName(sourceElementType);
+            TypeName nestedTargetListType = targetElementType != null ? safeTypeName(targetElementType) : nestedSourceListType;
 
             methodBuilder.beginControlFlow("if (item != null)")
                     .addStatement("$T nestedSource = item", nestedSourceListType)
@@ -553,7 +614,7 @@ public final class CodeGenerator {
                     nestedSourceElementType != null ? nestedSourceElementType :
                             (nestedTargetElementType != null ? nestedTargetElementType : null);
             TypeName loopNestedType = loopNestedMirror != null
-                    ? TypeName.get(loopNestedMirror)
+                    ? safeTypeName(loopNestedMirror)
                     : TypeName.get(Object.class);
 
             methodBuilder.beginControlFlow("for ($T nestedItem : nestedSource)", loopNestedType);
@@ -579,8 +640,8 @@ public final class CodeGenerator {
         }
         // 嵌套 Map：例如 List<Map<K, V>>
         else if (sourceElementType != null && TypeUtils.isMap(sourceElementType)) {
-            TypeName nestedSourceMapType = TypeName.get(sourceElementType);
-            TypeName nestedTargetMapType = targetElementType != null ? TypeName.get(targetElementType) : nestedSourceMapType;
+            TypeName nestedSourceMapType = safeTypeName(sourceElementType);
+            TypeName nestedTargetMapType = targetElementType != null ? safeTypeName(targetElementType) : nestedSourceMapType;
 
             javax.lang.model.type.TypeMirror nestedSourceKeyType = TypeUtils.extractMapKeyType(sourceElementType);
             javax.lang.model.type.TypeMirror nestedTargetKeyType = targetElementType != null
@@ -597,7 +658,7 @@ public final class CodeGenerator {
                     nestedSourceKeyType != null ? nestedSourceKeyType :
                             (nestedTargetKeyType != null ? nestedTargetKeyType : null);
             TypeName nestedKeyTypeName = nestedLoopKeyMirror != null
-                    ? TypeName.get(nestedLoopKeyMirror)
+                    ? safeTypeName(nestedLoopKeyMirror)
                     : TypeName.get(Object.class);
 
             // value 的循环类型
@@ -605,7 +666,7 @@ public final class CodeGenerator {
                     nestedSourceValueType != null ? nestedSourceValueType :
                             (nestedTargetValueType != null ? nestedTargetValueType : null);
             TypeName nestedValueTypeName = nestedLoopValueMirror != null
-                    ? TypeName.get(nestedLoopValueMirror)
+                    ? safeTypeName(nestedLoopValueMirror)
                     : TypeName.get(Object.class);
 
             methodBuilder.beginControlFlow("if (item != null)")
@@ -678,8 +739,8 @@ public final class CodeGenerator {
 
         // Set 循环元素类型：优先使用源元素类型，其次目标元素类型，最后退回 Object
         TypeName loopElementType = sourceElementType != null
-                ? TypeName.get(sourceElementType)
-                : (targetElementType != null ? TypeName.get(targetElementType) : TypeName.get(Object.class));
+                ? safeTypeName(sourceElementType)
+                : (targetElementType != null ? safeTypeName(targetElementType) : TypeName.get(Object.class));
 
         methodBuilder.beginControlFlow("if (source.$L() != null)", getterName)
                 .addStatement("$T sourceSet = source.$L()", TypeName.get(sourceFieldType), getterName)
@@ -705,8 +766,8 @@ public final class CodeGenerator {
                     .endControlFlow();
         } else if (sourceElementType != null && TypeUtils.isList(sourceElementType)) {
             // Set<List<T>> 场景：对内部 List 做深拷贝，使用强类型声明
-            TypeName nestedSourceListType = TypeName.get(sourceElementType);
-            TypeName nestedTargetListType = targetElementType != null ? TypeName.get(targetElementType) : nestedSourceListType;
+            TypeName nestedSourceListType = safeTypeName(sourceElementType);
+            TypeName nestedTargetListType = targetElementType != null ? safeTypeName(targetElementType) : nestedSourceListType;
 
             methodBuilder.beginControlFlow("if (item != null)")
                     .addStatement("$T nestedSource = item", nestedSourceListType)
@@ -726,7 +787,7 @@ public final class CodeGenerator {
                     nestedSourceElementType != null ? nestedSourceElementType :
                             (nestedTargetElementType != null ? nestedTargetElementType : null);
             TypeName loopNestedType = loopNestedMirror != null
-                    ? TypeName.get(loopNestedMirror)
+                    ? safeTypeName(loopNestedMirror)
                     : TypeName.get(Object.class);
 
             methodBuilder.beginControlFlow("for ($T nestedItem : nestedSource)", loopNestedType);
@@ -832,6 +893,11 @@ public final class CodeGenerator {
                                          javax.lang.model.type.TypeMirror targetFieldType,
                                          FieldMapping mapping,
                                          boolean reverse) {
+        TypeMirror sourceKeyArgument = getTypeArgument(sourceFieldType, 0);
+        TypeMirror sourceValueArgument = getTypeArgument(sourceFieldType, 1);
+        TypeMirror targetKeyArgument = getTypeArgument(targetFieldType, 0);
+        TypeMirror targetValueArgument = getTypeArgument(targetFieldType, 1);
+
         javax.lang.model.type.TypeMirror sourceKeyType = TypeUtils.extractMapKeyType(sourceFieldType);
         javax.lang.model.type.TypeMirror targetKeyType = TypeUtils.extractMapKeyType(targetFieldType);
 
@@ -842,9 +908,9 @@ public final class CodeGenerator {
         // Key 类型优先使用 source 的泛型，其次是 target，最后退回 Object
         TypeName keyTypeName;
         if (sourceKeyType != null) {
-            keyTypeName = TypeName.get(sourceKeyType);
+            keyTypeName = safeTypeName(sourceKeyType);
         } else if (targetKeyType != null) {
-            keyTypeName = TypeName.get(targetKeyType);
+            keyTypeName = safeTypeName(targetKeyType);
         } else {
             keyTypeName = TypeName.get(Object.class);
         }
@@ -854,14 +920,18 @@ public final class CodeGenerator {
                 sourceValueType != null ? sourceValueType :
                         (targetValueType != null ? targetValueType : null);
         TypeName loopValueTypeName = loopValueMirror != null
-                ? TypeName.get(loopValueMirror)
+                ? safeTypeName(loopValueMirror)
                 : TypeName.get(Object.class);
+        TypeMirror entryKeyMirror = sourceKeyArgument != null ? sourceKeyArgument : targetKeyArgument;
+        TypeMirror entryValueMirror = sourceValueArgument != null ? sourceValueArgument : targetValueArgument;
+        TypeName entryKeyTypeName = entryKeyMirror != null ? TypeName.get(entryKeyMirror) : keyTypeName;
+        TypeName entryValueTypeName = entryValueMirror != null ? TypeName.get(entryValueMirror) : loopValueTypeName;
 
         methodBuilder.beginControlFlow("if (source.$L() != null)", getterName)
                 .addStatement("$T sourceMap = source.$L()", TypeName.get(sourceFieldType), getterName)
                 .addStatement("$T targetMap = new java.util.HashMap(sourceMap.size())", TypeName.get(targetFieldType))
                 // 使用带泛型的 Map.Entry<K, V>，避免 Object + 强制类型转换
-                .beginControlFlow("for (java.util.Map.Entry<$T, $T> entry : sourceMap.entrySet())", keyTypeName, loopValueTypeName)
+                .beginControlFlow("for (java.util.Map.Entry<$T, $T> entry : sourceMap.entrySet())", entryKeyTypeName, entryValueTypeName)
                 .addStatement("$T key = entry.getKey()", keyTypeName)
                 .addStatement("$T value = entry.getValue()", loopValueTypeName)
                 .beginControlFlow("if (value != null)");
@@ -876,8 +946,8 @@ public final class CodeGenerator {
             methodBuilder.addStatement("targetMap.put(key, $T.$L(value))", copierClass, methodName);
         } else if (sourceValueType != null && TypeUtils.isList(sourceValueType)) {
             // Map<K, List<V>> 场景：对 Value 中的 List 做深拷贝，生成代码中不出现强制类型转换
-            TypeName nestedSourceListType = TypeName.get(sourceValueType);
-            TypeName nestedTargetListType = targetValueType != null ? TypeName.get(targetValueType) : nestedSourceListType;
+            TypeName nestedSourceListType = safeTypeName(sourceValueType);
+            TypeName nestedTargetListType = targetValueType != null ? safeTypeName(targetValueType) : nestedSourceListType;
 
             methodBuilder.addStatement("$T nestedSource = value", nestedSourceListType)
                     .addStatement("$T nestedTarget = new java.util.ArrayList(nestedSource.size())", nestedTargetListType);
@@ -896,7 +966,7 @@ public final class CodeGenerator {
                     nestedSourceElementType != null ? nestedSourceElementType :
                             (nestedTargetElementType != null ? nestedTargetElementType : null);
             TypeName loopNestedType = loopNestedMirror != null
-                    ? TypeName.get(loopNestedMirror)
+                    ? safeTypeName(loopNestedMirror)
                     : TypeName.get(Object.class);
 
             methodBuilder.beginControlFlow("for ($T nestedItem : nestedSource)", loopNestedType);

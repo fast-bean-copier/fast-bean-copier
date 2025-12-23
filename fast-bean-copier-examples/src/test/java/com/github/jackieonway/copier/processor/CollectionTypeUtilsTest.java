@@ -42,6 +42,9 @@ public class CollectionTypeUtilsTest {
                 + "String[] stringArray; "
                 + "List rawList; "
                 + "List<? extends Number> wildcardList; "
+                + "List<?> unknownList; "
+                + "Map rawMap; "
+                + "Map<String, ?> wildcardValueMap; "
                 + "String[][] multiArray; "
                 + "int[] primitiveArray; "
                 + "Map<String, List<Integer>> mapList; "
@@ -78,6 +81,18 @@ public class CollectionTypeUtilsTest {
         List<TypeMirror> args = TypeUtils.extractTypeArguments(fieldTypes.get("wildcardList"));
         assertEquals(1, args.size());
         assertEquals("java.lang.Number", args.get(0).toString());
+    }
+
+    @Test
+    public void shouldDetectRawAndUnboundedWildcard() {
+        assertTrue(TypeUtils.isRawType(fieldTypes.get("rawList")));
+        assertTrue(TypeUtils.isRawType(fieldTypes.get("rawMap")));
+        assertFalse(TypeUtils.isRawType(fieldTypes.get("stringList")));
+
+        assertTrue(TypeUtils.hasUnboundedWildcard(fieldTypes.get("unknownList")));
+        assertTrue(TypeUtils.hasUnboundedWildcard(fieldTypes.get("wildcardValueMap")));
+        // 带上界的通配符不应视为不受支持的场景
+        assertFalse(TypeUtils.hasUnboundedWildcard(fieldTypes.get("wildcardList")));
     }
 
     @Test
