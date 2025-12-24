@@ -1,5 +1,7 @@
 # Fast Bean Copier 快速入门指南
 
+> v1.1 新特性：集合/数组字段深拷贝（含嵌套与多维），双向拷贝，raw/无界通配符集合自动降级为浅拷贝并给出编译期警告。
+
 ## 5 分钟快速开始
 
 ### 步骤 1：添加依赖
@@ -146,6 +148,52 @@ Set<UserDto> dtoSet = UserDtoCopier.toDtoSet(users);
 // 反向转换
 List<User> users = UserDtoCopier.fromDtoList(dtos);
 Set<User> userSet = UserDtoCopier.fromDtoSet(dtoSet);
+```
+
+### 场景 5：集合深拷贝（嵌套对象）
+
+```java
+Order order = new Order(1L,
+        Arrays.asList("paid", "delivered"),
+        Collections.singletonList(new User(1L, "Tom", "tom@test.com", 20)));
+
+OrderDto orderDto = OrderDtoCopier.toDto(order);
+List<OrderDto> orderDtos = OrderDtoCopier.toDtoList(Collections.singletonList(order));
+
+// 反向转换
+Order restored = OrderDtoCopier.fromDto(orderDto);
+List<Order> restoredList = OrderDtoCopier.fromDtoList(orderDtos);
+```
+
+### 场景 6：数组与 Map 深拷贝
+
+```java
+ArrayHolder holder = new ArrayHolder(
+        1L,
+        new String[]{"a", "b"},
+        new int[]{1, 2, 3},
+        new User[]{new User(1L, "Jerry", "j@test.com", 18)}
+);
+ArrayHolderDto holderDto = ArrayHolderDtoCopier.toDto(holder);
+ArrayHolder restored = ArrayHolderDtoCopier.fromDto(holderDto);
+
+MapHolder mapHolder = new MapHolder(
+        1L,
+        Collections.singletonMap("k1", "v1"),
+        Collections.singletonMap("u1", new User(2L, "Lucy", "l@test.com", 22))
+);
+MapHolderDto mapHolderDto = MapHolderDtoCopier.toDto(mapHolder);
+MapHolder restoredMapHolder = MapHolderDtoCopier.fromDto(mapHolderDto);
+```
+
+### 场景 7：DTO 反向拷贝
+
+```java
+UserDto dto = new UserDto(1L, "Amy", "amy@test.com", 25);
+User entity = UserDtoCopier.fromDto(dto);
+
+Set<UserDto> dtoSet = new LinkedHashSet<>(Collections.singleton(dto));
+Set<User> entities = UserDtoCopier.fromDtoSet(dtoSet);
 ```
 
 ## 故障排除

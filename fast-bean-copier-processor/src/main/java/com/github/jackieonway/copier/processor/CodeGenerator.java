@@ -6,6 +6,8 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.ParameterizedTypeName;
+import com.squareup.javapoet.TypeVariableName;
+import com.squareup.javapoet.ArrayTypeName;
 
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -101,8 +103,12 @@ public final class CodeGenerator {
             // 创建集合方法
             MethodSpec toDtoListMethod = generateToDtoList();
             MethodSpec toDtoSetMethod = generateToDtoSet();
+            MethodSpec toDtoMapMethod = generateToDtoMap();
+            MethodSpec toDtoArrayMethod = generateToDtoArray();
             MethodSpec fromDtoListMethod = generateFromDtoList();
             MethodSpec fromDtoSetMethod = generateFromDtoSet();
+            MethodSpec fromDtoMapMethod = generateFromDtoMap();
+            MethodSpec fromDtoArrayMethod = generateFromDtoArray();
             
             // 创建 Copier 类
             TypeSpec copierClass = TypeSpec.classBuilder(copierClassName)
@@ -112,8 +118,12 @@ public final class CodeGenerator {
                     .addMethod(fromDtoMethod)
                     .addMethod(toDtoListMethod)
                     .addMethod(toDtoSetMethod)
+                    .addMethod(toDtoMapMethod)
+                    .addMethod(toDtoArrayMethod)
                     .addMethod(fromDtoListMethod)
                     .addMethod(fromDtoSetMethod)
+                    .addMethod(fromDtoMapMethod)
+                    .addMethod(fromDtoArrayMethod)
                     .build();
             
             // 生成 Java 文件
@@ -272,6 +282,81 @@ public final class CodeGenerator {
     }
 
     /**
+     * 生成 toDtoMap 方法。
+     *
+     * 该方法将 {@code Map<K, SourceType>} 拷贝为 {@code Map<K, TargetType>}。
+     *
+     * @return 生成的 {@code Map<K, TargetType>} 方法规范
+     */
+    public MethodSpec generateToDtoMap() {
+        TypeVariableName keyType = TypeVariableName.get("K");
+        TypeName sourceTypeName = ClassName.get(sourceType);
+        TypeName targetTypeName = ClassName.get(targetType);
+        TypeName mapOfSource = ParameterizedTypeName.get(ClassName.get(java.util.Map.class), keyType, sourceTypeName);
+        TypeName mapOfTarget = ParameterizedTypeName.get(ClassName.get(java.util.Map.class), keyType, targetTypeName);
+        TypeName mapImpl = ParameterizedTypeName.get(ClassName.get(java.util.LinkedHashMap.class), keyType, targetTypeName);
+        TypeName entryType = ParameterizedTypeName.get(ClassName.get(java.util.Map.Entry.class), keyType, sourceTypeName);
+
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDtoMap")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .addTypeVariable(keyType)
+                .returns(mapOfTarget)
+                .addParameter(mapOfSource, "sources");
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        methodBuilder.addStatement("$T result = new $T($L)", mapOfTarget, mapImpl, buildInitialCapacity("sources.size()"))
+                .beginControlFlow("for ($T entry : sources.entrySet())", entryType)
+                .addStatement("$T key = entry.getKey()", keyType)
+                .beginControlFlow("if (entry.getValue() != null)")
+                .addStatement("result.put(key, toDto(entry.getValue()))")
+                .nextControlFlow("else")
+                .addStatement("result.put(key, null)")
+                .endControlFlow()
+                .endControlFlow()
+                .addStatement("return result");
+
+        return methodBuilder.build();
+    }
+
+    /**
+     * 生成 toDtoArray 方法。
+     *
+     * 该方法将 {@code SourceType[]} 拷贝为 {@code TargetType[]}。
+     *
+     * @return 生成的 {@code TargetType[]} 方法规范
+     */
+    public MethodSpec generateToDtoArray() {
+        TypeName sourceArrayType = ArrayTypeName.of(ClassName.get(sourceType));
+        TypeName targetArrayType = ArrayTypeName.of(ClassName.get(targetType));
+        TypeName sourceElementType = ClassName.get(sourceType);
+
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDtoArray")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(targetArrayType)
+                .addParameter(sourceArrayType, "sources");
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        methodBuilder.addStatement("$T result = new $T[sources.length]", targetArrayType, ClassName.get(targetType))
+                .beginControlFlow("for (int i = 0; i < sources.length; i++)")
+                .addStatement("$T element = sources[i]", sourceElementType)
+                .beginControlFlow("if (element != null)")
+                .addStatement("result[i] = toDto(element)")
+                .nextControlFlow("else")
+                .addStatement("result[i] = null")
+                .endControlFlow()
+                .endControlFlow()
+                .addStatement("return result");
+
+        return methodBuilder.build();
+    }
+
+    /**
      * 生成 fromDtoList 方法。
      *
      * 该方法将目标对象列表拷贝回源对象列表（反向拷贝）。
@@ -349,6 +434,81 @@ public final class CodeGenerator {
 
         // 返回结果
         methodBuilder.addStatement("return result");
+
+        return methodBuilder.build();
+    }
+
+    /**
+     * 生成 fromDtoMap 方法。
+     *
+     * 该方法将 {@code Map<K, TargetType>} 拷贝回 {@code Map<K, SourceType>}。
+     *
+     * @return 生成的 {@code Map<K, SourceType>} 方法规范
+     */
+    public MethodSpec generateFromDtoMap() {
+        TypeVariableName keyType = TypeVariableName.get("K");
+        TypeName sourceTypeName = ClassName.get(sourceType);
+        TypeName targetTypeName = ClassName.get(targetType);
+        TypeName mapOfSource = ParameterizedTypeName.get(ClassName.get(java.util.Map.class), keyType, sourceTypeName);
+        TypeName mapOfTarget = ParameterizedTypeName.get(ClassName.get(java.util.Map.class), keyType, targetTypeName);
+        TypeName mapImpl = ParameterizedTypeName.get(ClassName.get(java.util.LinkedHashMap.class), keyType, sourceTypeName);
+        TypeName entryType = ParameterizedTypeName.get(ClassName.get(java.util.Map.Entry.class), keyType, targetTypeName);
+
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDtoMap")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .addTypeVariable(keyType)
+                .returns(mapOfSource)
+                .addParameter(mapOfTarget, "sources");
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        methodBuilder.addStatement("$T result = new $T($L)", mapOfSource, mapImpl, buildInitialCapacity("sources.size()"))
+                .beginControlFlow("for ($T entry : sources.entrySet())", entryType)
+                .addStatement("$T key = entry.getKey()", keyType)
+                .beginControlFlow("if (entry.getValue() != null)")
+                .addStatement("result.put(key, fromDto(entry.getValue()))")
+                .nextControlFlow("else")
+                .addStatement("result.put(key, null)")
+                .endControlFlow()
+                .endControlFlow()
+                .addStatement("return result");
+
+        return methodBuilder.build();
+    }
+
+    /**
+     * 生成 fromDtoArray 方法。
+     *
+     * 该方法将 {@code TargetType[]} 拷贝回 {@code SourceType[]}。
+     *
+     * @return 生成的 {@code SourceType[]} 方法规范
+     */
+    public MethodSpec generateFromDtoArray() {
+        TypeName sourceArrayType = ArrayTypeName.of(ClassName.get(sourceType));
+        TypeName targetArrayType = ArrayTypeName.of(ClassName.get(targetType));
+        TypeName targetElementType = ClassName.get(targetType);
+
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDtoArray")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(sourceArrayType)
+                .addParameter(targetArrayType, "sources");
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        methodBuilder.addStatement("$T result = new $T[sources.length]", sourceArrayType, ClassName.get(sourceType))
+                .beginControlFlow("for (int i = 0; i < sources.length; i++)")
+                .addStatement("$T element = sources[i]", targetElementType)
+                .beginControlFlow("if (element != null)")
+                .addStatement("result[i] = fromDto(element)")
+                .nextControlFlow("else")
+                .addStatement("result[i] = null")
+                .endControlFlow()
+                .endControlFlow()
+                .addStatement("return result");
 
         return methodBuilder.build();
     }
@@ -501,12 +661,6 @@ public final class CodeGenerator {
         javax.lang.model.type.TypeMirror sourceFieldType = reverse ? mapping.getTargetType() : mapping.getSourceType();
         javax.lang.model.type.TypeMirror targetFieldType = reverse ? mapping.getSourceType() : mapping.getTargetType();
 
-        if (TypeUtils.hasWildcard(targetFieldType)) {
-            warnUnsupportedGenerics(mapping, sourceFieldType, targetFieldType);
-            methodBuilder.addStatement("target.$L(null)", setterName);
-            return;
-        }
-
         if (hasUnsupportedGenerics(sourceFieldType) || hasUnsupportedGenerics(targetFieldType)) {
             warnUnsupportedGenerics(mapping, sourceFieldType, targetFieldType);
             methodBuilder.addStatement("target.$L(source.$L())", setterName, getterName);
@@ -573,9 +727,17 @@ public final class CodeGenerator {
                 ? safeTypeName(sourceElementType)
                 : (targetElementType != null ? safeTypeName(targetElementType) : TypeName.get(Object.class));
 
+        // 目标 List 使用具体元素类型声明，避免 extends 通配符导致 add 受限
+        TypeName targetListType = targetElementType != null
+                ? ParameterizedTypeName.get(ClassName.get(java.util.List.class), safeTypeName(targetElementType))
+                : TypeName.get(targetFieldType);
+        TypeName targetListImplType = targetElementType != null
+                ? ParameterizedTypeName.get(ClassName.get(java.util.ArrayList.class), safeTypeName(targetElementType))
+                : TypeName.get(targetFieldType);
+
         methodBuilder.beginControlFlow("if (source.$L() != null)", getterName)
                 .addStatement("$T sourceList = source.$L()", TypeName.get(sourceFieldType), getterName)
-                .addStatement("$T targetList = new java.util.ArrayList(sourceList.size())", TypeName.get(targetFieldType))
+                .addStatement("$T targetList = new $T(sourceList.size())", targetListType, targetListImplType)
                 .beginControlFlow("for ($T item : sourceList)", loopElementType);
 
         // 一层元素：基本类型 / 对象 / DTO 拷贝
@@ -936,10 +1098,18 @@ public final class CodeGenerator {
         TypeMirror entryValueMirror = sourceValueArgument != null ? sourceValueArgument : targetValueArgument;
         TypeName entryKeyTypeName = entryKeyMirror != null ? TypeName.get(entryKeyMirror) : keyTypeName;
         TypeName entryValueTypeName = entryValueMirror != null ? TypeName.get(entryValueMirror) : loopValueTypeName;
+        TypeName targetKeyTypeName = targetKeyType != null ? safeTypeName(targetKeyType) : keyTypeName;
+        TypeName targetValueTypeName = targetValueType != null ? safeTypeName(targetValueType) : loopValueTypeName;
+        TypeName targetMapType = (targetKeyType != null || targetValueType != null)
+                ? ParameterizedTypeName.get(ClassName.get(java.util.Map.class), targetKeyTypeName, targetValueTypeName)
+                : TypeName.get(targetFieldType);
+        TypeName targetMapImplType = (targetKeyType != null || targetValueType != null)
+                ? ParameterizedTypeName.get(ClassName.get(java.util.HashMap.class), targetKeyTypeName, targetValueTypeName)
+                : TypeName.get(targetFieldType);
 
         methodBuilder.beginControlFlow("if (source.$L() != null)", getterName)
                 .addStatement("$T sourceMap = source.$L()", TypeName.get(sourceFieldType), getterName)
-                .addStatement("$T targetMap = new java.util.HashMap($L)", TypeName.get(targetFieldType),
+                .addStatement("$T targetMap = new $T($L)", targetMapType, targetMapImplType,
                         buildInitialCapacity("sourceMap.size()"))
                 // 使用带泛型的 Map.Entry<K, V>，避免 Object + 强制类型转换
                 .beginControlFlow("for (java.util.Map.Entry<$T, $T> entry : sourceMap.entrySet())", entryKeyTypeName, entryValueTypeName)

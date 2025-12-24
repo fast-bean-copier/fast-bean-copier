@@ -6,6 +6,9 @@
 
 ## 基本问题
 
+### Q: v1.1 有哪些新增/改进？
+**A**: 主要新增集合与数组字段的深拷贝，涵盖 List/Set/Map/数组及其嵌套组合，支持双向拷贝、null 元素安全处理、容量预分配，以及对原始类型/无界通配符集合的安全降级（回退浅拷贝并给出编译期告警）。
+
 ### Q: Fast Bean Copier 是什么？
 **A**: Fast Bean Copier 是一个基于注解处理器的 Java Bean 拷贝工具，在编译期自动生成类型安全、高性能的 Bean 映射代码。
 
@@ -31,45 +34,20 @@ dependencies {
 ## 功能问题
 
 ### Q: 支持嵌套对象拷贝吗？
-**A**: 支持。同名字段会直接拷贝。对于不同类型的嵌套对象，可以为嵌套对象也定义 `@CopyTarget`：
+**A**: 支持。同名字段会直接拷贝；当嵌套类型也使用 `@CopyTarget` 标注时，会自动递归深拷贝，无需手动补齐：
 
 ```java
-// 地址实体
-public class Address {
-    private String city;
-    private String street;
-}
-
-// 地址 DTO
-@CopyTarget(source = Address.class)
-public class AddressDto {
-    private String city;
-    private String street;
-}
-
-// 用户实体
-public class User {
-    private Long id;
-    private String name;
-    private Address address;
-}
-
-// 用户 DTO
 @CopyTarget(source = User.class)
 public class UserDto {
-    private Long id;
-    private String name;
-    private AddressDto address;  // 需要手动转换
+    private AddressDto address; // 与源类 Address 对应
 }
-
-// 使用
-User user = new User();
-user.setAddress(new Address("北京", "朝阳区"));
-
-UserDto userDto = UserDtoCopier.toDto(user);
-// userDto.address 为 null，需要手动转换
-userDto.setAddress(AddressDtoCopier.toDto(user.getAddress()));
 ```
+
+### Q: 集合/数组字段会自动深拷贝吗？
+**A**: 会。List/Set/Map/数组（含嵌套组合与多维数组）都会按元素深拷贝，基本类型/String 直接赋值，带 `@CopyTarget` 的对象调用对应 Copier，其余按类型匹配递归处理。null 集合/元素会被安全保留，容量预分配避免多次扩容。
+
+### Q: 原始类型或无界通配符的集合如何处理？
+**A**: 遇到 `List`、`Set`、`Map` 的 raw type 或 `?`/`? super` 等无法安全解析的通配符时，会回退为浅拷贝并输出编译期警告，建议为集合添加明确泛型。
 
 ### Q: 支持自定义转换器吗？
 **A**: 当前版本不支持。可以在应用层手动处理特殊字段的转换。
@@ -78,10 +56,13 @@ userDto.setAddress(AddressDtoCopier.toDto(user.getAddress()));
 **A**: 当前版本不支持 Enum 的自动转换。可以在应用层手动处理。
 
 ### Q: 支持 Map 转换吗？
-**A**: 当前版本不支持 Map 的自动转换。
+**A**: 支持。Key 通常直接拷贝（如 String/基本类型），Value 会按深拷贝规则处理；Map 为 null 时保持 null，Value 为 null 时保留；嵌套集合/数组的 Map 也会递归处理。
 
 ### Q: 支持 Stream 转换吗？
 **A**: 当前版本不支持 Stream 的自动转换。可以使用 `toDtoList()` 或 `toDtoSet()` 后再转换为 Stream。
+
+### Q: Raw/无界通配符集合如何处理？
+**A**: 会降级为浅拷贝，并在编译期输出警告。建议为集合声明明确泛型参数以启用深拷贝。
 
 ### Q: 支持 Builder 模式吗？
 **A**: 当前版本不支持。Copier 类使用 setter 方法进行赋值。

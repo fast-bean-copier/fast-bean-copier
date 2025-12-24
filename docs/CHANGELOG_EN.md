@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-12-23
+
+### Added
+
+#### Collection & Array Deep Copy
+- Deep copy for List/Set/Map/array fields with bidirectional support (toDto/fromDto)
+- Nested combinations: `List<List<T>>`, `Map<K, List<V>>`, `List<Map<K,V>>`, multi-dimensional arrays
+- Null-safe handling for collections and elements; Map null values are preserved
+- Raw types or unbounded wildcards automatically downgrade to shallow copy with compile-time warnings
+
+#### Utilities & Code Generation
+- TypeUtils: collection type detection, generic extraction, array component extraction, deep-copy decision
+- CodeGenerator: capacity-preallocated deep-copy code for List/Set/Map/arrays, including reverse copy
+- Recursive depth handling to avoid infinite recursion
+
+#### Testing & Coverage
+- New tests for collection deep copy, reverse copy, nested collections, raw/wildcard collections
+- `PojoCoverageTest` covers all sample beans and generated Copiers; examples module reaches 93%+ instruction coverage
+- Performance and integration tests now include collection scenarios
+
+#### Documentation
+- Updated Getting Started, Reference, and FAQ with collection/array deep copy, reverse copy, wildcard downgrade notes and examples
+- JavaDoc generation enabled
+
+### Improved
+- Preallocated capacities and safer loop typing to reduce boxing and unsafe casts
+- Collection/Map generation falls back to safe assignment with warnings when generics are missing or unsupported
+
+### Compatibility
+- Java 8+, Maven build; still zero runtime reflection overhead
+
+### Verification
+- `mvn clean install`
+- `mvn jacoco:report`
+- `mvn javadoc:javadoc`
+
 ## [1.0.0] - 2025-12-13
 
 ### Added
@@ -100,5 +136,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.1.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.1.0
 [1.0.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.0.0
 

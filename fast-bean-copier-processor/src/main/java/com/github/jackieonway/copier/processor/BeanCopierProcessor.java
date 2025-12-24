@@ -31,7 +31,7 @@ import java.util.Set;
 /**
  * Bean 拷贝代码生成的 APT 处理器。
  *
- * 该处理器会扫描所有被 @CopyTarget 注解标记的类，
+ * 该处理器会扫描所有被 {@link CopyTarget} 注解标记的类，
  * 并自动生成对应的 Copier 类，包含 toDto、fromDto 等方法。
  *
  * @author jackieonway

@@ -277,6 +277,13 @@ List<UserDto> dtos = UserDtoCopier.toDtoList(Arrays.asList(user1, null, user2));
 // 结果中包含 3 个元素，第二个为 null
 ```
 
+### 6.4. Map 与数组深拷贝（v1.1）
+
+- Map：Key 通常直接拷贝（如 String/基本类型）；Value 按深拷贝规则处理，null Map/Value 保留；嵌套集合/数组递归处理。
+- 数组：按元素深拷贝，支持多维数组与 null 元素。
+- Raw/无界通配符集合将降级为浅拷贝并给出编译期警告，建议为集合声明明确泛型。
+- 生成的顶层方法：`toDtoMap/fromDtoMap` 保留 Key 并对 Value 做深拷贝；`toDtoArray/fromDtoArray` 支持数组双向转换。
+
 ## 7. Null 值处理
 
 ### 7.1. 对象级别的 null 处理
@@ -551,6 +558,15 @@ public class UserDto {
 
 ### Q: 支持嵌套对象拷贝吗？
 **A**: 支持。同名字段会直接拷贝。对于不同类型的嵌套对象，需要在应用层手动处理或为嵌套对象也定义 `@CopyTarget`。
+
+### Q: 集合与数组的深拷贝支持到什么程度？
+**A**: 1.1 版本内置 List/Set/Map/数组的双向深拷贝，支持嵌套组合（例如 `List<List<User>>`、`Map<String, List<User>>`、多维数组），并对原始类型或无界通配符自动降级为安全的浅拷贝。
+
+### Q: 有哪些性能与使用建议？
+**A**: 生成代码已为集合预分配容量并避免反射。实际使用中建议：  
+1) 始终为集合声明明确的泛型参数，避免原始类型；  
+2) 需要双向转换时同时定义 DTO 与源类的 `@CopyTarget`；  
+3) 发布前执行 `mvn clean compile`, `mvn test`, `mvn jacoco:report` 验证兼容性与覆盖率（示例模块覆盖率可达 90%+）。
 
 ### Q: 支持自定义转换器吗？
 **A**: 当前版本不支持。可以在应用层手动处理特殊字段的转换。

@@ -4,60 +4,33 @@
 
 **Fast Bean Copier** 是一个高性能的 Java Bean 拷贝工具，使用 APT（注解处理工具）在编译期自动生成拷贝代码，实现零运行时开销。
 
-**项目状态**：✅ 已完成，生产就绪
+**项目状态**：✅ 已完成，生产就绪（v1.1.0 集合深拷贝）
 
 ## 项目信息
 
 - **项目名称**：Fast Bean Copier
 - **版本**：1.1.0-SNAPSHOT
-- **发布日期**：2025-12-13
+- **发布日期**：2025-12-23
 - **Java 版本**：Java 8+
 - **构建工具**：Maven
-- **许可证**：MIT
+- **许可证**：Apache License 2.0
 
-## 项目结构
+## 项目结构（当前）
 
 ```
-fast-bean-copier/
-├── fast-bean-copier-annotations/      # 注解定义模块
-│   ├── src/main/java/
-│   │   └── CopyTarget.java           # 核心注解
-│   └── pom.xml
-├── fast-bean-copier-processor/        # APT 处理器模块
-│   ├── src/main/java/
-│   │   ├── BeanCopierProcessor.java  # 注解处理器
-│   │   ├── CodeGenerator.java        # 代码生成器
-│   │   ├── TypeUtils.java            # 类型工具类
-│   │   └── FieldMapping.java         # 字段映射数据类
-│   ├── src/test/java/
-│   │   └── TypeUtilsTest.java        # 单元测试
-│   └── pom.xml
-├── fast-bean-copier-examples/         # 示例和测试
-│   ├── src/main/java/
-│   │   ├── User.java / UserDto.java
-│   │   ├── Product.java / ProductDto.java
-│   │   ├── Account.java / AccountDto.java
-│   │   ├── Employee.java / EmployeeDto.java
-│   │   ├── Address.java / AddressDto.java
-│   │   └── ...
-│   ├── src/test/java/
-│   │   ├── SameNameFieldCopyTest.java
-│   │   ├── PrimitiveWrapperConversionTest.java
-│   │   ├── FieldIgnoreTest.java
-│   │   ├── CollectionCopyTest.java
-│   │   ├── NestedObjectCopyTest.java
-│   │   └── ...
-│   └── pom.xml
-├── docs/
-│   ├── REFERENCE.md                  # 参考文档
-│   ├── GETTING_STARTED.md            # 快速入门指南
-│   ├── API.md                        # API 文档
-│   ├── FAQ.md                        # 常见问题解答
-│   └── PROJECT_SUMMARY.md            # 项目总结
-├── README.md                          # 项目说明
-├── LICENSE                            # MIT 许可证
-└── pom.xml                            # 父 POM
-
+fast-bean-copier-2/
+├── fast-bean-copier/                      # 主项目（Maven 父子模块）
+│   ├── fast-bean-copier-annotations/      # 注解定义
+│   ├── fast-bean-copier-processor/        # APT 处理器与代码生成
+│   ├── fast-bean-copier-examples/         # 示例与测试（覆盖率、基准）
+│   ├── docs/                              # 文档（API/FAQ/Reference 等）
+│   ├── pom.xml                            # 父 POM
+│   └── README.md
+├── fast-bean-copier.github.io/            # 官网静态站点（构建文档产物）
+├── requirements/
+│   ├── v1.0/                              # 历史需求/计划
+│   └── v1.1/                              # 本次集合深拷贝需求、任务、计划
+└── logo.png / LICENSE / jackieonway_*.asc # 资源与签名
 ```
 
 ## 核心功能
@@ -83,14 +56,16 @@ fast-bean-copier/
    - @CopyTarget 注解的 ignore 属性
    - 灵活的字段排除
 
-5. **List/Set 集合拷贝**
-   - toDtoList/toDtoSet 方法
-   - fromDtoList/fromDtoSet 方法
-   - 集合中的 null 元素处理
+5. **集合深拷贝（v1.1）**
+   - List/Set/Map/数组字段级深拷贝（含多维数组）
+   - 嵌套集合组合（List<List<T>>、Map<String, List<T>> 等）
+   - null 集合/元素安全处理，容量预分配
+   - raw/无界通配符集合降级浅拷贝并给出编译期警告
+   - 顶层批量方法：toDtoMap/fromDtoMap、toDtoArray/fromDtoArray
 
 6. **反向拷贝支持**
    - fromDto 方法生成
-   - 完整的双向转换
+   - 集合/数组的双向拷贝
 
 7. **嵌套对象支持**
    - 嵌套对象字段的 null 值处理
@@ -113,18 +88,9 @@ fast-bean-copier/
 
 ## 测试覆盖
 
-| 测试类 | 测试数 | 状态 |
-|--------|--------|------|
-| SameNameFieldCopyTest | 5 | ✅ |
-| PrimitiveWrapperConversionTest | 4 | ✅ |
-| FieldIgnoreTest | 3 | ✅ |
-| CollectionCopyTest | 5 | ✅ |
-| NestedObjectCopyTest | 4 | ✅ |
-| TypeUtilsTest | 5 | ✅ |
-| **总计** | **21** | **✅** |
-
-**测试覆盖率**：100%
-**全部通过**：✅
+- 测试用例：71（涵盖集合深拷贝、反向拷贝、嵌套集合、原始/通配符集合、性能基准等）
+- 示例模块指令覆盖率：93%+（Jacoco）
+- 所有测试通过 ✅
 
 ## 代码质量
 
@@ -238,11 +204,10 @@ mvn clean test
 
 ## 已知限制
 
-1. 不支持自定义字段映射
+1. 不支持自定义字段名映射 / 条件映射
 2. 不支持 Enum 自动转换
-3. 不支持 Map 转换
-4. 不支持 Builder 模式
-5. 不支持嵌套对象的自动转换（需要手动处理）
+3. 不支持 Builder 模式
+4. 不支持自定义转换器
 
 ## 未来计划
 
@@ -293,6 +258,14 @@ mvn clean test
 
 ## 版本历史
 
+### 1.1.0（2025-12-23）
+- 集合深拷贝：支持 List/Set/Map/数组（含多维），嵌套组合安全处理
+- 原始类型 / 无界通配符集合自动降级浅拷贝并给出编译期警告
+- 新增批量方法：toDtoMap/fromDtoMap、toDtoArray/fromDtoArray
+- null 元素与集合安全处理，集合容量预分配以减少扩容开销
+- 文档与 Javadoc 完善（参考、快速入门、FAQ、API 打包发布）
+- 继续保持零运行时反射与 Java 8+ 兼容
+
 ### 1.0.0（2025-12-13）
 - 初始版本发布
 - 支持同名字段自动拷贝
@@ -305,12 +278,12 @@ mvn clean test
 
 ## 项目统计
 
-- **源代码行数**：~2000 行
-- **测试代码行数**：~1000 行
-- **文档行数**：~3000 行
-- **总代码行数**：~6000 行
-- **测试用例数**：21 个
-- **文档文件数**：5 个
+- **源代码行数**：~3000 行
+- **测试代码行数**：~1800 行
+- **文档行数**：~3500 行
+- **总代码行数**：~8300 行
+- **测试用例数**：71 个
+- **文档文件数**：7 个
 
 ## 最后的话
 

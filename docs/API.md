@@ -1,5 +1,7 @@
 # Fast Bean Copier API 文档
 
+> v1.1 提示：新增 List/Set/Map/数组字段的深拷贝与反向拷贝，支持嵌套集合、多维数组，raw/无界通配符集合自动降级为浅拷贝并输出编译期警告。
+
 ## 注解
 
 ### @CopyTarget
@@ -99,7 +101,7 @@ User user = UserDtoCopier.fromDto(userDto);
 
 **签名**：
 ```java
-public static List toDtoList(List sources)
+public static java.util.List<TargetType> toDtoList(java.util.List<SourceType> sources)
 ```
 
 **参数**：
@@ -120,7 +122,7 @@ List<UserDto> userDtos = UserDtoCopier.toDtoList(users);
 
 **签名**：
 ```java
-public static Set toDtoSet(Set sources)
+public static java.util.Set<TargetType> toDtoSet(java.util.Set<SourceType> sources)
 ```
 
 **参数**：
@@ -141,7 +143,7 @@ Set<UserDto> userDtos = UserDtoCopier.toDtoSet(users);
 
 **签名**：
 ```java
-public static List fromDtoList(List sources)
+public static java.util.List<SourceType> fromDtoList(java.util.List<TargetType> sources)
 ```
 
 **参数**：
@@ -162,7 +164,43 @@ List<User> users = UserDtoCopier.fromDtoList(userDtos);
 
 **签名**：
 ```java
-public static Set fromDtoSet(Set sources)
+public static java.util.Set<SourceType> fromDtoSet(java.util.Set<TargetType> sources)
+```
+
+#### toDtoMap(sources)
+
+将源对象 Map 转换为目标 DTO Map（保留 Key，拷贝 Value）。
+
+**签名**：
+```java
+public static <K> java.util.Map<K, TargetType> toDtoMap(java.util.Map<K, SourceType> sources)
+```
+
+#### fromDtoMap(sources)
+
+将目标 DTO Map 反向转换为源对象 Map。
+
+**签名**：
+```java
+public static <K> java.util.Map<K, SourceType> fromDtoMap(java.util.Map<K, TargetType> sources)
+```
+
+#### toDtoArray(sources)
+
+将源对象数组转换为目标 DTO 数组。
+
+**签名**：
+```java
+public static TargetType[] toDtoArray(SourceType[] sources)
+```
+
+#### fromDtoArray(sources)
+
+将目标 DTO 数组转换回源对象数组。
+
+**签名**：
+```java
+public static SourceType[] fromDtoArray(TargetType[] sources)
 ```
 
 **参数**：
@@ -324,6 +362,20 @@ List<UserDto> dtos = UserDtoCopier.toDtoList(
 );
 // 结果中包含 3 个元素，第二个为 null
 ```
+
+### Map 与数组深拷贝（v1.1）
+
+```java
+Map<String, User> map = Collections.singletonMap("u1", new User(1L, "Tom", "t@test.com", 20));
+Map<String, UserDto> dtoMap = UserDtoCopier.toDtoMap(map); // 由生成的 Copier 提供
+
+User[] arr = new User[]{new User(1L, "Jerry", "j@test.com", 18)};
+UserDto[] dtoArr = UserDtoCopier.toDtoArray(arr);
+```
+
+- Map：Key 通常直接拷贝，Value 按深拷贝规则处理；null Map/Value 保留。
+- 数组：按元素深拷贝，支持多维数组与 null 元素。
+- Raw/无界通配符集合会降级为浅拷贝并给出编译期警告。
 
 ## 线程安全性
 
