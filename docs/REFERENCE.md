@@ -1,4 +1,4 @@
-# Fast Bean Copier 1.1.0-SNAPSHOT 参考文档
+# Fast Bean Copier 1.1.0 参考文档
 
 ## 前言
 
@@ -45,13 +45,13 @@ Fast Bean Copier 是基于 [JSR 269](http://www.jcp.org/en/jsr/detail?id=269) �
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-annotations</artifactId>
-    <version>1.1.0-SNAPSHOT</version>
+    <version>1.1.0</version>
 </dependency>
 
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-processor</artifactId>
-    <version>1.1.0-SNAPSHOT</version>
+    <version>1.1.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -64,8 +64,8 @@ Fast Bean Copier 是基于 [JSR 269](http://www.jcp.org/en/jsr/detail?id=269) �
 
 ```gradle
 dependencies {
-    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.1.0-SNAPSHOT'
-    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.1.0-SNAPSHOT'
+    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.1.0'
+    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.1.0'
 }
 ```
 
