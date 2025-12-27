@@ -822,6 +822,8 @@ public final class CodeGenerator {
                     ? TypeUtils.extractMapValueType(targetElementType) : null;
             javax.lang.model.type.TypeMirror nestedDtoValueType = dtoElementType != null
                     ? TypeUtils.extractMapValueType(dtoElementType) : null;
+            javax.lang.model.type.TypeMirror nestedDtoKeyType = dtoElementType != null
+                    ? TypeUtils.extractMapKeyType(dtoElementType) : null;
 
             // key 的循环类型
             javax.lang.model.type.TypeMirror nestedLoopKeyMirror =
@@ -845,24 +847,43 @@ public final class CodeGenerator {
                             buildInitialCapacity("nestedSource.size()"))
                     .beginControlFlow("for (java.util.Map.Entry<$T, $T> nestedEntry : nestedSource.entrySet())", nestedKeyTypeName, nestedValueTypeName)
                     .addStatement("$T nestedKey = nestedEntry.getKey()", nestedKeyTypeName)
-                    .addStatement("$T nestedValue = nestedEntry.getValue()", nestedValueTypeName)
-                    .beginControlFlow("if (nestedValue != null)");
+                    .addStatement("$T nestedValue = nestedEntry.getValue()", nestedValueTypeName);
+            
+            // 处理嵌套 Map 中 key 的深拷贝
+            boolean needsNestedKeyDeepCopy = (nestedSourceKeyType != null && TypeUtils.needsDeepCopy(nestedSourceKeyType) && nestedDtoKeyType != null) ||
+                    (nestedTargetKeyType != null && TypeUtils.needsDeepCopy(nestedTargetKeyType) && nestedDtoKeyType != null);
+            
+            if (needsNestedKeyDeepCopy && nestedDtoKeyType != null) {
+                ClassName nestedKeyCopierClass = ClassName.bestGuess(nestedDtoKeyType.toString() + "Copier");
+                String nestedKeyMethodName = reverse ? "fromDto" : "toDto";
+                TypeName nestedTargetKeyTypeNameForCopy = nestedTargetKeyType != null ? safeTypeName(nestedTargetKeyType) : nestedKeyTypeName;
+                methodBuilder.beginControlFlow("if (nestedKey != null)")
+                        .addStatement("$T nestedCopiedKey = $T.$L(nestedKey)", nestedTargetKeyTypeNameForCopy, nestedKeyCopierClass, nestedKeyMethodName)
+                        .nextControlFlow("else")
+                        .addStatement("$T nestedCopiedKey = null", nestedTargetKeyTypeNameForCopy)
+                        .endControlFlow();
+            } else {
+                // key 不需要深拷贝，直接使用
+                methodBuilder.addStatement("$T nestedCopiedKey = nestedKey", nestedKeyTypeName);
+            }
+            
+            methodBuilder.beginControlFlow("if (nestedValue != null)");
 
             if (nestedSourceValueType != null && TypeUtils.needsDeepCopy(nestedSourceValueType) && nestedDtoValueType != null) {
                 ClassName copierClass = ClassName.bestGuess(nestedDtoValueType.toString() + "Copier");
                 String methodName = reverse ? "fromDto" : "toDto";
-                methodBuilder.addStatement("nestedTarget.put(nestedKey, $T.$L(nestedValue))", copierClass, methodName);
+                methodBuilder.addStatement("nestedTarget.put(nestedCopiedKey, $T.$L(nestedValue))", copierClass, methodName);
             } else if (nestedTargetValueType != null && TypeUtils.needsDeepCopy(nestedTargetValueType) && nestedDtoValueType != null) {
                 ClassName copierClass = ClassName.bestGuess(nestedDtoValueType.toString() + "Copier");
                 String methodName = reverse ? "fromDto" : "toDto";
-                methodBuilder.addStatement("nestedTarget.put(nestedKey, $T.$L(nestedValue))", copierClass, methodName);
+                methodBuilder.addStatement("nestedTarget.put(nestedCopiedKey, $T.$L(nestedValue))", copierClass, methodName);
             } else {
-                methodBuilder.addStatement("nestedTarget.put(nestedKey, nestedValue)");
+                methodBuilder.addStatement("nestedTarget.put(nestedCopiedKey, nestedValue)");
             }
 
             methodBuilder.endControlFlow()
                     .beginControlFlow("else")
-                    .addStatement("nestedTarget.put(nestedKey, null)")
+                    .addStatement("nestedTarget.put(nestedCopiedKey, null)")
                     .endControlFlow()
                     .endControlFlow()
                     .addStatement("targetList.add(nestedTarget)")
@@ -1076,6 +1097,7 @@ public final class CodeGenerator {
         javax.lang.model.type.TypeMirror sourceValueType = TypeUtils.extractMapValueType(sourceFieldType);
         javax.lang.model.type.TypeMirror targetValueType = TypeUtils.extractMapValueType(targetFieldType);
         javax.lang.model.type.TypeMirror dtoValueType = TypeUtils.extractMapValueType(mapping.getTargetType());
+        javax.lang.model.type.TypeMirror dtoKeyType = TypeUtils.extractMapKeyType(mapping.getTargetType());
 
         // Key 类型优先使用 source 的泛型，其次是 target，最后退回 Object
         TypeName keyTypeName;
@@ -1114,17 +1136,36 @@ public final class CodeGenerator {
                 // 使用带泛型的 Map.Entry<K, V>，避免 Object + 强制类型转换
                 .beginControlFlow("for (java.util.Map.Entry<$T, $T> entry : sourceMap.entrySet())", entryKeyTypeName, entryValueTypeName)
                 .addStatement("$T key = entry.getKey()", keyTypeName)
-                .addStatement("$T value = entry.getValue()", loopValueTypeName)
-                .beginControlFlow("if (value != null)");
+                .addStatement("$T value = entry.getValue()", loopValueTypeName);
+        
+        // 处理 key 的深拷贝
+        boolean needsKeyDeepCopy = (sourceKeyType != null && TypeUtils.needsDeepCopy(sourceKeyType) && dtoKeyType != null) ||
+                (targetKeyType != null && TypeUtils.needsDeepCopy(targetKeyType) && dtoKeyType != null);
+        
+        if (needsKeyDeepCopy && dtoKeyType != null) {
+            ClassName keyCopierClass = ClassName.bestGuess(dtoKeyType.toString() + "Copier");
+            String keyMethodName = reverse ? "fromDto" : "toDto";
+            TypeName targetKeyTypeNameForCopy = targetKeyType != null ? safeTypeName(targetKeyType) : keyTypeName;
+            methodBuilder.beginControlFlow("if (key != null)")
+                    .addStatement("$T copiedKey = $T.$L(key)", targetKeyTypeNameForCopy, keyCopierClass, keyMethodName)
+                    .nextControlFlow("else")
+                    .addStatement("$T copiedKey = null", targetKeyTypeNameForCopy)
+                    .endControlFlow();
+        } else {
+            // key 不需要深拷贝，直接使用
+            methodBuilder.addStatement("$T copiedKey = key", keyTypeName);
+        }
+        
+        methodBuilder.beginControlFlow("if (value != null)");
 
         if (sourceValueType != null && TypeUtils.needsDeepCopy(sourceValueType) && dtoValueType != null) {
             ClassName copierClass = ClassName.bestGuess(dtoValueType.toString() + "Copier");
             String methodName = reverse ? "fromDto" : "toDto";
-            methodBuilder.addStatement("targetMap.put(key, $T.$L(value))", copierClass, methodName);
+            methodBuilder.addStatement("targetMap.put(copiedKey, $T.$L(value))", copierClass, methodName);
         } else if (targetValueType != null && TypeUtils.needsDeepCopy(targetValueType) && dtoValueType != null) {
             ClassName copierClass = ClassName.bestGuess(dtoValueType.toString() + "Copier");
             String methodName = reverse ? "fromDto" : "toDto";
-            methodBuilder.addStatement("targetMap.put(key, $T.$L(value))", copierClass, methodName);
+            methodBuilder.addStatement("targetMap.put(copiedKey, $T.$L(value))", copierClass, methodName);
         } else if (sourceValueType != null && TypeUtils.isList(sourceValueType)) {
             // Map<K, List<V>> 场景：对 Value 中的 List 做深拷贝，生成代码中不出现强制类型转换
             TypeName nestedSourceListType = safeTypeName(sourceValueType);
@@ -1165,15 +1206,16 @@ public final class CodeGenerator {
             }
 
             methodBuilder.endControlFlow()
-                    .addStatement("targetMap.put(key, nestedTarget)");
+                    .addStatement("targetMap.put(copiedKey, nestedTarget)");
         } else {
             // 普通 Map<K, V> 场景：直接使用强类型 value，避免 Object -> V 的不安全强转
-            methodBuilder.addStatement("targetMap.put(key, value)");
+            methodBuilder.addStatement("targetMap.put(copiedKey, value)");
         }
 
         methodBuilder.endControlFlow()
                 .beginControlFlow("else")
-                .addStatement("targetMap.put(key, null)")
+                .addStatement("targetMap.put(copiedKey, null)")
+                .endControlFlow()
                 .endControlFlow()
                 .endControlFlow()
                 .addStatement("target.$L(targetMap)", setterName)
