@@ -38,6 +38,14 @@
             <groupId>com.google.auto.service</groupId>
             <artifactId>auto-service</artifactId>
         </dependency>
+
+        <!-- Jackson JSON 处理（可选，用于 JsonConverter） -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.15.3</version>
+            <optional>true</optional>
+        </dependency>
     </dependencies>
 
     <!-- 构建配置 -->

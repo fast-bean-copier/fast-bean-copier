@@ -1,7 +1,10 @@
 package com.github.jackieonway.copier.processor;
 
 import com.google.auto.service.AutoService;
+import com.github.jackieonway.copier.annotation.ComponentModel;
+import com.github.jackieonway.copier.annotation.CopyField;
 import com.github.jackieonway.copier.annotation.CopyTarget;
+import com.github.jackieonway.copier.converter.TypeConverter;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Messager;
@@ -16,11 +19,13 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.MirroredTypeException;
+import javax.lang.model.type.MirroredTypesException;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -127,6 +132,10 @@ public class BeanCopierProcessor extends AbstractProcessor {
             
             // 获取忽略的字段列表
             Set<String> ignoreFields = getIgnoreFields(annotation);
+
+            // v1.2: 获取 uses 和 componentModel
+            List<TypeMirror> usesClasses = getUsesClasses(targetType, annotation);
+            ComponentModel componentModel = annotation.componentModel();
             
             // 进行字段映射分析
             List<FieldMapping> fieldMappings = analyzeFieldMappings(sourceType, targetType, ignoreFields);
@@ -139,6 +148,8 @@ public class BeanCopierProcessor extends AbstractProcessor {
             // 生成 Copier 类
             CodeGenerator codeGenerator = new CodeGenerator(processingEnv, sourceType, targetType);
             codeGenerator.setFieldMappings(fieldMappings);
+            codeGenerator.setUsesClasses(usesClasses);
+            codeGenerator.setComponentModel(componentModel);
             codeGenerator.generateCopierClass();
         }
         
@@ -184,6 +195,32 @@ public class BeanCopierProcessor extends AbstractProcessor {
     }
 
     /**
+     * 获取 uses 属性中的类列表。
+     *
+     * @param targetType 目标类型
+     * @param annotation 注解
+     * @return uses 类的 TypeMirror 列表
+     * @since 1.2.0
+     */
+    private List<TypeMirror> getUsesClasses(TypeElement targetType, CopyTarget annotation) {
+        List<TypeMirror> usesClasses = new ArrayList<>();
+        try {
+            Class<?>[] uses = annotation.uses();
+            // 如果能直接获取，说明类在编译路径中
+            for (Class<?> clazz : uses) {
+                TypeElement element = elementUtils.getTypeElement(clazz.getCanonicalName());
+                if (element != null) {
+                    usesClasses.add(element.asType());
+                }
+            }
+        } catch (MirroredTypesException e) {
+            // 获取镜像类型列表
+            usesClasses.addAll(e.getTypeMirrors());
+        }
+        return usesClasses;
+    }
+
+    /**
      * 分析字段映射关系。
      *
      * @param sourceType   源类型
@@ -201,6 +238,13 @@ public class BeanCopierProcessor extends AbstractProcessor {
         // 获取目标类型的所有字段
         List<VariableElement> targetFields = TypeUtils.getAllFields(targetType);
         
+        // 创建源字段的映射表，便于快速查找
+        Map<String, VariableElement> sourceFieldMap = new HashMap<>();
+        for (VariableElement field : sourceFields) {
+            String fieldName = field.getSimpleName().toString();
+            sourceFieldMap.put(fieldName, field);
+        }
+        
         // 创建目标字段的映射表，便于快速查找
         Map<String, VariableElement> targetFieldMap = new HashMap<>();
         for (VariableElement field : targetFields) {
@@ -208,34 +252,235 @@ public class BeanCopierProcessor extends AbstractProcessor {
             targetFieldMap.put(fieldName, field);
         }
         
-        // 进行字段映射
-        for (VariableElement sourceField : sourceFields) {
-            String fieldName = sourceField.getSimpleName().toString();
+        // 处理目标类型的字段（包括 @CopyField 注解）
+        for (VariableElement targetField : targetFields) {
+            String targetFieldName = targetField.getSimpleName().toString();
             
             // 跳过忽略的字段
-            if (ignoreFields.contains(fieldName)) {
+            if (ignoreFields.contains(targetFieldName)) {
                 continue;
             }
             
-            // 查找同名的目标字段
-            VariableElement targetField = targetFieldMap.get(fieldName);
-            if (targetField == null) {
-                continue;
-            }
+            // 检查是否有 @CopyField 注解
+            CopyField copyFieldAnnotation = targetField.getAnnotation(CopyField.class);
             
-            // 检查字段类型兼容性
-            TypeMirror sourceFieldType = TypeUtils.getFieldType(sourceField);
-            TypeMirror targetFieldType = TypeUtils.getFieldType(targetField);
-            
-            if (TypeUtils.isTypeCompatible(sourceFieldType, targetFieldType)) {
-                mappings.add(new FieldMapping(sourceField, targetField, sourceFieldType, targetFieldType));
+            if (copyFieldAnnotation != null) {
+                // 处理 @CopyField 注解的字段
+                FieldMapping mapping = processCopyFieldAnnotation(
+                        copyFieldAnnotation, targetField, sourceFieldMap, sourceType);
+                if (mapping != null) {
+                    mappings.add(mapping);
+                }
             } else {
-                messager.printMessage(Diagnostic.Kind.WARNING, 
-                    "字段 '" + fieldName + "' 的类型不兼容：" + sourceFieldType + " -> " + targetFieldType, 
-                    targetType);
+                // 查找同名的源字段（简单映射）
+                VariableElement sourceField = sourceFieldMap.get(targetFieldName);
+                if (sourceField == null) {
+                    continue;
+                }
+                
+                // 检查字段类型兼容性
+                TypeMirror sourceFieldType = TypeUtils.getFieldType(sourceField);
+                TypeMirror targetFieldType = TypeUtils.getFieldType(targetField);
+                
+                if (TypeUtils.isTypeCompatible(sourceFieldType, targetFieldType)) {
+                    mappings.add(new FieldMapping(sourceField, targetField, sourceFieldType, targetFieldType));
+                } else {
+                    messager.printMessage(Diagnostic.Kind.WARNING, 
+                        "字段 '" + targetFieldName + "' 的类型不兼容：" + sourceFieldType + " -> " + targetFieldType, 
+                        targetType);
+                }
             }
         }
         
         return mappings;
+    }
+
+    /**
+     * 处理 @CopyField 注解的字段。
+     *
+     * @param annotation     CopyField 注解
+     * @param targetField    目标字段
+     * @param sourceFieldMap 源字段映射表
+     * @param sourceType     源类型
+     * @return 字段映射，如果无法创建则返回 null
+     * @since 1.2.0
+     */
+    private FieldMapping processCopyFieldAnnotation(CopyField annotation, 
+                                                     VariableElement targetField,
+                                                     Map<String, VariableElement> sourceFieldMap,
+                                                     TypeElement sourceType) {
+        String targetFieldName = targetField.getSimpleName().toString();
+        TypeMirror targetFieldType = TypeUtils.getFieldType(targetField);
+        
+        // 获取源字段名数组
+        String[] sourceNames = annotation.source();
+        String expression = annotation.expression();
+        String qualifiedByName = annotation.qualifiedByName();
+        String format = annotation.format();
+        
+        // 获取转换器类
+        String converterClassName = getConverterClassName(annotation);
+        
+        // 确定映射类型和源字段
+        FieldMapping mapping;
+        
+        if (expression != null && !expression.trim().isEmpty()) {
+            // 表达式映射
+            mapping = createExpressionMapping(targetField, targetFieldType, sourceNames, 
+                    expression, sourceFieldMap, sourceType);
+        } else if (converterClassName != null && !converterClassName.endsWith("TypeConverter$None") 
+                && !converterClassName.endsWith("TypeConverter.None")) {
+            // 类型转换器映射
+            mapping = createConverterMapping(targetField, targetFieldType, sourceNames, 
+                    converterClassName, format, sourceFieldMap);
+        } else if (qualifiedByName != null && !qualifiedByName.trim().isEmpty()) {
+            // 具名转换方法映射
+            mapping = createQualifiedByNameMapping(targetField, targetFieldType, sourceNames, 
+                    qualifiedByName, sourceFieldMap);
+        } else if (sourceNames != null && sourceNames.length > 0) {
+            // 简单的字段名映射（可能是多对一）
+            mapping = createSimpleMapping(targetField, targetFieldType, sourceNames, sourceFieldMap);
+        } else {
+            // 使用目标字段名作为源字段名
+            VariableElement sourceField = sourceFieldMap.get(targetFieldName);
+            if (sourceField == null) {
+                messager.printMessage(Diagnostic.Kind.WARNING,
+                        "找不到源字段 '" + targetFieldName + "'", targetField);
+                return null;
+            }
+            TypeMirror sourceFieldType = TypeUtils.getFieldType(sourceField);
+            mapping = new FieldMapping(sourceField, targetField, sourceFieldType, targetFieldType);
+        }
+        
+        return mapping;
+    }
+
+    /**
+     * 获取转换器类名。
+     */
+    private String getConverterClassName(CopyField annotation) {
+        try {
+            Class<? extends TypeConverter<?, ?>> converterClass = annotation.converter();
+            return converterClass.getCanonicalName();
+        } catch (MirroredTypeException e) {
+            return e.getTypeMirror().toString();
+        }
+    }
+
+    /**
+     * 创建表达式映射。
+     */
+    private FieldMapping createExpressionMapping(VariableElement targetField, 
+                                                  TypeMirror targetFieldType,
+                                                  String[] sourceNames,
+                                                  String expression,
+                                                  Map<String, VariableElement> sourceFieldMap,
+                                                  TypeElement sourceType) {
+        // 验证表达式语法
+        String syntaxError = ExpressionUtils.validateSyntax(expression);
+        if (syntaxError != null) {
+            messager.printMessage(Diagnostic.Kind.ERROR,
+                    "表达式语法错误: " + syntaxError, targetField);
+            return null;
+        }
+        
+        // 创建映射
+        FieldMapping mapping = new FieldMapping(null, targetField, sourceType.asType(), targetFieldType);
+        mapping.setMappingType(FieldMapping.MappingType.EXPRESSION);
+        mapping.setExpression(expression);
+        
+        if (sourceNames != null && sourceNames.length > 0) {
+            mapping.setSourceFieldNames(Arrays.asList(sourceNames));
+            if (sourceNames.length > 1) {
+                mapping.setMappingType(FieldMapping.MappingType.MANY_TO_ONE);
+            }
+        }
+        
+        return mapping;
+    }
+
+    /**
+     * 创建类型转换器映射。
+     */
+    private FieldMapping createConverterMapping(VariableElement targetField,
+                                                 TypeMirror targetFieldType,
+                                                 String[] sourceNames,
+                                                 String converterClassName,
+                                                 String format,
+                                                 Map<String, VariableElement> sourceFieldMap) {
+        String targetFieldName = targetField.getSimpleName().toString();
+        
+        // 确定源字段
+        String sourceFieldName = (sourceNames != null && sourceNames.length > 0) 
+                ? sourceNames[0] : targetFieldName;
+        VariableElement sourceField = sourceFieldMap.get(sourceFieldName);
+        
+        if (sourceField == null) {
+            messager.printMessage(Diagnostic.Kind.WARNING,
+                    "找不到源字段 '" + sourceFieldName + "'", targetField);
+            return null;
+        }
+        
+        TypeMirror sourceFieldType = TypeUtils.getFieldType(sourceField);
+        FieldMapping mapping = new FieldMapping(sourceField, targetField, sourceFieldType, targetFieldType);
+        mapping.setMappingType(FieldMapping.MappingType.CONVERTER);
+        mapping.setConverterClassName(converterClassName);
+        mapping.setFormat(format);
+        
+        return mapping;
+    }
+
+    /**
+     * 创建具名转换方法映射。
+     */
+    private FieldMapping createQualifiedByNameMapping(VariableElement targetField,
+                                                       TypeMirror targetFieldType,
+                                                       String[] sourceNames,
+                                                       String qualifiedByName,
+                                                       Map<String, VariableElement> sourceFieldMap) {
+        String targetFieldName = targetField.getSimpleName().toString();
+        
+        // 确定源字段
+        String sourceFieldName = (sourceNames != null && sourceNames.length > 0) 
+                ? sourceNames[0] : targetFieldName;
+        VariableElement sourceField = sourceFieldMap.get(sourceFieldName);
+        
+        if (sourceField == null) {
+            messager.printMessage(Diagnostic.Kind.WARNING,
+                    "找不到源字段 '" + sourceFieldName + "'", targetField);
+            return null;
+        }
+        
+        TypeMirror sourceFieldType = TypeUtils.getFieldType(sourceField);
+        FieldMapping mapping = new FieldMapping(sourceField, targetField, sourceFieldType, targetFieldType);
+        mapping.setMappingType(FieldMapping.MappingType.QUALIFIED_BY_NAME);
+        mapping.setQualifiedByName(qualifiedByName);
+        
+        return mapping;
+    }
+
+    /**
+     * 创建简单映射（可能是多对一）。
+     */
+    private FieldMapping createSimpleMapping(VariableElement targetField,
+                                              TypeMirror targetFieldType,
+                                              String[] sourceNames,
+                                              Map<String, VariableElement> sourceFieldMap) {
+        if (sourceNames.length == 1) {
+            // 单一源字段
+            VariableElement sourceField = sourceFieldMap.get(sourceNames[0]);
+            if (sourceField == null) {
+                messager.printMessage(Diagnostic.Kind.WARNING,
+                        "找不到源字段 '" + sourceNames[0] + "'", targetField);
+                return null;
+            }
+            TypeMirror sourceFieldType = TypeUtils.getFieldType(sourceField);
+            return new FieldMapping(sourceField, targetField, sourceFieldType, targetFieldType);
+        } else {
+            // 多对一映射（需要表达式）
+            messager.printMessage(Diagnostic.Kind.ERROR,
+                    "多对一映射需要指定 expression 属性", targetField);
+            return null;
+        }
     }
 }

@@ -20,7 +20,7 @@
     <modules>
         <module>fast-bean-copier-annotations</module>
         <module>fast-bean-copier-processor</module>
-       <!--  <module>fast-bean-copier-examples</module> -->
+        <!-- <module>fast-bean-copier-examples</module> -->
     </modules>
 
     <!-- 属性配置 -->
