@@ -4,78 +4,74 @@
 
 **Fast Bean Copier** 是一个高性能的 Java Bean 拷贝工具，使用 APT（注解处理工具）在编译期自动生成拷贝代码，实现零运行时开销。
 
-**项目状态**：✅ 已完成，生产就绪（v1.1.0 集合深拷贝）
+**项目状态**：✅ 已完成，生产就绪（v1.2.0 高级映射与类型转换）
 
 ## 项目信息
 
 - **项目名称**：Fast Bean Copier
-- **版本**：1.1.0
-- **发布日期**：2025-12-23
+- **版本**：1.2.0
+- **发布日期**：2025-12-29
 - **Java 版本**：Java 8+
 - **构建工具**：Maven
 - **许可证**：Apache License 2.0
 
-## 项目结构（当前）
+## 项目结构
 
 ```
-fast-bean-copier-2/
-├── fast-bean-copier/                      # 主项目（Maven 父子模块）
-│   ├── fast-bean-copier-annotations/      # 注解定义
-│   ├── fast-bean-copier-processor/        # APT 处理器与代码生成
-│   ├── fast-bean-copier-examples/         # 示例与测试（覆盖率、基准）
-│   ├── docs/                              # 文档（API/FAQ/Reference 等）
-│   ├── pom.xml                            # 父 POM
-│   └── README.md
-├── fast-bean-copier.github.io/            # 官网静态站点（构建文档产物）
-├── requirements/
-│   ├── v1.0/                              # 历史需求/计划
-│   └── v1.1/                              # 本次集合深拷贝需求、任务、计划
-└── logo.png / LICENSE / jackieonway_*.asc # 资源与签名
+fast-bean-copier/
+├── fast-bean-copier-annotations/      # 注解定义模块
+│   ├── CopyTarget.java               # 目标类注解
+│   ├── CopyField.java                # 字段映射注解（v1.2）
+│   ├── ComponentModel.java           # 组件模型枚举（v1.2）
+│   └── TypeConverter.java            # 类型转换器接口（v1.2）
+├── fast-bean-copier-processor/        # APT 处理器模块
+│   ├── BeanCopierProcessor.java      # 注解处理器
+│   ├── CodeGenerator.java            # 代码生成器
+│   ├── FieldMapping.java             # 字段映射模型
+│   ├── ExpressionParser.java         # 表达式解析器（v1.2）
+│   ├── ConverterAnalyzer.java        # 转换器分析器（v1.2）
+│   └── converter/                    # 内置转换器（v1.2）
+│       ├── NumberFormatter.java
+│       ├── NumberParser.java
+│       ├── DateFormatter.java
+│       ├── DateParser.java
+│       ├── EnumStringConverter.java
+│       └── JsonConverter.java
+├── fast-bean-copier-examples/         # 示例与测试
+│   ├── v10/                          # v1.0 示例
+│   ├── v11/                          # v1.1 示例
+│   └── v12/                          # v1.2 示例
+├── docs/                              # 文档
+└── pom.xml                            # 父 POM
 ```
 
 ## 核心功能
 
-### ✅ 已实现的功能
+### ✅ v1.0 功能
 
-1. **APT 编译期代码生成**
-   - 使用 JavaPoet 生成 Copier 类
-   - 零运行时反射开销
-   - 编译期类型检查
+1. **APT 编译期代码生成** - 使用 JavaPoet 生成 Copier 类
+2. **同名字段自动拷贝** - 支持基本类型和对象类型
+3. **基本类型 ↔ 包装类型转换** - 自动装箱/拆箱
+4. **字段忽略功能** - @CopyTarget 注解的 ignore 属性
+5. **List/Set 集合拷贝** - 自动生成集合映射方法
+6. **双向拷贝支持** - toDto/fromDto 方法
 
-2. **同名字段自动拷贝**
-   - 支持基本类型和对象类型
-   - 使用 getter/setter 方法
-   - 支持私有字段
+### ✅ v1.1 功能
 
-3. **基本类型 ↔ 包装类型转换**
-   - 自动装箱/拆箱
-   - null 值安全处理
-   - 支持 8 种基本类型
+7. **集合深拷贝** - List/Set/Map/数组字段级深拷贝
+8. **嵌套集合支持** - List<List<T>>、Map<K, List<V>> 等
+9. **多维数组支持** - 支持多维数组深拷贝
+10. **Raw/通配符降级** - 自动降级为浅拷贝并警告
 
-4. **字段忽略功能**
-   - @CopyTarget 注解的 ignore 属性
-   - 灵活的字段排除
+### ✅ v1.2 功能
 
-5. **集合深拷贝（v1.1）**
-   - List/Set/Map/数组字段级深拷贝（含多维数组）
-   - 嵌套集合组合（List<List<T>>、Map<String, List<T>> 等）
-   - null 集合/元素安全处理，容量预分配
-   - raw/无界通配符集合降级浅拷贝并给出编译期警告
-   - 顶层批量方法：toDtoMap/fromDtoMap、toDtoArray/fromDtoArray
-
-6. **反向拷贝支持**
-   - fromDto 方法生成
-   - 集合/数组的双向拷贝
-
-7. **嵌套对象支持**
-   - 嵌套对象字段的 null 值处理
-   - 同名字段的直接拷贝
-
-8. **完整的文档**
-   - 参考文档（MapStruct 格式）
-   - 快速入门指南
-   - API 文档
-   - 常见问题解答
+11. **多对一转换** - 多个源字段合并到一个目标字段
+12. **一对多转换** - 一个源字段拆分到多个目标字段
+13. **表达式映射** - 支持 Java 表达式进行复杂转换
+14. **TypeConverter** - 6 个内置类型转换器
+15. **自定义转换器** - 通过 uses 机制引入自定义转换器
+16. **依赖注入支持** - Spring、CDI、JSR-330 框架集成
+17. **函数式定制** - UnaryOperator 后处理支持
 
 ## 技术栈
 
@@ -85,25 +81,32 @@ fast-bean-copier-2/
 - **JavaPoet 1.13.0** - 代码生成库
 - **Google Auto Service 1.0.1** - APT 自动注册
 - **JUnit 4.13.2** - 单元测试框架
+- **Jackson** - JSON 处理（JsonConverter 依赖）
 
 ## 测试覆盖
 
-- 测试用例：71（涵盖集合深拷贝、反向拷贝、嵌套集合、原始/通配符集合、性能基准等）
-- 示例模块指令覆盖率：93%+（Jacoco）
-- 所有测试通过 ✅
+- **测试用例**：80+（涵盖所有功能）
+- **示例模块指令覆盖率**：93%+（Jacoco）
+- **所有测试通过** ✅
+
+### v1.2 测试类
+
+- `OneToManyMappingTest` - 一对多映射测试
+- `FormattingTest` - 格式化转换器测试
+- `ComponentModelTest` - 依赖注入模式测试
 
 ## 代码质量
 
 - **编译**：✅ 无错误
 - **代码规范**：✅ UTF-8 编码，中文注释
 - **文档完整**：✅ 详细的参考文档和 API 文档
-- **线程安全**：✅ 生成的代码是无状态的
+- **线程安全**：✅ 生成的代码是无状态/不可变的
 - **性能**：✅ 与手写代码性能相同
 
 ## 项目亮点
 
 ### 1. 简洁易用
-只需一个 `@CopyTarget` 注解，自动生成所有拷贝方法。
+只需 `@CopyTarget` 注解，自动生成所有拷贝方法。
 
 ### 2. 高性能
 编译期代码生成，零运行时反射，性能与手写代码相同。
@@ -111,49 +114,71 @@ fast-bean-copier-2/
 ### 3. 类型安全
 编译期类型检查，避免运行时错误。
 
-### 4. 完整功能
-支持字段忽略、类型转换、集合处理、双向拷贝等。
+### 4. 功能丰富
+支持字段忽略、类型转换、集合处理、双向拷贝、多字段映射、依赖注入等。
 
 ### 5. 零依赖
-生成的代码不依赖任何外部库。
+生成的代码不依赖任何外部库（JsonConverter 除外）。
 
-### 6. 完整文档
-参考文档、快速入门指南、API 文档、常见问题解答。
+### 6. 框架集成
+支持 Spring、CDI、JSR-330 等主流依赖注入框架。
 
 ## 使用示例
 
 ### 基本用法
 
 ```java
-// 1. 定义 DTO
 @CopyTarget(source = User.class)
 public class UserDto {
     private Long id;
     private String name;
-    private String email;
 }
 
-// 2. 编译时自动生成 UserDtoCopier
-
-// 3. 使用
-User user = new User(1L, "张三", "zhangsan@example.com");
+// 使用
 UserDto dto = UserDtoCopier.toDto(user);
 ```
 
-### 字段忽略
+### 多字段映射（v1.2）
 
 ```java
-@CopyTarget(source = User.class, ignore = {"password"})
-public class UserDto {
-    // password 字段不会被拷贝
+@CopyTarget(source = Person.class)
+public class PersonDto {
+    @CopyField(source = {"firstName", "lastName"}, 
+               expression = "source.getFirstName() + \" \" + source.getLastName()")
+    private String fullName;
 }
 ```
 
-### 集合拷贝
+### 类型转换（v1.2）
 
 ```java
-List<User> users = userRepository.findAll();
-List<UserDto> dtos = UserDtoCopier.toDtoList(users);
+@CopyTarget(source = Product.class)
+public class ProductDto {
+    @CopyField(converter = NumberFormatter.class, format = "#,##0.00元")
+    private String priceText;
+}
+```
+
+### Spring 集成（v1.2）
+
+```java
+@CopyTarget(source = User.class, componentModel = ComponentModel.SPRING)
+public class UserDto { }
+
+@Service
+public class UserService {
+    @Autowired
+    private UserDtoCopier userDtoCopier;
+}
+```
+
+### 函数式定制（v1.2）
+
+```java
+UserDto dto = UserDtoCopier.toDto(user, result -> {
+    result.setDisplayName(result.getName().toUpperCase());
+    return result;
+});
 ```
 
 ## 构建和部署
@@ -170,125 +195,86 @@ mvn clean install
 mvn clean test
 ```
 
-### 生成文档
+### 生成覆盖率报告
 
 ```bash
-# 参考文档位于 docs/REFERENCE.md
-# 快速入门指南位于 docs/GETTING_STARTED.md
-# API 文档位于 docs/API.md
-# 常见问题解答位于 docs/FAQ.md
+mvn jacoco:report
 ```
 
 ## 文档
 
 - **README.md** - 项目说明和快速开始
-- **docs/REFERENCE.md** - 完整的参考文档（MapStruct 格式）
-- **docs/GETTING_STARTED.md** - 5 分钟快速入门指南
+- **docs/REFERENCE.md** - 完整的参考文档
+- **docs/GETTING_STARTED.md** - 快速入门指南
 - **docs/API.md** - 详细的 API 文档
 - **docs/FAQ.md** - 常见问题解答
+- **docs/CHANGELOG.md** - 更新日志
 - **docs/PROJECT_SUMMARY.md** - 项目总结（本文件）
 
 ## 性能指标
 
 - **编译时间**：< 1 秒（增量编译）
 - **运行时性能**：与手写代码相同
-- **代码生成大小**：~2KB 每个 Copier 类
+- **代码生成大小**：~2-5KB 每个 Copier 类
 - **内存占用**：最小化，无额外开销
 
 ## 兼容性
 
 - **Java 版本**：8+
 - **IDE**：IntelliJ IDEA、Eclipse、VS Code 等
-- **构建工具**：Maven、Gradle、Ant 等
-- **框架**：Spring、Quarkus、Micronaut 等
+- **构建工具**：Maven、Gradle
+- **框架**：Spring、CDI、JSR-330 等
 
-## 已知限制
+## 版本历史
 
-1. 不支持自定义字段名映射 / 条件映射
-2. 不支持 Enum 自动转换
-3. 不支持 Builder 模式
-4. 不支持自定义转换器
+### 1.2.0（2025-12-29）
+- 多字段映射：多对一、一对多转换
+- TypeConverter：6 个内置类型转换器
+- 表达式映射：支持 Java 表达式
+- 依赖注入：Spring、CDI、JSR-330 支持
+- 函数式定制：UnaryOperator 后处理
 
-## 未来计划
+### 1.1.0（2025-12-23）
+- 集合深拷贝：List/Set/Map/数组
+- 嵌套集合与多维数组支持
+- Raw/通配符集合降级处理
 
-- [ ] 支持自定义字段映射
-- [ ] 支持 Enum 转换
-- [ ] 支持 Map 转换
-- [ ] 支持 Builder 模式
-- [ ] 支持嵌套对象自动转换
-- [ ] 支持条件映射
-- [ ] 支持自定义转换器
+### 1.0.0（2025-12-13）
+- 初始版本发布
+- 同名字段自动拷贝
+- 基本类型与包装类型转换
+- 字段忽略、集合拷贝、双向拷贝
+
+## 项目统计
+
+- **源代码行数**：~5000 行
+- **测试代码行数**：~2500 行
+- **文档行数**：~4000 行
+- **总代码行数**：~11500 行
+- **测试用例数**：80+ 个
+- **文档文件数**：7 个
 
 ## 贡献指南
 
 欢迎贡献代码、报告 Bug 或提出功能建议！
 
-### 报告 Bug
-
-在 [GitHub Issues](https://github.com/fast-bean-copier/fast-bean-copier/issues) 中提出，包括：
-1. 问题描述
-2. 复现步骤
-3. 期望行为和实际行为
-4. 环境信息
-
-### 提交 Pull Request
-
 1. Fork 项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
+2. 创建特性分支
+3. 提交更改
+4. 开启 Pull Request
 
 ## 许可证
 
-本项目采用 Apache License 2.0 许可证。详见 [LICENSE](../LICENSE) 文件。
+本项目采用 Apache License 2.0 许可证。
 
 ## 作者
 
 - **jackieonway** - 项目创建者和维护者
 
-## 致谢
-
-感谢所有贡献者和用户的支持！
-
 ## 联系方式
 
-- **GitHub Issues**：[https://github.com/fast-bean-copier/fast-bean-copier/issues](https://github.com/fast-bean-copier/fast-bean-copier/issues)
-- **GitHub Discussions**：[https://github.com/fast-bean-copier/fast-bean-copier/discussions](https://github.com/fast-bean-copier/fast-bean-copier/discussions)
+- **GitHub Issues**：[https://github.com/jackieonway/fast-bean-copier/issues](https://github.com/jackieonway/fast-bean-copier/issues)
 
-## 版本历史
+---
 
-### 1.1.0（2025-12-23）
-- 集合深拷贝：支持 List/Set/Map/数组（含多维），嵌套组合安全处理
-- 原始类型 / 无界通配符集合自动降级浅拷贝并给出编译期警告
-- 新增批量方法：toDtoMap/fromDtoMap、toDtoArray/fromDtoArray
-- null 元素与集合安全处理，集合容量预分配以减少扩容开销
-- 文档与 Javadoc 完善（参考、快速入门、FAQ、API 打包发布）
-- 继续保持零运行时反射与 Java 8+ 兼容
-
-### 1.0.0（2025-12-13）
-- 初始版本发布
-- 支持同名字段自动拷贝
-- 支持基本类型与包装类型转换
-- 支持字段忽略
-- 支持 List/Set 集合拷贝
-- 支持双向拷贝
-- 完整的单元测试覆盖
-- 完整的文档和示例
-
-## 项目统计
-
-- **源代码行数**：~3000 行
-- **测试代码行数**：~1800 行
-- **文档行数**：~3500 行
-- **总代码行数**：~8300 行
-- **测试用例数**：71 个
-- **文档文件数**：7 个
-
-## 最后的话
-
-Fast Bean Copier 是一个简洁、高效、易用的 Bean 拷贝工具。我们希望它能帮助您简化 Java 开发中的 Bean 映射工作。
-
-如果您喜欢这个项目，请给我们一个 Star ⭐！
-
-感谢使用 Fast Bean Copier！
+感谢使用 Fast Bean Copier！如果您喜欢这个项目，请给我们一个 Star ⭐！

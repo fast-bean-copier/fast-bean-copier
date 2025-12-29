@@ -1,6 +1,6 @@
 # Fast Bean Copier 快速入门指南
 
-> v1.1 新特性：集合/数组字段深拷贝（含嵌套与多维），双向拷贝，raw/无界通配符集合自动降级为浅拷贝并给出编译期警告。
+> v1.2 新特性：多字段映射（多对一、一对多）、TypeConverter 类型转换器、依赖注入支持、函数式定制拷贝。
 
 ## 5 分钟快速开始
 
@@ -12,13 +12,13 @@
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-annotations</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
 </dependency>
 
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-processor</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -33,17 +33,6 @@ public class User {
     private Integer age;
     
     // getter/setter...
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-    
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
-    
-    public Integer getAge() { return age; }
-    public void setAge(Integer age) { this.age = age; }
 }
 ```
 
@@ -60,17 +49,6 @@ public class UserDto {
     private Integer age;
     
     // getter/setter...
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-    
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
-    
-    public Integer getAge() { return age; }
-    public void setAge(Integer age) { this.age = age; }
 }
 ```
 
@@ -80,26 +58,11 @@ public class UserDto {
 mvn clean compile
 ```
 
-编译完成后，Fast Bean Copier 会自动生成 `UserDtoCopier` 类。
-
 ### 步骤 5：使用
 
 ```java
-// 创建源对象
-User user = new User();
-user.setId(1L);
-user.setName("张三");
-user.setEmail("zhangsan@example.com");
-user.setAge(25);
-
-// 转换为 DTO
+User user = new User(1L, "张三", "zhangsan@example.com", 25);
 UserDto userDto = UserDtoCopier.toDto(user);
-
-// 打印结果
-System.out.println("ID: " + userDto.getId());
-System.out.println("Name: " + userDto.getName());
-System.out.println("Email: " + userDto.getEmail());
-System.out.println("Age: " + userDto.getAge());
 ```
 
 ## 常见场景
@@ -108,129 +71,104 @@ System.out.println("Age: " + userDto.getAge());
 
 ```java
 @CopyTarget(source = User.class, ignore = {"password"})
-public class UserDto {
-    private Long id;
-    private String name;
-    private String email;
-    // password 字段不会被拷贝
-}
+public class UserDto { }
 ```
 
 ### 场景 2：批量转换
 
 ```java
-List<User> users = userRepository.findAll();
 List<UserDto> userDtos = UserDtoCopier.toDtoList(users);
 ```
 
 ### 场景 3：双向转换
 
 ```java
-// 从 DTO 转换为实体
 User user = UserDtoCopier.fromDto(userDto);
-
-// 保存到数据库
-userRepository.save(user);
-
-// 再转换回 DTO
-UserDto response = UserDtoCopier.toDto(user);
 ```
 
 ### 场景 4：集合转换
 
 ```java
-// List 转换
 List<UserDto> dtos = UserDtoCopier.toDtoList(users);
-
-// Set 转换
 Set<UserDto> dtoSet = UserDtoCopier.toDtoSet(users);
-
-// 反向转换
-List<User> users = UserDtoCopier.fromDtoList(dtos);
-Set<User> userSet = UserDtoCopier.fromDtoSet(dtoSet);
 ```
 
-### 场景 5：集合深拷贝（嵌套对象）
+## v1.2 新功能
+
+### 多对一映射
 
 ```java
-Order order = new Order(1L,
-        Arrays.asList("paid", "delivered"),
-        Collections.singletonList(new User(1L, "Tom", "tom@test.com", 20)));
-
-OrderDto orderDto = OrderDtoCopier.toDto(order);
-List<OrderDto> orderDtos = OrderDtoCopier.toDtoList(Collections.singletonList(order));
-
-// 反向转换
-Order restored = OrderDtoCopier.fromDto(orderDto);
-List<Order> restoredList = OrderDtoCopier.fromDtoList(orderDtos);
+@CopyTarget(source = Person.class)
+public class PersonDto {
+    @CopyField(source = {"firstName", "lastName"}, 
+               expression = "source.getFirstName() + \" \" + source.getLastName()")
+    private String fullName;
+}
 ```
 
-### 场景 6：数组与 Map 深拷贝
+### 一对多映射
 
 ```java
-ArrayHolder holder = new ArrayHolder(
-        1L,
-        new String[]{"a", "b"},
-        new int[]{1, 2, 3},
-        new User[]{new User(1L, "Jerry", "j@test.com", 18)}
-);
-ArrayHolderDto holderDto = ArrayHolderDtoCopier.toDto(holder);
-ArrayHolder restored = ArrayHolderDtoCopier.fromDto(holderDto);
-
-MapHolder mapHolder = new MapHolder(
-        1L,
-        Collections.singletonMap("k1", "v1"),
-        Collections.singletonMap("u1", new User(2L, "Lucy", "l@test.com", 22))
-);
-MapHolderDto mapHolderDto = MapHolderDtoCopier.toDto(mapHolder);
-MapHolder restoredMapHolder = MapHolderDtoCopier.fromDto(mapHolderDto);
+@CopyTarget(source = FullNameSource.class)
+public class NameDto {
+    @CopyField(source = "fullName", 
+               expression = "source.getFullName().split(\" \")[0]")
+    private String firstName;
+}
 ```
 
-### 场景 7：DTO 反向拷贝
+### 数字格式化
 
 ```java
-UserDto dto = new UserDto(1L, "Amy", "amy@test.com", 25);
-User entity = UserDtoCopier.fromDto(dto);
-
-Set<UserDto> dtoSet = new LinkedHashSet<>(Collections.singleton(dto));
-Set<User> entities = UserDtoCopier.fromDtoSet(dtoSet);
+@CopyField(converter = NumberFormatter.class, format = "#,##0.00元")
+private String priceText;
 ```
 
-## 故障排除
+### 日期格式化
 
-### 问题：生成的 Copier 类未出现
+```java
+@CopyField(converter = DateFormatter.class, format = "yyyy-MM-dd HH:mm:ss")
+private String createTimeText;
+```
 
-**解决方案**：
-1. 确保使用了 `@CopyTarget` 注解
-2. 确保源类和目标类都有 getter/setter 方法
-3. 运行 `mvn clean compile` 进行完整编译
+### 自定义转换器
 
-### 问题：字段未被拷贝
+```java
+@CopyTarget(source = Person.class, uses = PersonConverter.class)
+public class PersonDto {
+    @CopyField(qualifiedByName = "formatAge")
+    private String ageText;
+}
+```
 
-**解决方案**：
-1. 检查字段名是否完全相同（区分大小写）
-2. 检查源类和目标类是否都有该字段的 getter/setter
-3. 检查该字段是否在 `ignore` 属性中
+### Spring 集成
 
-### 问题：IDE 中看不到生成的代码
+```java
+@CopyTarget(source = User.class, componentModel = ComponentModel.SPRING)
+public class UserDto { }
 
-**解决方案**：
-1. 在 IDE 中刷新项目（F5 或右键 -> Refresh）
-2. 重新构建项目（Clean -> Build）
-3. 检查 IDE 是否启用了注解处理（通常默认启用）
+@Service
+public class UserService {
+    @Autowired
+    private UserDtoCopier userDtoCopier;
+}
+```
+
+### 函数式定制
+
+```java
+UserDto dto = UserDtoCopier.toDto(user, result -> {
+    result.setDisplayName(result.getName().toUpperCase());
+    return result;
+});
+```
 
 ## 下一步
 
 - 查看 [参考文档](REFERENCE.md) 了解更多功能
-- 查看 [示例代码](../fast-bean-copier-examples) 了解更多用法
-- 在 [GitHub Issues](https://github.com/fast-bean-copier/fast-bean-copier/issues) 中提出问题
-
-## 提示
-
-- 使用 Lombok 的 `@Data` 注解可以自动生成 getter/setter
-- 生成的 Copier 类是无状态的，可以安全地在多线程环境中使用
-- 生成的代码性能与手写代码相同
+- 查看 [API 文档](API.md) 了解详细 API
+- 查看 [FAQ](FAQ.md) 了解常见问题
 
 ## 许可证
 
-Fast Bean Copier 采用 Apache License 2.0 许可证。
+Apache License 2.0

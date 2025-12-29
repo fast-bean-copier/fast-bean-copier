@@ -5,6 +5,87 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/),
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.2.0] - 2025-12-29
+
+### 新增
+
+#### 多字段映射
+- **多对一转换**：支持将多个源字段合并映射到一个目标字段
+  - 使用 `@CopyField(source = {"field1", "field2"}, expression = "...")` 语法
+  - 支持 Java 表达式进行复杂转换
+  - 示例：`firstName + lastName -> fullName`
+- **一对多转换**：支持将一个源字段拆分映射到多个目标字段
+  - 多个目标字段可以引用同一个源字段
+  - 支持表达式进行字段拆分
+  - 示例：`fullName -> firstName + lastName`
+
+#### 类型转换器（TypeConverter）
+- **内置转换器**：
+  - `NumberFormatter`：`Number` → `String` 格式化（支持 `DecimalFormat` 格式字符串）
+  - `NumberParser`：`String` → `Number` 解析
+  - `DateFormatter`：`Date`/`LocalDate`/`LocalDateTime` → `String` 格式化
+  - `DateParser`：`String` → 日期类型 解析
+  - `EnumStringConverter`：`Enum` ↔ `String`/`Integer` 转换
+  - `JsonConverter`：对象 ↔ JSON 字符串 转换（依赖 Jackson）
+- **格式化支持**：通过 `@CopyField(converter = Xxx.class, format = "...")` 传递格式字符串
+- **自定义转换器**：通过 `@CopyTarget(uses = {CustomConverter.class})` 引入自定义转换器
+
+#### 表达式映射
+- 支持 Java 表达式进行复杂字段转换
+- 表达式中 `source` 变量代表源对象
+- 支持方法调用、链式调用、流操作、三元运算符等
+- 编译期类型检查和错误提示
+
+#### 依赖注入支持
+- **ComponentModel 枚举**：
+  - `DEFAULT`：无依赖注入，生成静态方法
+  - `SPRING`：Spring 框架，生成 `@Component` 注解
+  - `CDI`：CDI 框架，生成 `@ApplicationScoped` 注解
+  - `JSR330`：JSR-330 标准，生成 `@Named` + `@Singleton` 注解
+- **构造器注入**：TypeConverter 和自定义转换器通过构造器注入
+- **字段不可变性**：依赖注入模式下字段使用 `final` 修饰
+- **向后兼容**：提供无参构造器以兼容没有注册 Bean 的情况
+
+#### 函数式定制拷贝
+- 新增带 `UnaryOperator` 参数的重载方法
+- 支持在拷贝完成后立即执行自定义逻辑
+- 方法签名：`toDto(source, UnaryOperator<DTO> customizer)`
+- 集合方法同样提供重载：`toDtoList(sources, customizer)` 等
+- null 安全：当源对象为 null 时，函数不被调用
+
+#### 注解扩展
+- **@CopyTarget 扩展**：
+  - 新增 `uses` 属性：自定义转换器类列表
+  - 新增 `componentModel` 属性：依赖注入框架选择
+- **@CopyField 注解**：
+  - `source[]`：源字段名数组（支持多对一）
+  - `target`：目标字段名
+  - `expression`：Java 表达式
+  - `qualifiedByName`：具名转换方法名
+  - `converter`：TypeConverter 实现类
+  - `format`：格式字符串
+
+#### 测试与覆盖率
+- 新增 `OneToManyMappingTest`：一对多映射测试
+- 新增 `FormattingTest`：格式化转换器测试
+- 新增 `ComponentModelTest`：依赖注入模式测试
+- 示例模块指令覆盖率保持 93%+
+
+### 改进
+- TypeConverter 在不同 componentModel 下采用不同注入方式
+- DEFAULT 模式使用静态实例，SPRING/CDI/JSR330 模式使用构造器注入
+- 表达式解析器支持更复杂的 Java 表达式语法
+
+### 兼容性
+- Java 8+，Maven 构建
+- 保持零运行时反射开销
+- 完全向后兼容 v1.1
+
+### 验证
+- `mvn clean install`
+- `mvn jacoco:report`
+- `mvn javadoc:javadoc`
+
 ## [1.1.0] - 2025-12-23
 
 ### 新增
@@ -120,7 +201,7 @@
 
 - **Java 版本**：8+
 - **构建工具**：Maven
-- **许可证**：MIT
+- **许可证**：Apache License 2.0
 - **性能**：零运行时开销，与手写代码性能相同
 - **代码生成**：每个 Copier 类约 2KB
 - **线程安全**：生成的代码是无状态的，线程安全
@@ -136,5 +217,6 @@
 
 ---
 
+[1.2.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.2.0
 [1.1.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.1.0
 [1.0.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.0.0

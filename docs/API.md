@@ -1,12 +1,12 @@
 # Fast Bean Copier API 文档
 
-> v1.1 提示：新增 List/Set/Map/数组字段的深拷贝与反向拷贝，支持嵌套集合、多维数组，raw/无界通配符集合自动降级为浅拷贝并输出编译期警告。
+> v1.2 新增：多字段映射（多对一、一对多）、TypeConverter 类型转换器、依赖注入支持、函数式定制拷贝。
 
 ## 注解
 
 ### @CopyTarget
 
-标记目标 DTO 类，指定源类和要忽略的字段。
+标记目标 DTO 类，指定源类、要忽略的字段、自定义转换器和组件模型。
 
 #### 声明
 
@@ -23,6 +23,16 @@ public @interface CopyTarget {
      * 要忽略的字段名数组。可选。
      */
     String[] ignore() default {};
+    
+    /**
+     * 自定义转换器类列表。可选。
+     */
+    Class<?>[] uses() default {};
+    
+    /**
+     * 组件模型（依赖注入框架）。可选。
+     */
+    ComponentModel componentModel() default ComponentModel.DEFAULT;
 }
 ```
 
@@ -32,6 +42,8 @@ public @interface CopyTarget {
 |------|------|------|------|
 | `source` | `Class<?>` | 是 | 源类的类型 |
 | `ignore` | `String[]` | 否 | 要忽略的字段名数组 |
+| `uses` | `Class<?>[]` | 否 | 自定义转换器类列表（v1.2） |
+| `componentModel` | `ComponentModel` | 否 | 依赖注入框架选择（v1.2） |
 
 #### 示例
 
@@ -47,6 +59,204 @@ public class UserDto {
 public class UserResponse {
     // ...
 }
+
+// 使用自定义转换器
+@CopyTarget(source = User.class, uses = {StringToListConverter.class})
+public class UserDto {
+    // ...
+}
+
+// Spring 集成
+@CopyTarget(source = User.class, componentModel = ComponentModel.SPRING)
+public class UserDto {
+    // ...
+}
+```
+
+### @CopyField（v1.2 新增）
+
+标记目标字段，指定字段级映射和转换规则。
+
+#### 声明
+
+```java
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.SOURCE)
+public @interface CopyField {
+    /**
+     * 源字段名（支持多个，用于多对一）
+     */
+    String[] source() default {};
+    
+    /**
+     * 目标字段名（默认使用注解所在字段名）
+     */
+    String target() default "";
+    
+    /**
+     * Java 表达式，用于复杂转换
+     */
+    String expression() default "";
+    
+    /**
+     * 绑定具名转换方法（需配合 uses 使用）
+     */
+    String qualifiedByName() default "";
+    
+    /**
+     * 指定 TypeConverter 实现类
+     */
+    Class<? extends TypeConverter<?, ?>> converter() default TypeConverter.None.class;
+    
+    /**
+     * 转换器配置参数（格式字符串等）
+     */
+    String format() default "";
+}
+```
+
+#### 属性
+
+| 属性 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `source` | `String[]` | 否 | 源字段名数组（支持多对一） |
+| `target` | `String` | 否 | 目标字段名 |
+| `expression` | `String` | 否 | Java 表达式 |
+| `qualifiedByName` | `String` | 否 | 具名转换方法名 |
+| `converter` | `Class<?>` | 否 | TypeConverter 实现类 |
+| `format` | `String` | 否 | 格式字符串 |
+
+#### 示例
+
+```java
+// 多对一映射
+@CopyField(source = {"firstName", "lastName"}, 
+           expression = "source.getFirstName() + \" \" + source.getLastName()")
+private String fullName;
+
+// 一对多映射
+@CopyField(source = "fullName", 
+           expression = "source.getFullName().split(\" \")[0]")
+private String firstName;
+
+// 使用 TypeConverter
+@CopyField(converter = NumberFormatter.class, format = "#,##0.00")
+private String priceText;
+
+// 使用具名方法
+@CopyField(qualifiedByName = "statusToName")
+private String statusText;
+```
+
+### ComponentModel 枚举（v1.2 新增）
+
+定义依赖注入框架的组件模型。
+
+```java
+public enum ComponentModel {
+    /**
+     * 无依赖注入，使用静态方法
+     */
+    DEFAULT,
+    
+    /**
+     * Spring 框架，生成 @Component 注解
+     */
+    SPRING,
+    
+    /**
+     * CDI 框架，生成 @ApplicationScoped 注解
+     */
+    CDI,
+    
+    /**
+     * JSR-330 标准，生成 @Named 和 @Singleton 注解
+     */
+    JSR330
+}
+```
+
+### TypeConverter 接口（v1.2 新增）
+
+类型转换器接口，用于自定义类型转换。
+
+```java
+public interface TypeConverter<S, T> {
+    /**
+     * 将源类型转换为目标类型
+     * 
+     * @param source 源对象
+     * @param format 格式字符串（可为空）
+     * @return 转换后的对象
+     */
+    T convert(S source, String format);
+    
+    /**
+     * 空实现占位符
+     */
+    final class None implements TypeConverter<Object, Object> {
+        @Override
+        public Object convert(Object source, String format) {
+            throw new UnsupportedOperationException("No converter configured");
+        }
+    }
+}
+```
+
+## 内置 TypeConverter
+
+### NumberFormatter
+
+将数字格式化为字符串。
+
+```java
+@CopyField(converter = NumberFormatter.class, format = "#,##0.00")
+private String priceText;  // 1234.5 -> "1,234.50"
+```
+
+### NumberParser
+
+将字符串解析为数字。
+
+```java
+@CopyField(converter = NumberParser.class, format = "#,##0.00")
+private BigDecimal price;  // "1,234.50" -> 1234.50
+```
+
+### DateFormatter
+
+将日期格式化为字符串。
+
+```java
+@CopyField(converter = DateFormatter.class, format = "yyyy-MM-dd HH:mm:ss")
+private String createTimeText;  // LocalDateTime -> "2025-12-29 10:30:00"
+```
+
+### DateParser
+
+将字符串解析为日期。
+
+```java
+@CopyField(converter = DateParser.class, format = "yyyy-MM-dd")
+private LocalDate createDate;  // "2025-12-29" -> LocalDate
+```
+
+### EnumStringConverter
+
+枚举与字符串/整数互转。
+
+```java
+@CopyField(converter = EnumStringConverter.class)
+private String statusText;  // Status.ACTIVE -> "ACTIVE"
+```
+
+### JsonConverter
+
+对象与 JSON 字符串互转（依赖 Jackson）。
+
+```java
+@CopyField(converter = JsonConverter.class)
+private String dataJson;  // Object -> JSON String
 ```
 
 ## 生成的 Copier 类
@@ -74,6 +284,30 @@ User user = new User(1L, "张三", "zhangsan@example.com", 25);
 UserDto userDto = UserDtoCopier.toDto(user);
 ```
 
+#### toDto(source, customizer)（v1.2 新增）
+
+将源对象转换为目标 DTO 对象，并应用自定义逻辑。
+
+**签名**：
+```java
+public static TargetType toDto(SourceType source, UnaryOperator<TargetType> customizer)
+```
+
+**参数**：
+- `source` - 源对象
+- `customizer` - 自定义函数
+
+**返回值**：
+- 经过自定义处理的目标 DTO 对象
+
+**示例**：
+```java
+UserDto dto = UserDtoCopier.toDto(user, result -> {
+    result.setDisplayName(result.getName().toUpperCase());
+    return result;
+});
+```
+
 #### fromDto(source)
 
 将目标 DTO 对象转换回源对象（反向拷贝）。
@@ -93,6 +327,15 @@ public static SourceType fromDto(TargetType source)
 ```java
 UserDto userDto = new UserDto(1L, "张三", "zhangsan@example.com", 25);
 User user = UserDtoCopier.fromDto(userDto);
+```
+
+#### fromDto(source, customizer)（v1.2 新增）
+
+将目标 DTO 对象转换回源对象，并应用自定义逻辑。
+
+**签名**：
+```java
+public static SourceType fromDto(TargetType source, UnaryOperator<SourceType> customizer)
 ```
 
 #### toDtoList(sources)
@@ -116,6 +359,17 @@ List<User> users = userRepository.findAll();
 List<UserDto> userDtos = UserDtoCopier.toDtoList(users);
 ```
 
+#### toDtoList(sources, customizer)（v1.2 新增）
+
+将源对象列表转换为目标 DTO 对象列表，并对每个元素应用自定义逻辑。
+
+**签名**：
+```java
+public static java.util.List<TargetType> toDtoList(
+    java.util.List<SourceType> sources, 
+    UnaryOperator<TargetType> customizer)
+```
+
 #### toDtoSet(sources)
 
 将源对象集合转换为目标 DTO 对象集合。
@@ -125,17 +379,9 @@ List<UserDto> userDtos = UserDtoCopier.toDtoList(users);
 public static java.util.Set<TargetType> toDtoSet(java.util.Set<SourceType> sources)
 ```
 
-**参数**：
-- `sources` - 源对象集合
+#### toDtoSet(sources, customizer)（v1.2 新增）
 
-**返回值**：
-- 目标 DTO 对象集合，如果源集合为 null，返回 null
-
-**示例**：
-```java
-Set<User> users = new HashSet<>(userRepository.findAll());
-Set<UserDto> userDtos = UserDtoCopier.toDtoSet(users);
-```
+将源对象集合转换为目标 DTO 对象集合，并对每个元素应用自定义逻辑。
 
 #### fromDtoList(sources)
 
@@ -146,17 +392,9 @@ Set<UserDto> userDtos = UserDtoCopier.toDtoSet(users);
 public static java.util.List<SourceType> fromDtoList(java.util.List<TargetType> sources)
 ```
 
-**参数**：
-- `sources` - 目标 DTO 对象列表
+#### fromDtoList(sources, customizer)（v1.2 新增）
 
-**返回值**：
-- 源对象列表，如果目标列表为 null，返回 null
-
-**示例**：
-```java
-List<UserDto> userDtos = request.getBody();
-List<User> users = UserDtoCopier.fromDtoList(userDtos);
-```
+将目标 DTO 对象列表转换回源对象列表，并对每个元素应用自定义逻辑。
 
 #### fromDtoSet(sources)
 
@@ -166,6 +404,10 @@ List<User> users = UserDtoCopier.fromDtoList(userDtos);
 ```java
 public static java.util.Set<SourceType> fromDtoSet(java.util.Set<TargetType> sources)
 ```
+
+#### fromDtoSet(sources, customizer)（v1.2 新增）
+
+将目标 DTO 对象集合转换回源对象集合，并对每个元素应用自定义逻辑。
 
 #### toDtoMap(sources)
 
@@ -203,18 +445,6 @@ public static TargetType[] toDtoArray(SourceType[] sources)
 public static SourceType[] fromDtoArray(TargetType[] sources)
 ```
 
-**参数**：
-- `sources` - 目标 DTO 对象集合
-
-**返回值**：
-- 源对象集合，如果目标集合为 null，返回 null
-
-**示例**：
-```java
-Set<UserDto> userDtos = request.getBody();
-Set<User> users = UserDtoCopier.fromDtoSet(userDtos);
-```
-
 ## 类型转换
 
 ### 支持的类型转换
@@ -246,18 +476,6 @@ Fast Bean Copier 自动支持以下类型转换：
 
 对于同名字段，Fast Bean Copier 会自动拷贝，无论类型是否相同（只要兼容）。
 
-**示例**：
-```java
-public class User {
-    private String name;  // String 类型
-}
-
-@CopyTarget(source = User.class)
-public class UserDto {
-    private String name;  // 自动从 User.name 拷贝
-}
-```
-
 ## Null 值处理
 
 ### 对象级别的 null 处理
@@ -283,103 +501,80 @@ UserDto dto = UserDtoCopier.toDto(user);
 // dto.name 也为 null
 ```
 
-### 包装类型 null 转换为基本类型
+### 函数式定制的 null 处理（v1.2）
 
-当从包装类型转换为基本类型时，null 值会转换为默认值：
+当源对象为 null 时，customizer 函数不会被调用：
 
 ```java
-@CopyTarget(source = UserDto.class)
-public class User {
-    private int age;  // 基本类型
-}
-
-UserDto userDto = new UserDto();
-userDto.setAge(null);  // age 为 null
-
-User user = UserDtoCopier.fromDto(userDto);
-// user.age 为 0（int 的默认值）
+UserDto dto = UserDtoCopier.toDto(null, result -> {
+    // 这里不会执行
+    return result;
+});
+// dto 为 null
 ```
 
-## 字段忽略
+## 依赖注入模式（v1.2）
 
-### 使用 ignore 属性
+### DEFAULT 模式
 
-使用 `@CopyTarget` 注解的 `ignore` 属性可以指定要忽略的字段：
+生成静态方法，无依赖注入：
 
 ```java
-@CopyTarget(source = User.class, ignore = {"password", "token"})
-public class UserDto {
-    private Long id;
-    private String name;
-    private String email;
-    // password 和 token 不会被拷贝
+public final class UserDtoCopier {
+    private UserDtoCopier() {}
+    
+    public static UserDto toDto(User source) { ... }
 }
 ```
 
-### 多个字段忽略
+### SPRING 模式
+
+生成 Spring Bean：
 
 ```java
-@CopyTarget(
-    source = User.class,
-    ignore = {"password", "token", "secretKey", "internalId"}
-)
-public class UserDto {
-    // ...
+@Component
+public final class UserDtoCopier {
+    private final CustomConverter customConverter;
+    
+    public UserDtoCopier(CustomConverter customConverter) {
+        this.customConverter = customConverter != null 
+            ? customConverter : new CustomConverter();
+    }
+    
+    public UserDtoCopier() {
+        this(null);
+    }
+    
+    public UserDto toDto(User source) { ... }
 }
 ```
 
-## 集合映射
+### CDI 模式
 
-### List 映射
-
-```java
-// 转换为 DTO 列表
-List<UserDto> dtos = UserDtoCopier.toDtoList(users);
-
-// 反向转换
-List<User> users = UserDtoCopier.fromDtoList(dtos);
-```
-
-### Set 映射
+生成 CDI Bean：
 
 ```java
-// 转换为 DTO 集合
-Set<UserDto> dtoSet = UserDtoCopier.toDtoSet(users);
-
-// 反向转换
-Set<User> userSet = UserDtoCopier.fromDtoSet(dtoSet);
+@ApplicationScoped
+public final class UserDtoCopier {
+    // 与 SPRING 模式类似
+}
 ```
 
-### 集合中的 null 处理
+### JSR330 模式
+
+生成 JSR-330 Bean：
 
 ```java
-// 集合为 null 时返回 null
-List<UserDto> dtos = UserDtoCopier.toDtoList(null);  // 返回 null
-
-// 集合中的 null 元素被保留
-List<UserDto> dtos = UserDtoCopier.toDtoList(
-    Arrays.asList(user1, null, user2)
-);
-// 结果中包含 3 个元素，第二个为 null
+@Named
+@Singleton
+public final class UserDtoCopier {
+    // 与 SPRING 模式类似
+}
 ```
-
-### Map 与数组深拷贝（v1.1）
-
-```java
-Map<String, User> map = Collections.singletonMap("u1", new User(1L, "Tom", "t@test.com", 20));
-Map<String, UserDto> dtoMap = UserDtoCopier.toDtoMap(map); // 由生成的 Copier 提供
-
-User[] arr = new User[]{new User(1L, "Jerry", "j@test.com", 18)};
-UserDto[] dtoArr = UserDtoCopier.toDtoArray(arr);
-```
-
-- Map：Key 通常直接拷贝，Value 按深拷贝规则处理；null Map/Value 保留。
-- 数组：按元素深拷贝，支持多维数组与 null 元素。
-- Raw/无界通配符集合会降级为浅拷贝并给出编译期警告。
 
 ## 线程安全性
 
-生成的 Copier 类是无状态的，可以安全地在多线程环境中使用。
+生成的 Copier 类是无状态的（DEFAULT 模式）或不可变的（DI 模式），可以安全地在多线程环境中使用。
 
 ```java
 // 在多线程环境中安全使用
@@ -398,6 +593,7 @@ for (User user : users) {
 - **无反射** - 直接调用 getter/setter
 - **无动态代理** - 生成的代码是普通 Java 代码
 - **内联友好** - JIT 编译器可以内联生成的代码
+- **TypeConverter 复用** - DEFAULT 模式使用静态实例，DI 模式使用单例
 
 ## 异常处理
 
