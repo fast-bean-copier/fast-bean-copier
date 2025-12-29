@@ -28,7 +28,7 @@ import java.util.Date;
  * private String createTimeStr;
  * </pre>
  *
- * <h3>常用格式模式</h3>
+ * <p><b>常用格式模式</b></p>
  * <ul>
  *   <li>{@code yyyy-MM-dd} - 日期：2024-01-15</li>
  *   <li>{@code yyyy-MM-dd HH:mm:ss} - 日期时间：2024-01-15 14:30:00</li>

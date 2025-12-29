@@ -33,6 +33,14 @@ public class ConverterAnalyzer {
         private final List<TypeMirror> parameterTypes;
         private final ExecutableElement element;
 
+        /**
+         * 创建转换方法信息。
+         *
+         * @param methodName 方法名
+         * @param returnType 返回类型
+         * @param parameterTypes 参数类型列表
+         * @param element 方法元素
+         */
         public ConverterMethod(String methodName, TypeMirror returnType, 
                                List<TypeMirror> parameterTypes, ExecutableElement element) {
             this.methodName = methodName;
@@ -41,24 +49,49 @@ public class ConverterAnalyzer {
             this.element = element;
         }
 
+        /**
+         * 获取方法名。
+         *
+         * @return 方法名
+         */
         public String getMethodName() {
             return methodName;
         }
 
+        /**
+         * 获取返回类型。
+         *
+         * @return 返回类型
+         */
         public TypeMirror getReturnType() {
             return returnType;
         }
 
+        /**
+         * 获取参数类型列表。
+         *
+         * @return 参数类型列表
+         */
         public List<TypeMirror> getParameterTypes() {
             return parameterTypes;
         }
 
+        /**
+         * 获取方法元素。
+         *
+         * @return 方法元素
+         */
         public ExecutableElement getElement() {
             return element;
         }
 
         /**
          * 检查方法是否匹配指定的参数类型和返回类型。
+         *
+         * @param sourceType 源类型
+         * @param targetType 目标类型
+         * @param typeUtils 类型工具
+         * @return 如果匹配返回 true
          */
         public boolean matches(TypeMirror sourceType, TypeMirror targetType, Types typeUtils) {
             // 检查返回类型

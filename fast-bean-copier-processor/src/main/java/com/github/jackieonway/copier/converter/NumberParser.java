@@ -16,7 +16,7 @@ import java.text.ParseException;
  * private BigDecimal price;
  * </pre>
  *
- * <h3>支持的目标类型</h3>
+ * <p><b>支持的目标类型</b></p>
  * <ul>
  *   <li>{@link Integer} / {@code int}</li>
  *   <li>{@link Long} / {@code long}</li>

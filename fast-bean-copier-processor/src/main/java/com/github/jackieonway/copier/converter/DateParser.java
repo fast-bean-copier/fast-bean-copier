@@ -23,7 +23,7 @@ import java.util.Date;
  * private LocalDateTime createTime;
  * </pre>
  *
- * <h3>支持的目标类型</h3>
+ * <p><b>支持的目标类型</b></p>
  * <ul>
  *   <li>{@link Date}</li>
  *   <li>{@link LocalDate}</li>

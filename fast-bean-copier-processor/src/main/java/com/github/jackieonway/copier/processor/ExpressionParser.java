@@ -62,26 +62,59 @@ public class ExpressionParser {
             this.requiredVariables = requiredVariables;
         }
 
+        /**
+         * 创建成功的解析结果。
+         *
+         * @param codeSnippet 代码片段
+         * @param requiredVariables 需要的变量集合
+         * @return 成功的解析结果
+         */
         public static ParseResult success(String codeSnippet, Set<String> requiredVariables) {
             return new ParseResult(true, null, codeSnippet, requiredVariables);
         }
 
+        /**
+         * 创建失败的解析结果。
+         *
+         * @param errorMessage 错误信息
+         * @return 失败的解析结果
+         */
         public static ParseResult error(String errorMessage) {
             return new ParseResult(false, errorMessage, null, null);
         }
 
+        /**
+         * 检查解析是否有效。
+         *
+         * @return 如果有效返回 true
+         */
         public boolean isValid() {
             return valid;
         }
 
+        /**
+         * 获取错误信息。
+         *
+         * @return 错误信息，如果没有错误返回 null
+         */
         public String getErrorMessage() {
             return errorMessage;
         }
 
+        /**
+         * 获取代码片段。
+         *
+         * @return 代码片段
+         */
         public String getCodeSnippet() {
             return codeSnippet;
         }
 
+        /**
+         * 获取需要的变量集合。
+         *
+         * @return 需要的变量集合
+         */
         public Set<String> getRequiredVariables() {
             return requiredVariables;
         }

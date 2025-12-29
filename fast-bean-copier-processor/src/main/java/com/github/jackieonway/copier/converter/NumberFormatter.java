@@ -13,7 +13,7 @@ import java.text.DecimalFormat;
  * private String priceStr;
  * </pre>
  *
- * <h3>常用格式模式</h3>
+ * <p><b>常用格式模式</b></p>
  * <ul>
  *   <li>{@code #,##0.00} - 千分位分隔，保留两位小数：1,234.56</li>
  *   <li>{@code 0.00} - 保留两位小数：1234.56</li>
