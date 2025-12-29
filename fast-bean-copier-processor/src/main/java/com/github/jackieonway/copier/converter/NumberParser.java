@@ -10,7 +10,7 @@ import java.text.ParseException;
  *
  * <p>支持解析各种数字格式的字符串，包括带千分位分隔符的数字。
  *
- * <h3>使用示例</h3>
+ * <p><b>使用示例</b></p>
  * <pre>
  * &#64;CopyField(converter = NumberParser.class, format = "#,##0.00")
  * private BigDecimal price;

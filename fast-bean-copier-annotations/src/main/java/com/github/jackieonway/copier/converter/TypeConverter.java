@@ -11,7 +11,7 @@ package com.github.jackieonway.copier.converter;
  *   <li>对象与 JSON 字符串之间的转换</li>
  * </ul>
  *
- * <h3>使用示例</h3>
+ * <p><b>使用示例</b></p>
  * <pre>
  * public class DateToStringConverter implements TypeConverter&lt;Date, String&gt; {
  *     &#64;Override
@@ -25,7 +25,7 @@ package com.github.jackieonway.copier.converter;
  * }
  * </pre>
  *
- * <h3>在注解中使用</h3>
+ * <p><b>在注解中使用</b></p>
  * <pre>
  * &#64;CopyField(converter = DateToStringConverter.class, format = "yyyy-MM-dd")
  * private String birthDateStr;

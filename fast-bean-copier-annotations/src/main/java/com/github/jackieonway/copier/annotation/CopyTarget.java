@@ -28,9 +28,9 @@ import java.lang.annotation.Target;
  *   <li>fromDtoSet(Set&lt;UserDto&gt; sources): 反向批量拷贝 Set</li>
  * </ul>
  *
- * <h3>v1.2 新功能</h3>
+ * <p><b>v1.2 新功能</b></p>
  *
- * <h4>使用自定义转换器</h4>
+ * <p><b>使用自定义转换器</b></p>
  * <pre>
  * &#64;CopyTarget(source = User.class, uses = {DateConverter.class, PriceConverter.class})
  * public class UserDto {
@@ -39,7 +39,7 @@ import java.lang.annotation.Target;
  * }
  * </pre>
  *
- * <h4>使用 Spring 依赖注入</h4>
+ * <p><b>使用 Spring 依赖注入</b></p>
  * <pre>
  * &#64;CopyTarget(source = User.class, componentModel = ComponentModel.SPRING)
  * public class UserDto { }

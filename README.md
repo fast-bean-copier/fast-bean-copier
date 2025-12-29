@@ -2,6 +2,8 @@
 
 Fast Bean Copier 是一个高性能的 Java Bean 拷贝工具，使用 APT（注解处理工具）在编译期自动生成拷贝代码，实现零运行时开销。
 
+> **v1.2 新特性**：多字段映射（多对一、一对多）、类型转换器与格式化、依赖注入支持、函数式定制拷贝。
+> 
 > v1.1 新特性：集合/数组字段深拷贝（含嵌套组合、多维数组）与反向拷贝；raw/无界通配符集合自动降级浅拷贝并输出编译期警告。
 
 ## 特性
@@ -12,6 +14,10 @@ Fast Bean Copier 是一个高性能的 Java Bean 拷贝工具，使用 APT（注
 - ✅ **易用** - 只需添加 `@CopyTarget` 注解即可
 - ✅ **灵活** - 支持字段忽略、类型转换、集合处理
 - ✅ **完整** - 支持双向拷贝、集合/Map/数组拷贝、嵌套对象
+- 🆕 **多字段映射** - 支持多对一、一对多字段映射和表达式
+- 🆕 **类型转换器** - 内置数字、日期、枚举等转换器，支持自定义转换器
+- 🆕 **依赖注入** - 支持 Spring、CDI、JSR-330 等依赖注入框架
+- 🆕 **函数式定制** - 支持函数式后处理定制拷贝结果
 
 ## 快速开始
 
@@ -22,14 +28,14 @@ Fast Bean Copier 是一个高性能的 Java Bean 拷贝工具，使用 APT（注
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-annotations</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
 </dependency>
 
 <!-- 处理器模块（编译时依赖） -->
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-processor</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -161,6 +167,145 @@ List<UserDto> dtos = UserDtoCopier.toDtoList(Arrays.asList(user1, null, user2));
 // 结果中包含 3 个元素，第二个为 null
 ```
 
+## v1.2 新功能
+
+### 多字段映射
+
+#### 多对一映射（字段合并）
+
+使用 `@CopyField` 注解实现多个源字段合并到一个目标字段：
+
+```java
+public class Person {
+    private String firstName;
+    private String lastName;
+}
+
+@CopyTarget(source = Person.class)
+public class PersonDto {
+    @CopyField(source = {"firstName", "lastName"}, 
+               expression = "source.getFirstName() + \" \" + source.getLastName()")
+    private String fullName;
+}
+```
+
+#### 一对多映射（字段拆分）
+
+一个源字段映射到多个目标字段：
+
+```java
+public class FullName {
+    private String fullName;
+}
+
+@CopyTarget(source = FullName.class)
+public class PersonDto {
+    @CopyField(source = "fullName", 
+               expression = "source.getFullName().split(\" \")[0]")
+    private String firstName;
+    
+    @CopyField(source = "fullName", 
+               expression = "source.getFullName().split(\" \")[1]")
+    private String lastName;
+}
+```
+
+### 类型转换器与格式化
+
+#### 内置转换器
+
+支持数字、日期、枚举等常见类型的格式化：
+
+```java
+@CopyTarget(source = Product.class)
+public class ProductDto {
+    @CopyField(converter = NumberFormatter.class, format = "#,##0.00")
+    private String price;  // 数字格式化为字符串
+    
+    @CopyField(converter = DateFormatter.class, format = "yyyy-MM-dd")
+    private String createTime;  // 日期格式化为字符串
+}
+```
+
+#### 自定义转换器
+
+定义自定义转换器类：
+
+```java
+public class PersonConverter {
+    public String formatAge(Integer age) {
+        return age + "岁";
+    }
+    
+    public String formatStatus(Boolean active) {
+        return active ? "活跃" : "非活跃";
+    }
+}
+
+@CopyTarget(source = Person.class, uses = PersonConverter.class)
+public class PersonDto {
+    @CopyField(qualifiedByName = "formatAge")
+    private String ageText;
+    
+    @CopyField(qualifiedByName = "formatStatus")
+    private String statusText;
+}
+```
+
+### 依赖注入支持
+
+#### Spring 框架集成
+
+```java
+@CopyTarget(source = User.class, componentModel = ComponentModel.SPRING)
+public class UserDto {
+    // 字段定义...
+}
+
+// 生成的代码会添加 @Component 注解
+@Component
+public class UserDtoCopier {
+    // 实例方法而非静态方法
+    public UserDto toDto(User source) { ... }
+}
+
+// 在 Spring 中使用
+@Service
+public class UserService {
+    @Autowired
+    private UserDtoCopier userDtoCopier;
+    
+    public UserDto convertUser(User user) {
+        return userDtoCopier.toDto(user);
+    }
+}
+```
+
+#### 支持的依赖注入框架
+
+- `ComponentModel.DEFAULT` - 默认模式，生成静态方法
+- `ComponentModel.SPRING` - Spring 框架，生成 `@Component` 注解
+- `ComponentModel.CDI` - CDI 框架，生成 `@ApplicationScoped` 注解
+- `ComponentModel.JSR330` - JSR-330 标准，生成 `@Named` + `@Singleton` 注解
+
+### 函数式定制拷贝
+
+支持在拷贝完成后进行函数式定制：
+
+```java
+// 基本拷贝后定制
+UserDto dto = UserDtoCopier.toDto(user, result -> {
+    result.setDisplayName(result.getName().toUpperCase());
+    return result;
+});
+
+// 集合拷贝后定制
+List<UserDto> dtos = UserDtoCopier.toDtoList(users, result -> {
+    result.setProcessed(true);
+    return result;
+});
+```
+
 ## 生成的代码示例
 
 编译后自动生成的 `UserDtoCopier` 类：
@@ -255,7 +400,7 @@ A: Java 8 及以上版本。
 A: 支持。同名字段会直接拷贝，不同类型的嵌套对象需要在应用层手动处理。
 
 ### Q: 支持自定义转换器吗？
-A: 当前版本不支持，可以在应用层手动处理特殊字段。
+A: v1.2 版本开始支持。可以使用内置转换器（NumberFormatter、DateFormatter 等）或定义自定义转换器类。
 
 ### Q: 生成的代码在哪里？
 A: 在 `target/generated-sources/annotations/` 目录下。

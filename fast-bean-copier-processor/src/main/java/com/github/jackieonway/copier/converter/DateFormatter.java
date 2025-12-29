@@ -19,7 +19,7 @@ import java.util.Date;
  *   <li>{@link LocalTime} - 使用 {@link DateTimeFormatter}</li>
  * </ul>
  *
- * <h3>使用示例</h3>
+ * <p><b>使用示例</b></p>
  * <pre>
  * &#64;CopyField(converter = DateFormatter.class, format = "yyyy-MM-dd")
  * private String birthDateStr;

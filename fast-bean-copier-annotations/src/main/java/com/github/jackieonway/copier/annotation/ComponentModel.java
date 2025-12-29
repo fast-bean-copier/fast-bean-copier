@@ -11,7 +11,7 @@ package com.github.jackieonway.copier.annotation;
  *   <li>{@link #JSR330}：生成 JSR-330 兼容 Bean，使用 {@code @Named} 和 {@code @Singleton} 注解</li>
  * </ul>
  *
- * <h3>使用示例</h3>
+ * <p><b>使用示例</b></p>
  * <pre>
  * // 默认模式，生成静态方法
  * &#64;CopyTarget(source = User.class)

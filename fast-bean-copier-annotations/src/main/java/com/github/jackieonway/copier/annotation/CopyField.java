@@ -19,15 +19,15 @@ import com.github.jackieonway.copier.converter.TypeConverter;
  *   <li>具名转换方法：绑定自定义转换器中的具名方法</li>
  * </ul>
  *
- * <h3>使用示例</h3>
+ * <p><b>使用示例</b></p>
  *
- * <h4>1. 多对一映射（多个源字段合并）</h4>
+ * <p><b>1. 多对一映射（多个源字段合并）</b></p>
  * <pre>
  * &#64;CopyField(source = {"firstName", "lastName"}, expression = "source.getFirstName() + \" \" + source.getLastName()")
  * private String fullName;
  * </pre>
  *
- * <h4>2. 一对多映射（一个源字段拆分）</h4>
+ * <p><b>2. 一对多映射（一个源字段拆分）</b></p>
  * <pre>
  * &#64;CopyField(source = "fullName", expression = "source.getFullName().split(\" \")[0]")
  * private String firstName;
@@ -36,13 +36,13 @@ import com.github.jackieonway.copier.converter.TypeConverter;
  * private String lastName;
  * </pre>
  *
- * <h4>3. 使用类型转换器</h4>
+ * <p><b>3. 使用类型转换器</b></p>
  * <pre>
  * &#64;CopyField(converter = DateFormatter.class, format = "yyyy-MM-dd")
  * private String birthDateStr;
  * </pre>
  *
- * <h4>4. 使用具名转换方法</h4>
+ * <p><b>4. 使用具名转换方法</b></p>
  * <pre>
  * &#64;CopyField(qualifiedByName = "formatPrice")
  * private String priceStr;

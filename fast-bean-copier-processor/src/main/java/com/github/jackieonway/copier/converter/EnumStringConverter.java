@@ -11,7 +11,7 @@ package com.github.jackieonway.copier.converter;
  *   <li>Integer → Enum：通过 ordinal 查找</li>
  * </ul>
  *
- * <h3>使用示例</h3>
+ * <p><b>使用示例</b></p>
  * <pre>
  * // 枚举转字符串
  * &#64;CopyField(converter = EnumStringConverter.class)

@@ -8,7 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *
  * <p>使用 Jackson 进行序列化和反序列化。
  *
- * <h3>使用示例</h3>
+ * <p><b>使用示例</b></p>
  * <pre>
  * // 对象转 JSON 字符串
  * &#64;CopyField(converter = JsonConverter.class)

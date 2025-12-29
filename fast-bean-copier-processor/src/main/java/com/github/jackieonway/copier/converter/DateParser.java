@@ -14,7 +14,7 @@ import java.util.Date;
  *
  * <p>默认返回 {@link LocalDateTime} 类型，也可以通过重载方法指定目标类型。
  *
- * <h3>使用示例</h3>
+ * <p><b>使用示例</b></p>
  * <pre>
  * &#64;CopyField(converter = DateParser.class, format = "yyyy-MM-dd")
  * private LocalDate birthDate;

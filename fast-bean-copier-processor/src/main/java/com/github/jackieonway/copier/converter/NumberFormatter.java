@@ -7,7 +7,7 @@ import java.text.DecimalFormat;
  *
  * <p>使用 {@link DecimalFormat} 进行格式化，支持各种数字格式模式。
  *
- * <h3>使用示例</h3>
+ * <p><b>使用示例</b></p>
  * <pre>
  * &#64;CopyField(converter = NumberFormatter.class, format = "#,##0.00")
  * private String priceStr;
