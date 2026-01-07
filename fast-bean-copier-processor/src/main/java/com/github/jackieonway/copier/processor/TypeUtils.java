@@ -504,6 +504,10 @@ public final class TypeUtils {
     /**
      * 判断是否为原始类型（raw type）。
      *
+     * <p>原始类型是指泛型类在使用时没有指定类型参数的情况，
+     * 例如 {@code List} 而不是 {@code List<String>}。
+     * 非泛型类（如 {@code String}、{@code Long}）不被视为原始类型。
+     *
      * @param type 目标类型
      * @return 如果是原始类型返回 true，否则返回 false
      */
@@ -512,7 +516,20 @@ public final class TypeUtils {
             return false;
         }
         DeclaredType declaredType = (DeclaredType) type;
-        return declaredType.getTypeArguments() == null || declaredType.getTypeArguments().isEmpty();
+        // 检查类型参数是否为空
+        if (declaredType.getTypeArguments() != null && !declaredType.getTypeArguments().isEmpty()) {
+            return false;
+        }
+        // 检查该类型的声明是否有类型参数（即是否是泛型类）
+        // 只有泛型类在使用时没有指定类型参数才是原始类型
+        // 非泛型类（如 String、Long）不是原始类型
+        javax.lang.model.element.Element element = declaredType.asElement();
+        if (element instanceof TypeElement) {
+            TypeElement typeElement = (TypeElement) element;
+            // 如果类声明有类型参数，但使用时没有指定，则是原始类型
+            return !typeElement.getTypeParameters().isEmpty();
+        }
+        return false;
     }
 
     /**

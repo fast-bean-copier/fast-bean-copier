@@ -65,6 +65,12 @@ public class DeepCopyGeneratorTest {
         when(rawType.getKind()).thenReturn(TypeKind.DECLARED);
         doReturn(Collections.emptyList()).when(rawType).getTypeArguments();
         when(rawType.toString()).thenReturn("java.util.List");
+        
+        // Mock TypeElement with type parameters (generic class)
+        javax.lang.model.element.TypeElement typeElement = mock(javax.lang.model.element.TypeElement.class);
+        javax.lang.model.element.TypeParameterElement typeParam = mock(javax.lang.model.element.TypeParameterElement.class);
+        doReturn(Collections.singletonList(typeParam)).when(typeElement).getTypeParameters();
+        doReturn(typeElement).when(rawType).asElement();
 
         assertTrue("原始类型应该返回 true", generator.hasUnsupportedGenerics(rawType));
     }
