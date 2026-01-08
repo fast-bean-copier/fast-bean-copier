@@ -6,6 +6,14 @@
 
 ## 基本问题
 
+### Q: v1.2.1 有哪些变化？
+**A**: v1.2.1 主要是处理器架构重构：
+- **BeanCopierProcessor 重构**：从 ~500 行精简为 ~148 行，作为协调者角色
+- **CodeGenerator 重构**：从 ~1900 行精简为 ~192 行，作为代码生成协调者
+- **新增组件**：ProcessorContext、AnnotationExtractor、FieldMappingAnalyzer
+- **新增生成器**：ClassStructureGenerator、BasicMethodGenerator、CollectionMethodGenerator、FieldCopyGenerator、DeepCopyGenerator
+- **完全向后兼容**：生成的 Copier 类代码与 v1.2.0 完全一致
+
 ### Q: v1.2 有哪些新增功能？
 **A**: v1.2 主要新增：
 - **多字段映射**：多对一（字段合并）、一对多（字段拆分）
@@ -31,8 +39,8 @@
 **A**: 可以。在 `build.gradle` 中添加：
 ```gradle
 dependencies {
-    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.2.0'
-    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.2.0'
+    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.2.1'
+    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.2.1'
 }
 ```
 

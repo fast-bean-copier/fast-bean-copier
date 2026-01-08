@@ -4,13 +4,13 @@
 
 **Fast Bean Copier** 是一个高性能的 Java Bean 拷贝工具，使用 APT（注解处理工具）在编译期自动生成拷贝代码，实现零运行时开销。
 
-**项目状态**：✅ 已完成，生产就绪（v1.2.0 高级映射与类型转换）
+**项目状态**：✅ 已完成，生产就绪（v1.2.1 处理器架构重构）
 
 ## 项目信息
 
 - **项目名称**：Fast Bean Copier
-- **版本**：1.2.0
-- **发布日期**：2025-12-29
+- **版本**：1.2.1
+- **发布日期**：2026-01-08
 - **Java 版本**：Java 8+
 - **构建工具**：Maven
 - **许可证**：Apache License 2.0
@@ -25,18 +25,27 @@ fast-bean-copier/
 │   ├── ComponentModel.java           # 组件模型枚举（v1.2）
 │   └── TypeConverter.java            # 类型转换器接口（v1.2）
 ├── fast-bean-copier-processor/        # APT 处理器模块
-│   ├── BeanCopierProcessor.java      # 注解处理器
-│   ├── CodeGenerator.java            # 代码生成器
-│   ├── FieldMapping.java             # 字段映射模型
-│   ├── ExpressionParser.java         # 表达式解析器（v1.2）
+│   ├── BeanCopierProcessor.java      # 注解处理器（协调者）
+│   ├── CodeGenerator.java            # 代码生成器（协调者）
+│   ├── context/                      # 上下文包（v1.2.1）
+│   │   └── ProcessorContext.java     # 处理器上下文
+│   ├── extractor/                    # 提取器包（v1.2.1）
+│   │   └── AnnotationExtractor.java  # 注解提取器
+│   ├── analyzer/                     # 分析器包（v1.2.1）
+│   │   └── FieldMappingAnalyzer.java # 字段映射分析器
+│   ├── generator/                    # 生成器包（v1.2.1）
+│   │   ├── ClassStructureGenerator.java  # 类结构生成器
+│   │   ├── BasicMethodGenerator.java     # 基础方法生成器
+│   │   ├── CollectionMethodGenerator.java # 集合方法生成器
+│   │   ├── FieldCopyGenerator.java       # 字段拷贝生成器
+│   │   └── DeepCopyGenerator.java        # 深拷贝生成器
+│   ├── model/                        # 模型包
+│   │   ├── FieldMapping.java         # 字段映射模型
+│   │   └── CopyFieldConfig.java      # 字段配置数据类（v1.2.1）
 │   ├── ConverterAnalyzer.java        # 转换器分析器（v1.2）
-│   └── converter/                    # 内置转换器（v1.2）
-│       ├── NumberFormatter.java
-│       ├── NumberParser.java
-│       ├── DateFormatter.java
-│       ├── DateParser.java
-│       ├── EnumStringConverter.java
-│       └── JsonConverter.java
+│   ├── ExpressionParser.java         # 表达式解析器（v1.2）
+│   ├── ExpressionUtils.java          # 表达式工具
+│   └── TypeUtils.java                # 类型工具
 ├── fast-bean-copier-examples/         # 示例与测试
 │   ├── v10/                          # v1.0 示例
 │   ├── v11/                          # v1.1 示例
@@ -73,6 +82,14 @@ fast-bean-copier/
 16. **依赖注入支持** - Spring、CDI、JSR-330 框架集成
 17. **函数式定制** - UnaryOperator 后处理支持
 
+### ✅ v1.2.1 重构
+
+18. **处理器架构重构** - BeanCopierProcessor 和 CodeGenerator 拆分为多个职责单一的组件
+19. **ProcessorContext** - 处理器上下文，封装共享状态和工具
+20. **AnnotationExtractor** - 注解提取器，从注解中提取配置信息
+21. **FieldMappingAnalyzer** - 字段映射分析器，分析字段映射关系
+22. **生成器组件** - ClassStructureGenerator、BasicMethodGenerator、CollectionMethodGenerator、FieldCopyGenerator、DeepCopyGenerator
+
 ## 技术栈
 
 - **Java 8** - 编程语言
@@ -85,9 +102,23 @@ fast-bean-copier/
 
 ## 测试覆盖
 
-- **测试用例**：80+（涵盖所有功能）
+- **测试用例**：275+（涵盖所有功能）
 - **示例模块指令覆盖率**：93%+（Jacoco）
+- **处理器模块覆盖率**：80%+（Jacoco）
 - **所有测试通过** ✅
+
+### v1.2.1 测试类
+
+- `ProcessorContextTest` - 处理器上下文测试
+- `AnnotationExtractorTest` - 注解提取器测试
+- `FieldMappingAnalyzerTest` - 字段映射分析器测试
+- `ClassStructureGeneratorTest` - 类结构生成器测试
+- `BasicMethodGeneratorTest` - 基础方法生成器测试
+- `CollectionMethodGeneratorTest` - 集合方法生成器测试
+- `FieldCopyGeneratorTest` - 字段拷贝生成器测试
+- `DeepCopyGeneratorTest` - 深拷贝生成器测试
+- `CodeGeneratorIntegrationTest` - 代码生成器集成测试
+- `BeanCopierProcessorIntegrationTest` - 处理器集成测试
 
 ### v1.2 测试类
 
@@ -227,6 +258,13 @@ mvn jacoco:report
 
 ## 版本历史
 
+### 1.2.1（2026-01-08）
+- 处理器架构重构：BeanCopierProcessor 和 CodeGenerator 拆分
+- 新增组件：ProcessorContext、AnnotationExtractor、FieldMappingAnalyzer
+- 新增生成器：ClassStructureGenerator、BasicMethodGenerator、CollectionMethodGenerator、FieldCopyGenerator、DeepCopyGenerator
+- 代码可维护性显著提升
+- 275+ 测试用例，覆盖率 80%+
+
 ### 1.2.0（2025-12-29）
 - 多字段映射：多对一、一对多转换
 - TypeConverter：6 个内置类型转换器
@@ -247,11 +285,11 @@ mvn jacoco:report
 
 ## 项目统计
 
-- **源代码行数**：~5000 行
-- **测试代码行数**：~2500 行
-- **文档行数**：~4000 行
-- **总代码行数**：~11500 行
-- **测试用例数**：80+ 个
+- **源代码行数**：~8000 行
+- **测试代码行数**：~4000 行
+- **文档行数**：~5000 行
+- **总代码行数**：~17000 行
+- **测试用例数**：275+ 个
 - **文档文件数**：7 个
 
 ## 贡献指南

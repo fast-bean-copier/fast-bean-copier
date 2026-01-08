@@ -2,6 +2,8 @@
 
 Fast Bean Copier 是一个高性能的 Java Bean 拷贝工具，使用 APT（注解处理工具）在编译期自动生成拷贝代码，实现零运行时开销。
 
+> **v1.2.1 重构**：处理器架构重构，BeanCopierProcessor 和 CodeGenerator 拆分为多个职责单一的组件，代码可维护性显著提升。
+>
 > **v1.2 新特性**：多字段映射（多对一、一对多）、TypeConverter 类型转换器、依赖注入支持（Spring/CDI/JSR-330）、函数式定制拷贝。
 
 ## 特性
@@ -25,13 +27,13 @@ Fast Bean Copier 是一个高性能的 Java Bean 拷贝工具，使用 APT（注
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-annotations</artifactId>
-    <version>1.2.0</version>
+    <version>1.2.1</version>
 </dependency>
 
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-processor</artifactId>
-    <version>1.2.0</version>
+    <version>1.2.1</version>
     <scope>provided</scope>
 </dependency>
 ```

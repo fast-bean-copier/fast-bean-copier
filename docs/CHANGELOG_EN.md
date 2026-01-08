@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-01-08
+
+### Refactored
+
+#### Processor Architecture Refactoring
+- **BeanCopierProcessor Refactoring**: Reduced from ~500 lines to ~148 lines, acting as coordinator
+- **CodeGenerator Refactoring**: Reduced from ~1900 lines to ~192 lines, acting as code generation coordinator
+- **New Components**:
+  - `ProcessorContext`: Processor context, encapsulates shared state and utilities
+  - `AnnotationExtractor`: Annotation extractor, extracts configuration from annotations
+  - `FieldMappingAnalyzer`: Field mapping analyzer, analyzes field mappings between source and target classes
+  - `ClassStructureGenerator`: Class structure generator, generates Copier class structure
+  - `BasicMethodGenerator`: Basic method generator, generates toDto/fromDto methods
+  - `CollectionMethodGenerator`: Collection method generator, generates collection type conversion methods
+  - `FieldCopyGenerator`: Field copy generator, generates field copy code
+  - `DeepCopyGenerator`: Deep copy generator, generates deep copy code for collections and nested objects
+  - `CopyFieldConfig`: Field configuration data class, encapsulates @CopyField annotation configuration
+
+#### Design Principles
+- **Single Responsibility Principle**: Each component is responsible for only one function
+- **Open-Closed Principle**: Open for extension, closed for modification
+- **Dependency Inversion Principle**: High-level modules do not depend on low-level modules, both depend on abstractions
+
+### Improved
+- Significantly improved code maintainability
+- Easier to write unit tests
+- Increased efficiency for new feature development
+- Improved code review efficiency
+
+### Testing
+- Added 275 new test cases
+- All existing tests pass
+- Code coverage reaches 80%+
+
+### Compatibility
+- Generated Copier class code is identical to v1.2.0
+- Fully backward compatible, no user code changes required
+
+### Verification
+- `mvn clean install`
+- `mvn jacoco:report`
+
 ## [1.2.0] - 2025-12-29
 
 ### Added
@@ -217,6 +259,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.2.1]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.2.1
 [1.2.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.2.0
 [1.1.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.1.0
 [1.0.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.0.0

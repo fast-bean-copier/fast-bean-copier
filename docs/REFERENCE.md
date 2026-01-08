@@ -1,4 +1,4 @@
-# Fast Bean Copier 1.2.0 参考文档
+# Fast Bean Copier 1.2.1 参考文档
 
 ## 前言
 
@@ -21,6 +21,7 @@ Fast Bean Copier 是一个 Java 注解处理器，用于生成类型安全的 Be
 - **清晰的编译时错误报告** - 映射不完整或不正确时报错
 - **零运行时依赖** - 生成的代码不依赖任何外部库
 - **丰富的映射功能** - 支持多字段映射、类型转换、依赖注入等
+- **模块化架构** - v1.2.1 重构后，处理器采用职责单一的组件架构，易于维护和扩展
 
 ## 2. 设置
 
@@ -30,13 +31,13 @@ Fast Bean Copier 是一个 Java 注解处理器，用于生成类型安全的 Be
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-annotations</artifactId>
-    <version>1.2.0</version>
+    <version>1.2.1</version>
 </dependency>
 
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-processor</artifactId>
-    <version>1.2.0</version>
+    <version>1.2.1</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -45,8 +46,8 @@ Fast Bean Copier 是一个 Java 注解处理器，用于生成类型安全的 Be
 
 ```gradle
 dependencies {
-    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.2.0'
-    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.2.0'
+    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.2.1'
+    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.2.1'
 }
 ```
 
@@ -582,6 +583,12 @@ public class OrderDto {
 5. 在 Spring 项目中使用 `ComponentModel.SPRING`
 
 ## 18. 版本历史
+
+### 1.2.1（2026-01-08）
+- 处理器架构重构
+- 新增组件：ProcessorContext、AnnotationExtractor、FieldMappingAnalyzer
+- 新增生成器：ClassStructureGenerator、BasicMethodGenerator、CollectionMethodGenerator、FieldCopyGenerator、DeepCopyGenerator
+- 代码可维护性显著提升
 
 ### 1.2.0（2025-12-29）
 - 多字段映射（多对一、一对多）

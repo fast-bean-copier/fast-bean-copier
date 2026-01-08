@@ -5,6 +5,48 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/),
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.2.1] - 2026-01-08
+
+### 重构
+
+#### 处理器架构重构
+- **BeanCopierProcessor 重构**：从 ~500 行精简为 ~148 行，作为协调者角色
+- **CodeGenerator 重构**：从 ~1900 行精简为 ~192 行，作为代码生成协调者
+- **新增组件**：
+  - `ProcessorContext`：处理器上下文，封装共享状态和工具
+  - `AnnotationExtractor`：注解提取器，从注解中提取配置信息
+  - `FieldMappingAnalyzer`：字段映射分析器，分析源类和目标类之间的字段映射
+  - `ClassStructureGenerator`：类结构生成器，生成 Copier 类的结构
+  - `BasicMethodGenerator`：基础方法生成器，生成 toDto/fromDto 等方法
+  - `CollectionMethodGenerator`：集合方法生成器，生成集合类型转换方法
+  - `FieldCopyGenerator`：字段拷贝生成器，生成字段拷贝代码
+  - `DeepCopyGenerator`：深拷贝生成器，生成集合和嵌套对象的深拷贝代码
+  - `CopyFieldConfig`：字段配置数据类，封装 @CopyField 注解配置
+
+#### 设计原则
+- **单一职责原则**：每个组件只负责一个功能
+- **开闭原则**：对扩展开放，对修改关闭
+- **依赖倒置原则**：高层模块不依赖低层模块，都依赖抽象
+
+### 改进
+- 代码可维护性显著提升
+- 单元测试更容易编写
+- 新功能开发效率提高
+- 代码审查效率提升
+
+### 测试
+- 新增 275 个测试用例
+- 所有现有测试通过
+- 代码覆盖率达到 80%+
+
+### 兼容性
+- 生成的 Copier 类代码与 v1.2.0 完全一致
+- 完全向后兼容，无需修改任何用户代码
+
+### 验证
+- `mvn clean install`
+- `mvn jacoco:report`
+
 ## [1.2.0] - 2025-12-29
 
 ### 新增
@@ -217,6 +259,7 @@
 
 ---
 
+[1.2.1]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.2.1
 [1.2.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.2.0
 [1.1.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.1.0
 [1.0.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.0.0
