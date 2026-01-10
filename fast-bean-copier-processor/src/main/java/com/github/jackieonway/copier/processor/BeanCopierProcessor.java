@@ -3,6 +3,7 @@ package com.github.jackieonway.copier.processor;
 import com.google.auto.service.AutoService;
 import com.github.jackieonway.copier.annotation.ComponentModel;
 import com.github.jackieonway.copier.annotation.CopyTarget;
+import com.github.jackieonway.copier.annotation.NullValueStrategy;
 import com.github.jackieonway.copier.processor.analyzer.FieldMappingAnalyzer;
 import com.github.jackieonway.copier.processor.context.ProcessorContext;
 import com.github.jackieonway.copier.processor.extractor.AnnotationExtractor;
@@ -13,6 +14,7 @@ import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import java.util.Collections;
@@ -125,6 +127,15 @@ public class BeanCopierProcessor extends AbstractProcessor {
         Set<String> ignoreFields = extractor.extractIgnoreFields(annotation);
         List<TypeMirror> usesClasses = extractor.extractUsesClasses(annotation);
         ComponentModel componentModel = extractor.extractComponentModel(annotation);
+        String beforeMapping = extractor.extractBeforeMapping(annotation);
+        
+        // 提取包级别配置（v1.3 新增）
+        PackageElement packageElement = context.getElementUtils().getPackageOf(targetType);
+        AnnotationExtractor.PackageConfig packageConfig = extractor.extractPackageConfig(packageElement);
+        
+        // 合并配置（类级别 > 包级别 > 默认值）
+        ComponentModel effectiveComponentModel = extractor.mergeComponentModel(componentModel, packageConfig);
+        NullValueStrategy effectiveNullValueStrategy = extractor.getEffectiveNullValueStrategy(packageConfig);
         
         // 分析字段映射
         List<FieldMapping> fieldMappings = analyzer.analyze(sourceType, targetType, ignoreFields);
@@ -134,27 +145,34 @@ public class BeanCopierProcessor extends AbstractProcessor {
         }
         
         // 生成 Copier 类
-        generateCopierClass(sourceType, targetType, fieldMappings, usesClasses, componentModel);
+        generateCopierClass(sourceType, targetType, fieldMappings, usesClasses, 
+                effectiveComponentModel, effectiveNullValueStrategy, beforeMapping);
     }
 
     /**
      * 生成 Copier 类。
      *
-     * @param sourceType     源类型
-     * @param targetType     目标类型
-     * @param fieldMappings  字段映射列表
-     * @param usesClasses    uses 类列表
-     * @param componentModel 组件模型
+     * @param sourceType           源类型
+     * @param targetType           目标类型
+     * @param fieldMappings        字段映射列表
+     * @param usesClasses          uses 类列表
+     * @param componentModel       组件模型
+     * @param nullValueStrategy    null 值处理策略
+     * @param beforeMapping        映射前处理方法名
      */
     private void generateCopierClass(TypeElement sourceType, TypeElement targetType,
                                       List<FieldMapping> fieldMappings,
                                       List<TypeMirror> usesClasses,
-                                      ComponentModel componentModel) {
+                                      ComponentModel componentModel,
+                                      NullValueStrategy nullValueStrategy,
+                                      String beforeMapping) {
         CodeGenerator codeGenerator = new CodeGenerator(
                 context.getProcessingEnv(), sourceType, targetType);
         codeGenerator.setFieldMappings(fieldMappings);
         codeGenerator.setUsesClasses(usesClasses);
         codeGenerator.setComponentModel(componentModel);
+        codeGenerator.setNullValueStrategy(nullValueStrategy);
+        codeGenerator.setBeforeMapping(beforeMapping);
         codeGenerator.generateCopierClass();
     }
 }

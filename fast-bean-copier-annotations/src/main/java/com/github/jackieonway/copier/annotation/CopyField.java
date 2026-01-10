@@ -133,4 +133,99 @@ public @interface CopyField {
      * @return 格式字符串
      */
     String format() default "";
+
+    /**
+     * 条件表达式，用于决定是否映射该字段。
+     *
+     * <p>当条件表达式的结果为 {@code true} 时，才会执行字段映射；
+     * 否则跳过该字段的映射。
+     *
+     * <p>表达式格式必须以 {@code java(} 开头和 {@code )} 结尾，
+     * 括号内为有效的 Java 布尔表达式。表达式中可以使用 {@code source} 变量引用源对象。
+     *
+     * <p>使用示例：
+     * <pre>
+     * // 仅当源字段不为 null 时才映射
+     * &#64;CopyField(condition = "java(source.getName() != null)")
+     * private String name;
+     *
+     * // 仅当年龄大于 18 时才映射
+     * &#64;CopyField(condition = "java(source.getAge() > 18)")
+     * private Integer age;
+     *
+     * // 组合条件
+     * &#64;CopyField(condition = "java(source.getStatus() != null && source.getStatus().equals(\"ACTIVE\"))")
+     * private String status;
+     * </pre>
+     *
+     * @return 条件表达式字符串，默认为空表示无条件映射
+     * @since 1.3.0
+     */
+    String condition() default "";
+
+    /**
+     * 默认值，当源字段为 null 时使用。
+     *
+     * <p>默认值以字符串形式指定，处理器会根据目标字段类型自动进行类型转换。
+     * 支持的类型包括：String、Integer、Long、Double、Float、Short、Byte、
+     * Boolean、BigDecimal、BigInteger 等。
+     *
+     * <p><b>注意：</b>此属性与 {@link #constant()} 互斥，不能同时使用。
+     *
+     * <p>使用示例：
+     * <pre>
+     * // String 类型默认值
+     * &#64;CopyField(defaultValue = "未知")
+     * private String name;
+     *
+     * // Integer 类型默认值
+     * &#64;CopyField(defaultValue = "0")
+     * private Integer count;
+     *
+     * // Boolean 类型默认值
+     * &#64;CopyField(defaultValue = "false")
+     * private Boolean active;
+     *
+     * // BigDecimal 类型默认值
+     * &#64;CopyField(defaultValue = "0.00")
+     * private BigDecimal price;
+     * </pre>
+     *
+     * @return 默认值字符串，默认为空表示不使用默认值
+     * @since 1.3.0
+     */
+    String defaultValue() default "";
+
+    /**
+     * 常量值，直接设置目标字段为指定的常量，不依赖源字段。
+     *
+     * <p>常量值以字符串形式指定，处理器会根据目标字段类型自动进行类型转换。
+     * 支持的类型包括：String、Integer、Long、Double、Float、Short、Byte、
+     * Boolean、BigDecimal、BigInteger 等。
+     *
+     * <p><b>注意：</b>
+     * <ul>
+     *   <li>此属性与 {@link #defaultValue()} 互斥，不能同时使用</li>
+     *   <li>使用此属性时，{@link #source()} 属性将被忽略</li>
+     * </ul>
+     *
+     * <p>使用示例：
+     * <pre>
+     * // 设置常量字符串
+     * &#64;CopyField(constant = "SYSTEM")
+     * private String createdBy;
+     *
+     * // 设置常量数字
+     * &#64;CopyField(constant = "1")
+     * private Integer version;
+     *
+     * // 设置常量布尔值
+     * &#64;CopyField(constant = "true")
+     * private Boolean enabled;
+     * </pre>
+     *
+     * @return 常量值字符串，默认为空表示不使用常量值
+     * @since 1.3.0
+     */
+    String constant() default "";
 }

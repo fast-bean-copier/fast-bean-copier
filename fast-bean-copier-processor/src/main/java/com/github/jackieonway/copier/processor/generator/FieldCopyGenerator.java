@@ -71,6 +71,24 @@ public class FieldCopyGenerator {
      * @param reverse       是否反向拷贝（fromDto）
      */
     public void generateFieldCopyCode(MethodSpec.Builder methodBuilder, FieldMapping mapping, boolean reverse) {
+        // v1.3: 处理常量映射
+        if (mapping.isConstantMapping()) {
+            generateConstantFieldCopyCode(methodBuilder, mapping, reverse);
+            return;
+        }
+
+        // v1.3: 处理条件映射
+        if (mapping.hasCondition()) {
+            generateConditionalFieldCopyCode(methodBuilder, mapping, reverse);
+            return;
+        }
+
+        // v1.3: 处理默认值映射
+        if (mapping.hasDefaultValue()) {
+            generateDefaultValueFieldCopyCode(methodBuilder, mapping, reverse);
+            return;
+        }
+
         switch (mapping.getMappingType()) {
             case EXPRESSION:
             case MANY_TO_ONE:
@@ -87,6 +105,217 @@ public class FieldCopyGenerator {
                 generateSimpleFieldCopyCode(methodBuilder, mapping, reverse);
                 break;
         }
+    }
+
+    /**
+     * 生成条件映射代码。
+     *
+     * @param methodBuilder 方法构建器
+     * @param mapping       字段映射
+     * @param reverse       是否反向拷贝
+     * @since 1.3.0
+     */
+    private void generateConditionalFieldCopyCode(MethodSpec.Builder methodBuilder, 
+                                                   FieldMapping mapping, boolean reverse) {
+        String conditionExpression = mapping.getConditionExpression();
+        if (conditionExpression == null || conditionExpression.isEmpty()) {
+            // 如果条件表达式为空，回退到普通映射
+            generateFieldCopyCodeWithoutCondition(methodBuilder, mapping, reverse);
+            return;
+        }
+
+        // 生成条件判断代码
+        methodBuilder.beginControlFlow("if ($L)", conditionExpression);
+        
+        // 在条件块内生成实际的字段拷贝代码
+        generateFieldCopyCodeWithoutCondition(methodBuilder, mapping, reverse);
+        
+        methodBuilder.endControlFlow();
+    }
+
+    /**
+     * 生成不带条件的字段拷贝代码（用于条件映射内部）。
+     *
+     * @param methodBuilder 方法构建器
+     * @param mapping       字段映射
+     * @param reverse       是否反向拷贝
+     * @since 1.3.0
+     */
+    private void generateFieldCopyCodeWithoutCondition(MethodSpec.Builder methodBuilder, 
+                                                        FieldMapping mapping, boolean reverse) {
+        // 临时清除条件，避免递归
+        String originalCondition = mapping.getCondition();
+        mapping.setCondition(null);
+
+        // 处理默认值映射
+        if (mapping.hasDefaultValue()) {
+            generateDefaultValueFieldCopyCode(methodBuilder, mapping, reverse);
+        } else {
+            switch (mapping.getMappingType()) {
+                case EXPRESSION:
+                case MANY_TO_ONE:
+                    generateExpressionFieldCopyCode(methodBuilder, mapping, reverse);
+                    break;
+                case CONVERTER:
+                    generateConverterFieldCopyCode(methodBuilder, mapping, reverse);
+                    break;
+                case QUALIFIED_BY_NAME:
+                    generateQualifiedByNameFieldCopyCode(methodBuilder, mapping, reverse);
+                    break;
+                case SIMPLE:
+                default:
+                    generateSimpleFieldCopyCode(methodBuilder, mapping, reverse);
+                    break;
+            }
+        }
+
+        // 恢复条件
+        mapping.setCondition(originalCondition);
+    }
+
+    /**
+     * 生成默认值字段拷贝代码。
+     *
+     * @param methodBuilder 方法构建器
+     * @param mapping       字段映射
+     * @param reverse       是否反向拷贝
+     * @since 1.3.0
+     */
+    private void generateDefaultValueFieldCopyCode(MethodSpec.Builder methodBuilder, 
+                                                    FieldMapping mapping, boolean reverse) {
+        String sourceFieldName = reverse ? mapping.getTargetFieldName() : mapping.getSourceFieldName();
+        String targetFieldName = reverse ? mapping.getSourceFieldName() : mapping.getTargetFieldName();
+
+        if (sourceFieldName == null) {
+            return;
+        }
+
+        String getterName = "get" + capitalize(sourceFieldName);
+        String setterName = "set" + capitalize(targetFieldName);
+        String defaultValue = mapping.getDefaultValue();
+        TypeMirror targetFieldType = reverse ? mapping.getSourceType() : mapping.getTargetType();
+
+        // 生成带默认值的拷贝代码
+        String convertedDefaultValue = convertStringToTypeLiteral(defaultValue, targetFieldType);
+        
+        methodBuilder.beginControlFlow("if (source.$L() != null)", getterName);
+        methodBuilder.addStatement("target.$L(source.$L())", setterName, getterName);
+        methodBuilder.nextControlFlow("else");
+        methodBuilder.addStatement("target.$L($L)", setterName, convertedDefaultValue);
+        methodBuilder.endControlFlow();
+    }
+
+    /**
+     * 生成常量字段拷贝代码。
+     *
+     * @param methodBuilder 方法构建器
+     * @param mapping       字段映射
+     * @param reverse       是否反向拷贝
+     * @since 1.3.0
+     */
+    private void generateConstantFieldCopyCode(MethodSpec.Builder methodBuilder, 
+                                                FieldMapping mapping, boolean reverse) {
+        // 常量映射只在正向拷贝时使用
+        if (reverse) {
+            return;
+        }
+
+        String targetFieldName = mapping.getTargetFieldName();
+        String setterName = "set" + capitalize(targetFieldName);
+        String constant = mapping.getConstant();
+        TypeMirror targetFieldType = mapping.getTargetType();
+
+        // 转换常量值为目标类型的字面量
+        String convertedConstant = convertStringToTypeLiteral(constant, targetFieldType);
+        
+        methodBuilder.addStatement("target.$L($L)", setterName, convertedConstant);
+    }
+
+    /**
+     * 将字符串值转换为目标类型的字面量表示。
+     *
+     * @param value      字符串值
+     * @param targetType 目标类型
+     * @return 类型字面量
+     * @since 1.3.0
+     */
+    private String convertStringToTypeLiteral(String value, TypeMirror targetType) {
+        if (targetType == null || value == null) {
+            return "\"" + value + "\"";
+        }
+
+        String typeName = targetType.toString();
+
+        // String 类型
+        if (typeName.equals("java.lang.String")) {
+            return "\"" + escapeString(value) + "\"";
+        }
+
+        // Integer/int 类型
+        if (typeName.equals("java.lang.Integer") || typeName.equals("int")) {
+            return value;
+        }
+
+        // Long/long 类型
+        if (typeName.equals("java.lang.Long") || typeName.equals("long")) {
+            return value + "L";
+        }
+
+        // Double/double 类型
+        if (typeName.equals("java.lang.Double") || typeName.equals("double")) {
+            return value + "D";
+        }
+
+        // Float/float 类型
+        if (typeName.equals("java.lang.Float") || typeName.equals("float")) {
+            return value + "F";
+        }
+
+        // Short/short 类型
+        if (typeName.equals("java.lang.Short") || typeName.equals("short")) {
+            return "(short) " + value;
+        }
+
+        // Byte/byte 类型
+        if (typeName.equals("java.lang.Byte") || typeName.equals("byte")) {
+            return "(byte) " + value;
+        }
+
+        // Boolean/boolean 类型
+        if (typeName.equals("java.lang.Boolean") || typeName.equals("boolean")) {
+            return value.toLowerCase();
+        }
+
+        // BigDecimal 类型
+        if (typeName.equals("java.math.BigDecimal")) {
+            return "new java.math.BigDecimal(\"" + value + "\")";
+        }
+
+        // BigInteger 类型
+        if (typeName.equals("java.math.BigInteger")) {
+            return "new java.math.BigInteger(\"" + value + "\")";
+        }
+
+        // 默认作为字符串处理
+        return "\"" + escapeString(value) + "\"";
+    }
+
+    /**
+     * 转义字符串中的特殊字符。
+     *
+     * @param str 原始字符串
+     * @return 转义后的字符串
+     * @since 1.3.0
+     */
+    private String escapeString(String str) {
+        if (str == null) {
+            return "";
+        }
+        return str.replace("\\", "\\\\")
+                  .replace("\"", "\\\"")
+                  .replace("\n", "\\n")
+                  .replace("\r", "\\r")
+                  .replace("\t", "\\t");
     }
 
     /**

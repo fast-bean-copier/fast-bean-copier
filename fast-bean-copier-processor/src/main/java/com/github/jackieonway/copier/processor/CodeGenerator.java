@@ -1,6 +1,7 @@
 package com.github.jackieonway.copier.processor;
 
 import com.github.jackieonway.copier.annotation.ComponentModel;
+import com.github.jackieonway.copier.annotation.NullValueStrategy;
 import com.github.jackieonway.copier.processor.context.ProcessorContext;
 import com.github.jackieonway.copier.processor.generator.BasicMethodGenerator;
 import com.github.jackieonway.copier.processor.generator.ClassStructureGenerator;
@@ -54,6 +55,12 @@ public final class CodeGenerator {
 
     /** 组件模型 */
     private ComponentModel componentModel = ComponentModel.DEFAULT;
+
+    /** null 值处理策略 */
+    private NullValueStrategy nullValueStrategy = NullValueStrategy.IGNORE;
+
+    /** 映射前处理方法名 */
+    private String beforeMapping = "";
 
     /** 需要的转换器类名集合 */
     private Set<String> requiredConverters = new HashSet<>();
@@ -118,6 +125,28 @@ public final class CodeGenerator {
     }
 
     /**
+     * 设置 null 值处理策略。
+     *
+     * @param nullValueStrategy null 值处理策略
+     * @since 1.3.0
+     */
+    public void setNullValueStrategy(NullValueStrategy nullValueStrategy) {
+        this.nullValueStrategy = nullValueStrategy != null ? nullValueStrategy : NullValueStrategy.IGNORE;
+        this.context.setNullValueStrategy(this.nullValueStrategy);
+    }
+
+    /**
+     * 设置映射前处理方法名。
+     *
+     * @param beforeMapping 映射前处理方法名
+     * @since 1.3.0
+     */
+    public void setBeforeMapping(String beforeMapping) {
+        this.beforeMapping = beforeMapping != null ? beforeMapping : "";
+        this.context.setBeforeMapping(this.beforeMapping);
+    }
+
+    /**
      * 收集需要的转换器类。
      */
     private void collectRequiredConverters() {
@@ -167,6 +196,10 @@ public final class CodeGenerator {
             classBuilder.addMethod(basicMethodGenerator.generateToDtoWithCustomizer());
             classBuilder.addMethod(basicMethodGenerator.generateFromDtoWithCustomizer());
 
+            // 2.1 生成更新方法（v1.3 新增）
+            classBuilder.addMethod(basicMethodGenerator.generateUpdateDto());
+            classBuilder.addMethod(basicMethodGenerator.generateUpdateEntity());
+
             // 3. 生成集合方法（List、Set、Map、Array）
             classBuilder.addMethod(collectionMethodGenerator.generateToDtoList());
             classBuilder.addMethod(collectionMethodGenerator.generateFromDtoList());
@@ -203,6 +236,8 @@ public final class CodeGenerator {
         basicMethodGenerator.setFieldMappings(fieldMappings);
         basicMethodGenerator.setUseStaticMethods(useStatic);
         basicMethodGenerator.setUsesClasses(usesClasses);
+        basicMethodGenerator.setNullValueStrategy(nullValueStrategy);
+        basicMethodGenerator.setBeforeMapping(beforeMapping);
 
         // 配置 CollectionMethodGenerator
         collectionMethodGenerator.setSourceType(sourceType);

@@ -130,4 +130,50 @@ public @interface CopyTarget {
      * @see ComponentModel
      */
     ComponentModel componentModel() default ComponentModel.DEFAULT;
+
+    /**
+     * 映射前处理方法名，可选，默认为空。
+     *
+     * <p>指定在目标类中定义的默认方法名，该方法会在映射逻辑执行之前被调用。
+     * 可用于执行验证、初始化、日志记录等前置操作。
+     *
+     * <p><b>方法签名要求：</b>
+     * <ul>
+     *   <li>方法必须是目标类中的默认方法（default method）</li>
+     *   <li>方法参数类型必须为源类类型</li>
+     *   <li>方法返回类型必须为 void</li>
+     * </ul>
+     *
+     * <p>使用示例：
+     * <pre>
+     * &#64;CopyTarget(source = User.class, beforeMapping = "validateAndPrepare")
+     * public class UserDto {
+     *     private String name;
+     *     private Integer age;
+     *
+     *     // 映射前处理方法
+     *     default void validateAndPrepare(User source) {
+     *         if (source.getName() == null) {
+     *             throw new IllegalArgumentException("Name cannot be null");
+     *         }
+     *         // 可以执行其他初始化逻辑
+     *     }
+     * }
+     * </pre>
+     *
+     * <p>生成的代码会在映射逻辑之前调用此方法：
+     * <pre>
+     * public UserDto toDto(User source) {
+     *     UserDto target = new UserDto();
+     *     target.validateAndPrepare(source);  // 调用映射前处理方法
+     *     if (source == null) return null;
+     *     // ... 映射逻辑
+     *     return target;
+     * }
+     * </pre>
+     *
+     * @return 映射前处理方法名，默认为空表示不使用映射前回调
+     * @since 1.3.0
+     */
+    String beforeMapping() default "";
 }

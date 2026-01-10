@@ -1,5 +1,6 @@
 package com.github.jackieonway.copier.processor.generator;
 
+import com.github.jackieonway.copier.annotation.NullValueStrategy;
 import com.github.jackieonway.copier.processor.FieldMapping;
 import com.github.jackieonway.copier.processor.context.ProcessorContext;
 import com.squareup.javapoet.ClassName;
@@ -43,6 +44,12 @@ public class BasicMethodGenerator {
     
     /** 是否使用静态方法 */
     private boolean useStaticMethods = true;
+
+    /** null 值处理策略 */
+    private NullValueStrategy nullValueStrategy = NullValueStrategy.IGNORE;
+
+    /** 映射前处理方法名 */
+    private String beforeMapping = "";
 
     /**
      * 构造方法。
@@ -101,6 +108,36 @@ public class BasicMethodGenerator {
     }
 
     /**
+     * 设置 null 值处理策略。
+     *
+     * @param nullValueStrategy null 值处理策略
+     * @since 1.3.0
+     */
+    public void setNullValueStrategy(NullValueStrategy nullValueStrategy) {
+        this.nullValueStrategy = nullValueStrategy != null ? nullValueStrategy : NullValueStrategy.IGNORE;
+    }
+
+    /**
+     * 设置映射前处理方法名。
+     *
+     * @param beforeMapping 映射前处理方法名
+     * @since 1.3.0
+     */
+    public void setBeforeMapping(String beforeMapping) {
+        this.beforeMapping = beforeMapping != null ? beforeMapping : "";
+    }
+
+    /**
+     * 判断是否有映射前处理方法。
+     *
+     * @return 如果有映射前处理方法返回 true
+     * @since 1.3.0
+     */
+    private boolean hasBeforeMapping() {
+        return beforeMapping != null && !beforeMapping.trim().isEmpty();
+    }
+
+    /**
      * 生成 toDto 方法。
      *
      * <p>将源对象拷贝到目标对象。
@@ -126,6 +163,11 @@ public class BasicMethodGenerator {
         // 创建目标对象
         methodBuilder.addStatement("$T target = new $T()", 
                 ClassName.get(targetType), ClassName.get(targetType));
+        
+        // 生成映射前回调调用（v1.3 新增）
+        if (hasBeforeMapping()) {
+            methodBuilder.addStatement("target.$L(source)", beforeMapping);
+        }
         
         // 生成字段拷贝代码
         for (FieldMapping mapping : fieldMappings) {
@@ -252,5 +294,123 @@ public class BasicMethodGenerator {
                 .addStatement("return result");
         
         return methodBuilder.build();
+    }
+
+    // ========== v1.3 新增方法 ==========
+
+    /**
+     * 生成 updateDto 方法。
+     *
+     * <p>更新已存在的目标对象，而不是创建新对象。
+     * 方法签名：public [static] void updateDto(TargetType target, SourceType source)
+     *
+     * @return 生成的方法规范
+     * @since 1.3.0
+     */
+    public MethodSpec generateUpdateDto() {
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("updateDto")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(void.class)
+                .addParameter(ClassName.get(targetType), "target")
+                .addParameter(ClassName.get(sourceType), "source");
+        
+        if (useStaticMethods) {
+            methodBuilder.addModifiers(Modifier.STATIC);
+        }
+        
+        // 添加 null 检查
+        methodBuilder.beginControlFlow("if (source == null || target == null)")
+                .addStatement("return")
+                .endControlFlow();
+        
+        // 生成字段更新代码
+        for (FieldMapping mapping : fieldMappings) {
+            generateUpdateFieldCopyCode(methodBuilder, mapping, false);
+        }
+        
+        return methodBuilder.build();
+    }
+
+    /**
+     * 生成 updateEntity 方法。
+     *
+     * <p>更新已存在的源对象（反向更新）。
+     * 方法签名：public [static] void updateEntity(SourceType target, TargetType source)
+     *
+     * @return 生成的方法规范
+     * @since 1.3.0
+     */
+    public MethodSpec generateUpdateEntity() {
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("updateEntity")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(void.class)
+                .addParameter(ClassName.get(sourceType), "target")
+                .addParameter(ClassName.get(targetType), "source");
+        
+        if (useStaticMethods) {
+            methodBuilder.addModifiers(Modifier.STATIC);
+        }
+        
+        // 添加 null 检查
+        methodBuilder.beginControlFlow("if (source == null || target == null)")
+                .addStatement("return")
+                .endControlFlow();
+        
+        // 生成反向字段更新代码
+        for (FieldMapping mapping : fieldMappings) {
+            generateUpdateFieldCopyCode(methodBuilder, mapping, true);
+        }
+        
+        return methodBuilder.build();
+    }
+
+    /**
+     * 生成更新字段拷贝代码。
+     *
+     * <p>根据 NullValueStrategy 决定是否更新 null 字段。
+     *
+     * @param methodBuilder 方法构建器
+     * @param mapping       字段映射
+     * @param reverse       是否反向拷贝
+     * @since 1.3.0
+     */
+    private void generateUpdateFieldCopyCode(MethodSpec.Builder methodBuilder, 
+                                              FieldMapping mapping, boolean reverse) {
+        String sourceFieldName = reverse ? mapping.getTargetFieldName() : mapping.getSourceFieldName();
+        String targetFieldName = reverse ? mapping.getSourceFieldName() : mapping.getTargetFieldName();
+
+        if (sourceFieldName == null) {
+            // 常量映射等没有源字段的情况
+            if (mapping.isConstantMapping() && !reverse) {
+                fieldCopyGenerator.generateFieldCopyCode(methodBuilder, mapping, reverse);
+            }
+            return;
+        }
+
+        String getterName = "get" + capitalize(sourceFieldName);
+        String setterName = "set" + capitalize(targetFieldName);
+
+        if (nullValueStrategy == NullValueStrategy.IGNORE) {
+            // IGNORE 策略：只更新非 null 字段
+            methodBuilder.beginControlFlow("if (source.$L() != null)", getterName);
+            fieldCopyGenerator.generateFieldCopyCode(methodBuilder, mapping, reverse);
+            methodBuilder.endControlFlow();
+        } else {
+            // REPLACE 策略：更新所有字段（包括 null）
+            fieldCopyGenerator.generateFieldCopyCode(methodBuilder, mapping, reverse);
+        }
+    }
+
+    /**
+     * 首字母大写。
+     *
+     * @param str 原始字符串
+     * @return 首字母大写的字符串
+     */
+    private String capitalize(String str) {
+        if (str == null || str.isEmpty()) {
+            return str;
+        }
+        return str.substring(0, 1).toUpperCase() + str.substring(1);
     }
 }

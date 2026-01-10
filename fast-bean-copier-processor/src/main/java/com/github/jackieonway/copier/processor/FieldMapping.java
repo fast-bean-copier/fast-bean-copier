@@ -109,6 +109,29 @@ public class FieldMapping {
      */
     private String qualifiedByName;
 
+    // ========== v1.3 新增字段 ==========
+
+    /**
+     * 条件表达式。
+     *
+     * @since 1.3.0
+     */
+    private String condition;
+
+    /**
+     * 默认值。
+     *
+     * @since 1.3.0
+     */
+    private String defaultValue;
+
+    /**
+     * 常量值。
+     *
+     * @since 1.3.0
+     */
+    private String constant;
+
     /**
      * 构造方法。
      *
@@ -342,6 +365,125 @@ public class FieldMapping {
     public boolean isManyToOne() {
         return mappingType == MappingType.MANY_TO_ONE || 
                (sourceFieldNames != null && sourceFieldNames.size() > 1);
+    }
+
+    // ========== v1.3 新增方法 ==========
+
+    /**
+     * 获取条件表达式。
+     *
+     * @return 条件表达式
+     * @since 1.3.0
+     */
+    public String getCondition() {
+        return condition;
+    }
+
+    /**
+     * 设置条件表达式。
+     *
+     * @param condition 条件表达式
+     * @since 1.3.0
+     */
+    public void setCondition(String condition) {
+        this.condition = condition;
+    }
+
+    /**
+     * 判断是否有条件表达式。
+     *
+     * @return 如果有条件表达式返回 true
+     * @since 1.3.0
+     */
+    public boolean hasCondition() {
+        return condition != null && !condition.trim().isEmpty();
+    }
+
+    /**
+     * 获取解析后的条件表达式（去除 java() 包装）。
+     *
+     * @return 解析后的条件表达式
+     * @since 1.3.0
+     */
+    public String getConditionExpression() {
+        if (condition == null || condition.trim().isEmpty()) {
+            return null;
+        }
+        String trimmed = condition.trim();
+        if (trimmed.startsWith("java(") && trimmed.endsWith(")")) {
+            return trimmed.substring(5, trimmed.length() - 1);
+        }
+        return trimmed;
+    }
+
+    /**
+     * 获取默认值。
+     *
+     * @return 默认值
+     * @since 1.3.0
+     */
+    public String getDefaultValue() {
+        return defaultValue;
+    }
+
+    /**
+     * 设置默认值。
+     *
+     * @param defaultValue 默认值
+     * @since 1.3.0
+     */
+    public void setDefaultValue(String defaultValue) {
+        this.defaultValue = defaultValue;
+    }
+
+    /**
+     * 判断是否有默认值。
+     *
+     * @return 如果有默认值返回 true
+     * @since 1.3.0
+     */
+    public boolean hasDefaultValue() {
+        return defaultValue != null && !defaultValue.trim().isEmpty();
+    }
+
+    /**
+     * 获取常量值。
+     *
+     * @return 常量值
+     * @since 1.3.0
+     */
+    public String getConstant() {
+        return constant;
+    }
+
+    /**
+     * 设置常量值。
+     *
+     * @param constant 常量值
+     * @since 1.3.0
+     */
+    public void setConstant(String constant) {
+        this.constant = constant;
+    }
+
+    /**
+     * 判断是否有常量值。
+     *
+     * @return 如果有常量值返回 true
+     * @since 1.3.0
+     */
+    public boolean hasConstant() {
+        return constant != null && !constant.trim().isEmpty();
+    }
+
+    /**
+     * 判断是否为常量映射。
+     *
+     * @return 如果是常量映射返回 true
+     * @since 1.3.0
+     */
+    public boolean isConstantMapping() {
+        return hasConstant();
     }
 
     /**

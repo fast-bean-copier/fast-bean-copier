@@ -1,7 +1,9 @@
 package com.github.jackieonway.copier.processor.context;
 
 import com.github.jackieonway.copier.annotation.ComponentModel;
+import com.github.jackieonway.copier.annotation.NullValueStrategy;
 import com.github.jackieonway.copier.processor.FieldMapping;
+import com.github.jackieonway.copier.processor.extractor.AnnotationExtractor;
 
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -82,6 +84,27 @@ public class ProcessorContext {
      * 组件模型配置。
      */
     private ComponentModel componentModel = ComponentModel.DEFAULT;
+
+    /**
+     * 包级别配置。
+     *
+     * @since 1.3.0
+     */
+    private AnnotationExtractor.PackageConfig packageConfig;
+
+    /**
+     * null 值处理策略。
+     *
+     * @since 1.3.0
+     */
+    private NullValueStrategy nullValueStrategy = NullValueStrategy.IGNORE;
+
+    /**
+     * 映射前处理方法名。
+     *
+     * @since 1.3.0
+     */
+    private String beforeMapping = "";
 
     // ========== 分析结果 ==========
 
@@ -234,6 +257,123 @@ public class ProcessorContext {
         this.componentModel = componentModel != null ? componentModel : ComponentModel.DEFAULT;
     }
 
+    /**
+     * 获取包级别配置。
+     *
+     * @return 包级别配置，可能为 null
+     * @since 1.3.0
+     */
+    public AnnotationExtractor.PackageConfig getPackageConfig() {
+        return packageConfig;
+    }
+
+    /**
+     * 设置包级别配置。
+     *
+     * @param packageConfig 包级别配置
+     * @since 1.3.0
+     */
+    public void setPackageConfig(AnnotationExtractor.PackageConfig packageConfig) {
+        this.packageConfig = packageConfig;
+    }
+
+    /**
+     * 获取有效的组件模型配置。
+     *
+     * <p>配置优先级：类级别 > 包级别 > 默认值
+     *
+     * @return 有效的组件模型配置
+     * @since 1.3.0
+     */
+    public ComponentModel getEffectiveComponentModel() {
+        // 类级别配置优先
+        if (componentModel != null && componentModel != ComponentModel.DEFAULT) {
+            return componentModel;
+        }
+
+        // 包级别配置次之
+        if (packageConfig != null && packageConfig.getComponentModel() != null
+                && packageConfig.getComponentModel() != ComponentModel.DEFAULT) {
+            return packageConfig.getComponentModel();
+        }
+
+        // 默认值
+        return ComponentModel.DEFAULT;
+    }
+
+    /**
+     * 获取 null 值处理策略。
+     *
+     * @return null 值处理策略
+     * @since 1.3.0
+     */
+    public NullValueStrategy getNullValueStrategy() {
+        return nullValueStrategy;
+    }
+
+    /**
+     * 设置 null 值处理策略。
+     *
+     * @param nullValueStrategy null 值处理策略
+     * @since 1.3.0
+     */
+    public void setNullValueStrategy(NullValueStrategy nullValueStrategy) {
+        this.nullValueStrategy = nullValueStrategy != null ? nullValueStrategy : NullValueStrategy.IGNORE;
+    }
+
+    /**
+     * 获取有效的 null 值处理策略。
+     *
+     * <p>配置优先级：类级别 > 包级别 > 默认值（IGNORE）
+     *
+     * @return 有效的 null 值处理策略
+     * @since 1.3.0
+     */
+    public NullValueStrategy getEffectiveNullValueStrategy() {
+        // 类级别配置优先（如果已设置且不是默认值）
+        if (nullValueStrategy != null && nullValueStrategy != NullValueStrategy.IGNORE) {
+            return nullValueStrategy;
+        }
+
+        // 包级别配置次之
+        if (packageConfig != null && packageConfig.getNullValueStrategy() != null) {
+            return packageConfig.getNullValueStrategy();
+        }
+
+        // 默认值
+        return NullValueStrategy.IGNORE;
+    }
+
+    /**
+     * 获取映射前处理方法名。
+     *
+     * @return 映射前处理方法名，如果未设置返回空字符串
+     * @since 1.3.0
+     */
+    public String getBeforeMapping() {
+        return beforeMapping;
+    }
+
+    /**
+     * 设置映射前处理方法名。
+     *
+     * @param beforeMapping 映射前处理方法名
+     * @since 1.3.0
+     */
+    public void setBeforeMapping(String beforeMapping) {
+        this.beforeMapping = beforeMapping != null ? beforeMapping : "";
+    }
+
+    /**
+     * 判断是否有映射前处理方法。
+     *
+     * @return 如果有映射前处理方法返回 true
+     * @since 1.3.0
+     */
+    public boolean hasBeforeMapping() {
+        return beforeMapping != null && !beforeMapping.trim().isEmpty();
+    }
+
     // ========== 分析结果访问方法 ==========
 
     /**
@@ -361,6 +501,9 @@ public class ProcessorContext {
         this.usesClasses = new ArrayList<>();
         this.componentModel = ComponentModel.DEFAULT;
         this.fieldMappings = new ArrayList<>();
+        this.packageConfig = null;
+        this.nullValueStrategy = NullValueStrategy.IGNORE;
+        this.beforeMapping = "";
     }
 
     /**

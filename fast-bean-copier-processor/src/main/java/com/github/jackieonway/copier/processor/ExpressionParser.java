@@ -283,4 +283,166 @@ public class ExpressionParser {
             messager.printMessage(Diagnostic.Kind.WARNING, message, element);
         }
     }
+
+    /**
+     * 条件表达式解析结果。
+     *
+     * @since 1.3.0
+     */
+    public static class ConditionParseResult {
+        private final boolean valid;
+        private final String errorMessage;
+        private final String conditionCode;
+
+        private ConditionParseResult(boolean valid, String errorMessage, String conditionCode) {
+            this.valid = valid;
+            this.errorMessage = errorMessage;
+            this.conditionCode = conditionCode;
+        }
+
+        /**
+         * 创建成功的解析结果。
+         *
+         * @param conditionCode 条件代码
+         * @return 成功的解析结果
+         */
+        public static ConditionParseResult success(String conditionCode) {
+            return new ConditionParseResult(true, null, conditionCode);
+        }
+
+        /**
+         * 创建失败的解析结果。
+         *
+         * @param errorMessage 错误信息
+         * @return 失败的解析结果
+         */
+        public static ConditionParseResult error(String errorMessage) {
+            return new ConditionParseResult(false, errorMessage, null);
+        }
+
+        /**
+         * 检查解析是否有效。
+         *
+         * @return 如果有效返回 true
+         */
+        public boolean isValid() {
+            return valid;
+        }
+
+        /**
+         * 获取错误信息。
+         *
+         * @return 错误信息，如果没有错误返回 null
+         */
+        public String getErrorMessage() {
+            return errorMessage;
+        }
+
+        /**
+         * 获取条件代码。
+         *
+         * @return 条件代码
+         */
+        public String getConditionCode() {
+            return conditionCode;
+        }
+    }
+
+    /**
+     * 解析条件表达式。
+     *
+     * <p>条件表达式格式必须以 {@code java(} 开头和 {@code )} 结尾，
+     * 括号内为有效的 Java 布尔表达式。
+     *
+     * <p>示例：
+     * <ul>
+     *   <li>{@code java(source.getName() != null)}</li>
+     *   <li>{@code java(source.getAge() > 18)}</li>
+     *   <li>{@code java(source.getStatus() != null && source.getStatus().equals("ACTIVE"))}</li>
+     * </ul>
+     *
+     * @param condition 条件表达式字符串
+     * @param element 关联的元素（用于错误报告）
+     * @return 解析结果
+     * @since 1.3.0
+     */
+    public ConditionParseResult parseCondition(String condition, Element element) {
+        if (condition == null || condition.trim().isEmpty()) {
+            return ConditionParseResult.error("Condition expression cannot be null or empty");
+        }
+
+        String trimmed = condition.trim();
+
+        // 验证格式：必须以 java( 开头和 ) 结尾
+        if (!trimmed.startsWith("java(")) {
+            String error = "Condition expression must start with 'java('. Got: " + trimmed;
+            reportError(element, error);
+            return ConditionParseResult.error(error);
+        }
+
+        if (!trimmed.endsWith(")")) {
+            String error = "Condition expression must end with ')'. Got: " + trimmed;
+            reportError(element, error);
+            return ConditionParseResult.error(error);
+        }
+
+        // 提取实际的条件代码
+        String conditionCode = trimmed.substring(5, trimmed.length() - 1).trim();
+
+        if (conditionCode.isEmpty()) {
+            String error = "Condition expression cannot be empty inside java()";
+            reportError(element, error);
+            return ConditionParseResult.error(error);
+        }
+
+        // 基本语法验证
+        String syntaxError = validateConditionSyntax(conditionCode);
+        if (syntaxError != null) {
+            reportError(element, "Condition syntax error: " + syntaxError);
+            return ConditionParseResult.error(syntaxError);
+        }
+
+        return ConditionParseResult.success(conditionCode);
+    }
+
+    /**
+     * 验证条件表达式的基本语法。
+     *
+     * @param conditionCode 条件代码
+     * @return 如果有语法错误返回错误信息，否则返回 null
+     * @since 1.3.0
+     */
+    private String validateConditionSyntax(String conditionCode) {
+        // 检查括号是否匹配
+        int parenCount = 0;
+        for (char c : conditionCode.toCharArray()) {
+            if (c == '(') {
+                parenCount++;
+            } else if (c == ')') {
+                parenCount--;
+            }
+            if (parenCount < 0) {
+                return "Unmatched closing parenthesis";
+            }
+        }
+        if (parenCount != 0) {
+            return "Unmatched opening parenthesis";
+        }
+
+        // 检查是否包含基本的比较或逻辑运算符
+        // 这是一个简单的检查，实际的语法验证由 Java 编译器完成
+        if (!conditionCode.contains("==") && !conditionCode.contains("!=") 
+                && !conditionCode.contains(">") && !conditionCode.contains("<")
+                && !conditionCode.contains("&&") && !conditionCode.contains("||")
+                && !conditionCode.contains("!") && !conditionCode.contains("instanceof")
+                && !conditionCode.contains(".equals(") && !conditionCode.contains(".isEmpty(")
+                && !conditionCode.contains(".contains(") && !conditionCode.contains(".startsWith(")
+                && !conditionCode.contains(".endsWith(") && !conditionCode.contains("true")
+                && !conditionCode.contains("false") && !conditionCode.contains(" null")) {
+            // 如果没有任何比较运算符，可能不是有效的布尔表达式
+            // 但我们不强制报错，因为可能是方法调用返回 boolean
+        }
+
+        return null;
+    }
 }

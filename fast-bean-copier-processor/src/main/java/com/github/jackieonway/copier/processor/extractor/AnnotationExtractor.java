@@ -3,10 +3,13 @@ package com.github.jackieonway.copier.processor.extractor;
 import com.github.jackieonway.copier.annotation.ComponentModel;
 import com.github.jackieonway.copier.annotation.CopyField;
 import com.github.jackieonway.copier.annotation.CopyTarget;
+import com.github.jackieonway.copier.annotation.CopyTargetConfig;
+import com.github.jackieonway.copier.annotation.NullValueStrategy;
 import com.github.jackieonway.copier.converter.TypeConverter;
 import com.github.jackieonway.copier.processor.context.ProcessorContext;
 import com.github.jackieonway.copier.processor.model.CopyFieldConfig;
 
+import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.MirroredTypesException;
@@ -226,5 +229,212 @@ public class AnnotationExtractor {
         }
 
         return true;
+    }
+
+    /**
+     * 从包元素中提取 @CopyTargetConfig 注解配置。
+     *
+     * <p>读取 package-info.java 中的 @CopyTargetConfig 注解，
+     * 如果注解不存在则返回默认配置。
+     *
+     * @param packageElement 包元素
+     * @return 包级别配置，如果注解不存在则返回 null
+     * @since 1.3.0
+     */
+    public PackageConfig extractPackageConfig(PackageElement packageElement) {
+        if (packageElement == null) {
+            return null;
+        }
+
+        CopyTargetConfig config = packageElement.getAnnotation(CopyTargetConfig.class);
+        if (config == null) {
+            return null;
+        }
+
+        ComponentModel componentModel = config.componentModel();
+        NullValueStrategy nullValueStrategy = config.nullValueStrategy();
+
+        return new PackageConfig(
+                componentModel != null ? componentModel : ComponentModel.DEFAULT,
+                nullValueStrategy != null ? nullValueStrategy : NullValueStrategy.IGNORE
+        );
+    }
+
+    /**
+     * 合并类级别配置和包级别配置。
+     *
+     * <p>配置优先级：类级别 > 包级别 > 默认值
+     *
+     * @param classComponentModel 类级别组件模型配置（可能为 null）
+     * @param packageConfig 包级别配置（可能为 null）
+     * @return 合并后的组件模型
+     * @since 1.3.0
+     */
+    public ComponentModel mergeComponentModel(ComponentModel classComponentModel, PackageConfig packageConfig) {
+        // 类级别配置优先
+        if (classComponentModel != null && classComponentModel != ComponentModel.DEFAULT) {
+            return classComponentModel;
+        }
+
+        // 包级别配置次之
+        if (packageConfig != null && packageConfig.getComponentModel() != null) {
+            return packageConfig.getComponentModel();
+        }
+
+        // 默认值
+        return ComponentModel.DEFAULT;
+    }
+
+    /**
+     * 获取有效的 null 值处理策略。
+     *
+     * <p>配置优先级：包级别 > 默认值（IGNORE）
+     *
+     * @param packageConfig 包级别配置（可能为 null）
+     * @return 有效的 null 值处理策略
+     * @since 1.3.0
+     */
+    public NullValueStrategy getEffectiveNullValueStrategy(PackageConfig packageConfig) {
+        if (packageConfig != null && packageConfig.getNullValueStrategy() != null) {
+            return packageConfig.getNullValueStrategy();
+        }
+        return NullValueStrategy.IGNORE;
+    }
+
+    /**
+     * 从 @CopyTarget 注解中提取 beforeMapping 方法名。
+     *
+     * @param annotation CopyTarget 注解
+     * @return beforeMapping 方法名，如果未指定返回空字符串
+     * @since 1.3.0
+     */
+    public String extractBeforeMapping(CopyTarget annotation) {
+        if (annotation == null) {
+            return "";
+        }
+        String beforeMapping = annotation.beforeMapping();
+        return beforeMapping != null ? beforeMapping : "";
+    }
+
+    /**
+     * 验证 beforeMapping 方法签名是否正确。
+     *
+     * <p>beforeMapping 方法必须满足以下条件：
+     * <ul>
+     *   <li>方法存在于目标类中</li>
+     *   <li>方法参数类型为源类型</li>
+     *   <li>方法返回类型为 void</li>
+     * </ul>
+     *
+     * @param targetType    目标类型元素
+     * @param sourceType    源类型元素
+     * @param beforeMapping beforeMapping 方法名
+     * @return 如果方法签名正确返回 true，否则返回 false
+     * @since 1.3.0
+     */
+    public boolean validateBeforeMappingMethod(TypeElement targetType, TypeElement sourceType, String beforeMapping) {
+        if (beforeMapping == null || beforeMapping.trim().isEmpty()) {
+            return true; // 没有指定 beforeMapping 方法，验证通过
+        }
+
+        // 查找目标类中的方法
+        for (javax.lang.model.element.Element element : targetType.getEnclosedElements()) {
+            if (element.getKind() == javax.lang.model.element.ElementKind.METHOD) {
+                javax.lang.model.element.ExecutableElement method = (javax.lang.model.element.ExecutableElement) element;
+                if (method.getSimpleName().toString().equals(beforeMapping)) {
+                    // 验证返回类型为 void
+                    if (method.getReturnType().getKind() != javax.lang.model.type.TypeKind.VOID) {
+                        context.error("beforeMapping 方法 '" + beforeMapping + "' 必须返回 void", targetType);
+                        return false;
+                    }
+
+                    // 验证参数类型
+                    java.util.List<? extends javax.lang.model.element.VariableElement> params = method.getParameters();
+                    if (params.size() != 1) {
+                        context.error("beforeMapping 方法 '" + beforeMapping + "' 必须有且仅有一个参数", targetType);
+                        return false;
+                    }
+
+                    javax.lang.model.type.TypeMirror paramType = params.get(0).asType();
+                    if (!context.getTypeUtils().isSameType(paramType, sourceType.asType())) {
+                        context.error("beforeMapping 方法 '" + beforeMapping + "' 的参数类型必须为源类型 " + sourceType.getSimpleName(), targetType);
+                        return false;
+                    }
+
+                    return true;
+                }
+            }
+        }
+
+        context.error("在目标类中找不到 beforeMapping 方法 '" + beforeMapping + "'", targetType);
+        return false;
+    }
+
+    /**
+     * 从 @CopyField 注解中提取条件表达式。
+     *
+     * @param annotation CopyField 注解
+     * @return 条件表达式，如果未指定返回空字符串
+     * @since 1.3.0
+     */
+    public String extractCondition(CopyField annotation) {
+        if (annotation == null) {
+            return "";
+        }
+        String condition = annotation.condition();
+        return condition != null ? condition : "";
+    }
+
+    /**
+     * 从 @CopyField 注解中提取默认值。
+     *
+     * @param annotation CopyField 注解
+     * @return 默认值，如果未指定返回空字符串
+     * @since 1.3.0
+     */
+    public String extractDefaultValue(CopyField annotation) {
+        if (annotation == null) {
+            return "";
+        }
+        String defaultValue = annotation.defaultValue();
+        return defaultValue != null ? defaultValue : "";
+    }
+
+    /**
+     * 从 @CopyField 注解中提取常量值。
+     *
+     * @param annotation CopyField 注解
+     * @return 常量值，如果未指定返回空字符串
+     * @since 1.3.0
+     */
+    public String extractConstant(CopyField annotation) {
+        if (annotation == null) {
+            return "";
+        }
+        String constant = annotation.constant();
+        return constant != null ? constant : "";
+    }
+
+    /**
+     * 包级别配置数据类。
+     *
+     * @since 1.3.0
+     */
+    public static class PackageConfig {
+        private final ComponentModel componentModel;
+        private final NullValueStrategy nullValueStrategy;
+
+        public PackageConfig(ComponentModel componentModel, NullValueStrategy nullValueStrategy) {
+            this.componentModel = componentModel;
+            this.nullValueStrategy = nullValueStrategy;
+        }
+
+        public ComponentModel getComponentModel() {
+            return componentModel;
+        }
+
+        public NullValueStrategy getNullValueStrategy() {
+            return nullValueStrategy;
+        }
     }
 }

@@ -161,27 +161,94 @@ public class FieldMappingAnalyzer {
         String targetFieldName = targetField.getSimpleName().toString();
         String[] sourceNames = config.getSourceNames();
 
+        // 提取 v1.3 新增属性
+        String condition = extractor.extractCondition(annotation);
+        String defaultValue = extractor.extractDefaultValue(annotation);
+        String constant = extractor.extractConstant(annotation);
+
+        // 验证互斥关系
+        if (!validateMutualExclusion(defaultValue, constant, targetField)) {
+            return null;
+        }
+
+        FieldMapping mapping = null;
+
         // 根据配置确定映射类型
-        if (config.hasExpression()) {
+        if (constant != null && !constant.isEmpty()) {
+            // 常量映射（v1.3 新增）
+            mapping = createConstantMapping(targetField, targetFieldType, constant);
+        } else if (config.hasExpression()) {
             // 表达式映射
-            return createExpressionMapping(targetField, targetFieldType, sourceNames,
+            mapping = createExpressionMapping(targetField, targetFieldType, sourceNames,
                     config.getExpression(), sourceFieldMap, sourceType);
         } else if (config.hasConverter()) {
             // 类型转换器映射
-            return createConverterMapping(targetField, targetFieldType, sourceNames,
+            mapping = createConverterMapping(targetField, targetFieldType, sourceNames,
                     config.getConverterClassName(), config.getFormat(), sourceFieldMap);
         } else if (config.hasQualifiedByName()) {
             // 具名转换方法映射
-            return createQualifiedByNameMapping(targetField, targetFieldType, sourceNames,
+            mapping = createQualifiedByNameMapping(targetField, targetFieldType, sourceNames,
                     config.getQualifiedByName(), sourceFieldMap);
         } else if (config.hasSourceNames()) {
             // 简单的字段名映射（可能是多对一）
-            return createSimpleMapping(targetField, targetFieldType, sourceNames, sourceFieldMap);
+            mapping = createSimpleMapping(targetField, targetFieldType, sourceNames, sourceFieldMap);
         } else {
             // 使用目标字段名作为源字段名
-            return createSimpleMappingByName(targetFieldName, targetField,
+            mapping = createSimpleMappingByName(targetFieldName, targetField,
                     targetFieldType, sourceFieldMap);
         }
+
+        // 设置 v1.3 新增属性
+        if (mapping != null) {
+            if (condition != null && !condition.isEmpty()) {
+                mapping.setCondition(condition);
+            }
+            if (defaultValue != null && !defaultValue.isEmpty()) {
+                mapping.setDefaultValue(defaultValue);
+            }
+        }
+
+        return mapping;
+    }
+
+    /**
+     * 验证 defaultValue 和 constant 的互斥关系。
+     *
+     * @param defaultValue 默认值
+     * @param constant     常量值
+     * @param targetField  目标字段
+     * @return 如果验证通过返回 true
+     * @since 1.3.0
+     */
+    private boolean validateMutualExclusion(String defaultValue, String constant,
+                                            VariableElement targetField) {
+        boolean hasDefaultValue = defaultValue != null && !defaultValue.isEmpty();
+        boolean hasConstant = constant != null && !constant.isEmpty();
+
+        if (hasDefaultValue && hasConstant) {
+            context.error("@CopyField 的 defaultValue 和 constant 属性不能同时使用", targetField);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * 创建常量映射。
+     *
+     * @param targetField     目标字段
+     * @param targetFieldType 目标字段类型
+     * @param constant        常量值
+     * @return 字段映射
+     * @since 1.3.0
+     */
+    FieldMapping createConstantMapping(VariableElement targetField,
+                                        TypeMirror targetFieldType,
+                                        String constant) {
+        FieldMapping mapping = new FieldMapping(null, targetField, null, targetFieldType);
+        mapping.setConstant(constant);
+        mapping.setMappingType(FieldMapping.MappingType.SIMPLE);
+        return mapping;
     }
 
     /**
