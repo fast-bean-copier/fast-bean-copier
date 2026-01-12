@@ -582,6 +582,98 @@ public class DeepCopyGenerator {
         return "Math.max((int)(" + sizeExpression + " / 0.75f) + 1, 16)";
     }
 
+    // ========== v1.3 新增方法：更新现有对象嵌套处理 ==========
+
+    /**
+     * 生成嵌套对象更新代码。
+     *
+     * <p>当目标嵌套对象为 null 时创建新对象，否则递归更新嵌套对象的字段。
+     *
+     * @param methodBuilder   方法构建器
+     * @param getterName      源字段 getter 方法名
+     * @param setterName      目标字段 setter 方法名
+     * @param sourceFieldType 源字段类型
+     * @param targetFieldType 目标字段类型
+     * @param mapping         字段映射
+     * @param reverse         是否为反向拷贝
+     * @since 1.3.0
+     */
+    public void generateNestedObjectUpdate(MethodSpec.Builder methodBuilder,
+                                           String getterName,
+                                           String setterName,
+                                           TypeMirror sourceFieldType,
+                                           TypeMirror targetFieldType,
+                                           FieldMapping mapping,
+                                           boolean reverse) {
+        // 检查源字段是否为 null
+        methodBuilder.beginControlFlow("if (source.$L() != null)", getterName);
+        
+        // 检查目标嵌套对象是否为 null，如果是则创建新对象
+        methodBuilder.beginControlFlow("if (target.$L() == null)", getterName);
+        ClassName targetClassName = ClassName.bestGuess(targetFieldType.toString());
+        methodBuilder.addStatement("target.$L(new $T())", setterName, targetClassName);
+        methodBuilder.endControlFlow();
+        
+        // 如果目标类型有对应的 Copier，使用 updateDto/updateEntity 方法
+        if (TypeUtils.needsDeepCopy(targetFieldType)) {
+            TypeMirror dtoType = reverse ? sourceFieldType : targetFieldType;
+            ClassName copierClass = ClassName.bestGuess(dtoType.toString() + "Copier");
+            String updateMethodName = reverse ? "updateEntity" : "updateDto";
+            methodBuilder.addStatement("$T.$L(target.$L(), source.$L())", 
+                    copierClass, updateMethodName, getterName, getterName);
+        } else {
+            // 对于没有 Copier 的嵌套对象，直接赋值
+            methodBuilder.addStatement("target.$L(source.$L())", setterName, getterName);
+        }
+        
+        methodBuilder.endControlFlow();
+    }
+
+    /**
+     * 生成集合字段更新代码（替换策略）。
+     *
+     * <p>默认策略：替换整个集合。
+     *
+     * @param methodBuilder   方法构建器
+     * @param getterName      源字段 getter 方法名
+     * @param setterName      目标字段 setter 方法名
+     * @param sourceFieldType 源字段类型
+     * @param targetFieldType 目标字段类型
+     * @param mapping         字段映射
+     * @param reverse         是否为反向拷贝
+     * @since 1.3.0
+     */
+    public void generateCollectionUpdate(MethodSpec.Builder methodBuilder,
+                                         String getterName,
+                                         String setterName,
+                                         TypeMirror sourceFieldType,
+                                         TypeMirror targetFieldType,
+                                         FieldMapping mapping,
+                                         boolean reverse) {
+        // 检查源字段是否为 null
+        methodBuilder.beginControlFlow("if (source.$L() != null)", getterName);
+        
+        // 根据集合类型生成不同的替换代码
+        if (TypeUtils.isList(sourceFieldType)) {
+            methodBuilder.addStatement("target.$L(new java.util.ArrayList<>(source.$L()))", 
+                    setterName, getterName);
+        } else if (TypeUtils.isSet(sourceFieldType)) {
+            methodBuilder.addStatement("target.$L(new java.util.LinkedHashSet<>(source.$L()))", 
+                    setterName, getterName);
+        } else if (TypeUtils.isMap(sourceFieldType)) {
+            methodBuilder.addStatement("target.$L(new java.util.HashMap<>(source.$L()))", 
+                    setterName, getterName);
+        } else if (TypeUtils.isArrayType(sourceFieldType)) {
+            // 数组需要克隆
+            methodBuilder.addStatement("target.$L(source.$L().clone())", setterName, getterName);
+        } else {
+            // 其他集合类型，直接赋值
+            methodBuilder.addStatement("target.$L(source.$L())", setterName, getterName);
+        }
+        
+        methodBuilder.endControlFlow();
+    }
+
     /**
      * 输出原始类型或不支持通配符的警告。
      *

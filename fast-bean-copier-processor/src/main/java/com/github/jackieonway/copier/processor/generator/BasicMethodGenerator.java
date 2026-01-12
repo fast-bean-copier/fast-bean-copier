@@ -368,6 +368,7 @@ public class BasicMethodGenerator {
      * 生成更新字段拷贝代码。
      *
      * <p>根据 NullValueStrategy 决定是否更新 null 字段。
+     * 对于基本类型字段，不进行 null 检查，直接更新。
      *
      * @param methodBuilder 方法构建器
      * @param mapping       字段映射
@@ -390,13 +391,19 @@ public class BasicMethodGenerator {
         String getterName = "get" + capitalize(sourceFieldName);
         String setterName = "set" + capitalize(targetFieldName);
 
-        if (nullValueStrategy == NullValueStrategy.IGNORE) {
-            // IGNORE 策略：只更新非 null 字段
+        // 获取源字段类型
+        TypeMirror sourceFieldType = reverse ? mapping.getTargetType() : mapping.getSourceType();
+        
+        // 检查是否为基本类型（基本类型不能进行 null 检查）
+        boolean isPrimitiveType = sourceFieldType != null && sourceFieldType.getKind().isPrimitive();
+
+        if (nullValueStrategy == NullValueStrategy.IGNORE && !isPrimitiveType) {
+            // IGNORE 策略：只更新非 null 字段（仅对非基本类型）
             methodBuilder.beginControlFlow("if (source.$L() != null)", getterName);
             fieldCopyGenerator.generateFieldCopyCode(methodBuilder, mapping, reverse);
             methodBuilder.endControlFlow();
         } else {
-            // REPLACE 策略：更新所有字段（包括 null）
+            // REPLACE 策略或基本类型：更新所有字段
             fieldCopyGenerator.generateFieldCopyCode(methodBuilder, mapping, reverse);
         }
     }
