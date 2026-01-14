@@ -5,6 +5,86 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/),
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.3.0] - 2026-01-14
+
+### 新增
+
+#### 更新现有对象
+- **updateDto 方法**：更新已存在的 DTO 对象，而不是创建新对象
+  - 方法签名：`void updateDto(TargetDto target, Source source)`
+  - 源对象为 null 时直接返回，不修改目标对象
+- **updateEntity 方法**：更新已存在的实体对象
+  - 方法签名：`void updateEntity(Source target, TargetDto source)`
+  - 支持反向更新
+- **嵌套对象更新**：支持嵌套对象的递归更新
+  - 目标嵌套对象为 null 时自动创建新对象
+  - 支持有 @CopyTarget 注解和无注解的嵌套对象
+- **集合字段更新**：支持 List、Set、Map、数组字段的更新
+  - 默认策略：替换整个集合
+
+#### 映射前回调
+- **beforeMapping 属性**：在 @CopyTarget 中指定映射前处理方法名
+- **方法签名要求**：
+  - 必须是目标类中的默认方法（default method）
+  - 参数类型为源类类型
+  - 返回类型为 void
+- **调用时机**：在映射逻辑执行之前调用
+- **用途**：验证、初始化、日志记录等前置操作
+
+#### 条件映射
+- **condition 属性**：在 @CopyField 中指定条件表达式
+- **表达式格式**：`java(source.getXxx() != null)` 格式
+- **条件为 true 时执行映射**，否则跳过该字段
+- **支持组合使用**：可与 expression、converter 等属性组合
+
+#### 默认值和常量
+- **defaultValue 属性**：当源字段为 null 时使用的默认值
+  - 支持类型：String、Integer、Long、Double、Float、Short、Byte、Boolean、BigDecimal、BigInteger
+  - 自动类型转换
+- **constant 属性**：直接设置常量值，不依赖源字段
+  - 与 defaultValue 互斥
+  - 使用时 source 属性被忽略
+
+#### 全局配置
+- **@CopyTargetConfig 注解**：包级别配置注解
+  - 应用于 package-info.java 文件
+  - 为包内所有 @CopyTarget 提供默认配置
+- **componentModel 属性**：默认组件模型
+- **nullValueStrategy 属性**：默认 null 值处理策略
+- **配置优先级**：类级别 > 包级别 > 默认值
+
+#### NullValueStrategy 枚举
+- **IGNORE**：忽略 null 值，不更新目标字段（默认）
+- **REPLACE**：替换 null 值，将目标字段设置为 null
+
+### 改进
+- 更新方法支持基本类型字段（跳过 null 检查）
+- 条件表达式解析器支持复杂 Java 表达式
+- 默认值和常量支持多种数据类型自动转换
+
+### 测试
+- 新增 `PackageConfigTest`：全局配置测试
+- 新增 `ConditionalMappingTest`：条件映射测试
+- 新增 `DefaultValueConstantTest`：默认值和常量测试
+- 新增 `UpdateExistingObjectTest`：更新现有对象基础测试
+- 新增 `UpdateNestedObjectTest`：更新现有对象嵌套处理测试
+- 新增 `BeforeMappingCallbackTest`：映射前回调测试
+- 新增 `V13IntegrationTest`：v1.3 功能集成测试
+- 新增 `V13CombinationTest`：组合功能测试
+- 新增 `V13BackwardCompatibilityTest`：向后兼容性测试
+- 新增 `V13PerformanceBenchmarkTest`：性能基准测试
+- 所有 330 个测试用例通过
+
+### 兼容性
+- Java 8+，Maven 构建
+- 完全向后兼容 v1.2.x
+- 保持零运行时反射开销
+
+### 验证
+- `mvn clean install`
+- `mvn jacoco:report`
+- `mvn javadoc:javadoc`
+
 ## [1.2.1] - 2026-01-08
 
 ### 重构
@@ -259,6 +339,7 @@
 
 ---
 
+[1.3.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.3.0
 [1.2.1]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.2.1
 [1.2.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.2.0
 [1.1.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.1.0

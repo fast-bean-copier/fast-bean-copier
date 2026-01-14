@@ -1,5 +1,7 @@
 # Fast Bean Copier API 文档
 
+> v1.3 新增：更新现有对象（updateDto/updateEntity）、映射前回调（beforeMapping）、条件映射（condition）、默认值和常量（defaultValue/constant）、全局配置（@CopyTargetConfig）、Null 值处理策略（NullValueStrategy）。
+>
 > v1.2.1 重构：处理器架构重构，代码可维护性显著提升。
 >
 > v1.2 新增：多字段映射（多对一、一对多）、TypeConverter 类型转换器、依赖注入支持、函数式定制拷贝。
@@ -35,6 +37,11 @@ public @interface CopyTarget {
      * 组件模型（依赖注入框架）。可选。
      */
     ComponentModel componentModel() default ComponentModel.DEFAULT;
+    
+    /**
+     * 映射前回调方法名。可选。（v1.3）
+     */
+    String beforeMapping() default "";
 }
 ```
 
@@ -46,6 +53,7 @@ public @interface CopyTarget {
 | `ignore` | `String[]` | 否 | 要忽略的字段名数组 |
 | `uses` | `Class<?>[]` | 否 | 自定义转换器类列表（v1.2） |
 | `componentModel` | `ComponentModel` | 否 | 依赖注入框架选择（v1.2） |
+| `beforeMapping` | `String` | 否 | 映射前回调方法名（v1.3） |
 
 #### 示例
 
@@ -72,6 +80,16 @@ public class UserDto {
 @CopyTarget(source = User.class, componentModel = ComponentModel.SPRING)
 public class UserDto {
     // ...
+}
+
+// 映射前回调（v1.3）
+@CopyTarget(source = User.class, beforeMapping = "validateAndPrepare")
+public class UserDto {
+    default void validateAndPrepare(User source) {
+        if (source.getName() == null) {
+            throw new IllegalArgumentException("Name cannot be null");
+        }
+    }
 }
 ```
 
@@ -114,6 +132,21 @@ public @interface CopyField {
      * 转换器配置参数（格式字符串等）
      */
     String format() default "";
+    
+    /**
+     * 条件表达式，决定是否执行映射（v1.3）
+     */
+    String condition() default "";
+    
+    /**
+     * 默认值，当源字段为 null 时使用（v1.3）
+     */
+    String defaultValue() default "";
+    
+    /**
+     * 常量值，直接设置，不依赖源字段（v1.3）
+     */
+    String constant() default "";
 }
 ```
 
@@ -127,6 +160,9 @@ public @interface CopyField {
 | `qualifiedByName` | `String` | 否 | 具名转换方法名 |
 | `converter` | `Class<?>` | 否 | TypeConverter 实现类 |
 | `format` | `String` | 否 | 格式字符串 |
+| `condition` | `String` | 否 | 条件表达式（v1.3） |
+| `defaultValue` | `String` | 否 | 默认值（v1.3） |
+| `constant` | `String` | 否 | 常量值（v1.3） |
 
 #### 示例
 
@@ -148,6 +184,18 @@ private String priceText;
 // 使用具名方法
 @CopyField(qualifiedByName = "statusToName")
 private String statusText;
+
+// 条件映射（v1.3）
+@CopyField(condition = "java(source.getName() != null)")
+private String name;
+
+// 默认值（v1.3）
+@CopyField(defaultValue = "未知")
+private String name;
+
+// 常量值（v1.3）
+@CopyField(constant = "SYSTEM")
+private String createdBy;
 ```
 
 ### ComponentModel 枚举（v1.2 新增）
@@ -202,6 +250,66 @@ public interface TypeConverter<S, T> {
             throw new UnsupportedOperationException("No converter configured");
         }
     }
+}
+```
+
+### @CopyTargetConfig（v1.3 新增）
+
+包级别配置注解，为包内所有 @CopyTarget 提供默认配置。
+
+#### 声明
+
+```java
+@Target(ElementType.PACKAGE)
+@Retention(RetentionPolicy.SOURCE)
+public @interface CopyTargetConfig {
+    /**
+     * 默认组件模型
+     */
+    ComponentModel componentModel() default ComponentModel.DEFAULT;
+    
+    /**
+     * 默认 null 值处理策略
+     */
+    NullValueStrategy nullValueStrategy() default NullValueStrategy.IGNORE;
+}
+```
+
+#### 属性
+
+| 属性 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `componentModel` | `ComponentModel` | 否 | 默认组件模型 |
+| `nullValueStrategy` | `NullValueStrategy` | 否 | 默认 null 值处理策略 |
+
+#### 示例
+
+```java
+// package-info.java
+@CopyTargetConfig(
+    componentModel = ComponentModel.SPRING,
+    nullValueStrategy = NullValueStrategy.IGNORE
+)
+package com.example.dto;
+
+import com.github.jackieonway.copier.annotation.*;
+```
+
+### NullValueStrategy 枚举（v1.3 新增）
+
+定义 null 值处理策略。
+
+```java
+public enum NullValueStrategy {
+    /**
+     * 忽略 null 值，不更新目标字段（默认）
+     */
+    IGNORE,
+    
+    /**
+     * 替换 null 值，将目标字段设置为 null
+     */
+    REPLACE
 }
 ```
 
@@ -338,6 +446,52 @@ User user = UserDtoCopier.fromDto(userDto);
 **签名**：
 ```java
 public static SourceType fromDto(TargetType source, UnaryOperator<SourceType> customizer)
+```
+
+#### updateDto(target, source)（v1.3 新增）
+
+更新已存在的目标 DTO 对象，而不是创建新对象。
+
+**签名**：
+```java
+public static void updateDto(TargetType target, SourceType source)
+```
+
+**参数**：
+- `target` - 要更新的目标 DTO 对象
+- `source` - 源对象
+
+**说明**：
+- 源对象为 null 时直接返回，不修改目标对象
+- 支持嵌套对象的递归更新
+- 支持 List、Set、Map、数组字段的更新
+
+**示例**：
+```java
+UserDto existingDto = new UserDto();
+existingDto.setName("原始名称");
+UserDtoCopier.updateDto(existingDto, user);
+// existingDto 的字段被更新为 user 的值
+```
+
+#### updateEntity(target, source)（v1.3 新增）
+
+更新已存在的实体对象（反向更新）。
+
+**签名**：
+```java
+public static void updateEntity(SourceType target, TargetType source)
+```
+
+**参数**：
+- `target` - 要更新的实体对象
+- `source` - 源 DTO 对象
+
+**示例**：
+```java
+User existingUser = new User();
+UserDtoCopier.updateEntity(existingUser, userDto);
+// existingUser 的字段被更新为 userDto 的值
 ```
 
 #### toDtoList(sources)

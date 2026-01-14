@@ -1,4 +1,4 @@
-# Fast Bean Copier 1.2.1 参考文档
+# Fast Bean Copier 1.3.0 参考文档
 
 ## 前言
 
@@ -22,6 +22,8 @@ Fast Bean Copier 是一个 Java 注解处理器，用于生成类型安全的 Be
 - **零运行时依赖** - 生成的代码不依赖任何外部库
 - **丰富的映射功能** - 支持多字段映射、类型转换、依赖注入等
 - **模块化架构** - v1.2.1 重构后，处理器采用职责单一的组件架构，易于维护和扩展
+- **更新现有对象** - v1.3 新增 updateDto/updateEntity 方法，支持更新已存在的对象
+- **条件映射和默认值** - v1.3 新增条件映射、默认值、常量等高级特性
 
 ## 2. 设置
 
@@ -31,13 +33,13 @@ Fast Bean Copier 是一个 Java 注解处理器，用于生成类型安全的 Be
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-annotations</artifactId>
-    <version>1.2.1</version>
+    <version>1.3.0</version>
 </dependency>
 
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-processor</artifactId>
-    <version>1.2.1</version>
+    <version>1.3.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -46,8 +48,8 @@ Fast Bean Copier 是一个 Java 注解处理器，用于生成类型安全的 Be
 
 ```gradle
 dependencies {
-    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.2.1'
-    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.2.1'
+    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.3.0'
+    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.3.0'
 }
 ```
 
@@ -377,9 +379,268 @@ UserDto dto = UserDtoCopier.toDto(null, result -> {
 // dto 为 null
 ```
 
-## 10. 数据类型转换
+## 10. 更新现有对象（v1.3）
 
-### 10.1. 基本类型 ↔ 包装类型
+### 10.1. updateDto 方法
+
+更新已存在的 DTO 对象，而不是创建新对象：
+
+```java
+UserDto existingDto = new UserDto();
+existingDto.setName("原始名称");
+existingDto.setAge(25);
+
+User user = new User();
+user.setName("新名称");
+user.setAge(30);
+
+UserDtoCopier.updateDto(existingDto, user);
+// existingDto.name = "新名称", existingDto.age = 30
+```
+
+### 10.2. updateEntity 方法
+
+更新已存在的实体对象（反向更新）：
+
+```java
+User existingUser = new User();
+UserDtoCopier.updateEntity(existingUser, userDto);
+```
+
+### 10.3. 嵌套对象更新
+
+支持嵌套对象的递归更新：
+
+```java
+@CopyTarget(source = Order.class)
+public class OrderDto {
+    private Long id;
+    private AddressDto address;  // 嵌套对象
+}
+
+// 更新时，如果目标嵌套对象为 null，会自动创建新对象
+OrderDto existingDto = new OrderDto();
+existingDto.setAddress(null);
+OrderDtoCopier.updateDto(existingDto, order);
+// existingDto.address 会被创建并填充
+```
+
+### 10.4. 集合字段更新
+
+支持 List、Set、Map、数组字段的更新：
+
+```java
+@CopyTarget(source = User.class)
+public class UserDto {
+    private List<String> roles;
+}
+
+// 默认策略：替换整个集合
+UserDto existingDto = new UserDto();
+existingDto.setRoles(Arrays.asList("USER"));
+UserDtoCopier.updateDto(existingDto, user);
+// existingDto.roles 被替换为 user.roles
+```
+
+## 11. 映射前回调（v1.3）
+
+### 11.1. beforeMapping 属性
+
+在 @CopyTarget 中指定映射前处理方法名：
+
+```java
+@CopyTarget(source = User.class, beforeMapping = "validateAndPrepare")
+public class UserDto {
+    private String name;
+    private Integer age;
+    
+    default void validateAndPrepare(User source) {
+        if (source.getName() == null) {
+            throw new IllegalArgumentException("Name cannot be null");
+        }
+        // 可以进行日志记录、初始化等操作
+    }
+}
+```
+
+### 11.2. 方法签名要求
+
+- 必须是目标类中的默认方法（default method）
+- 参数类型为源类类型
+- 返回类型为 void
+
+### 11.3. 调用时机
+
+在映射逻辑执行之前调用，用于：
+- 验证源对象
+- 初始化目标对象
+- 日志记录
+- 其他前置操作
+
+## 12. 条件映射（v1.3）
+
+### 12.1. condition 属性
+
+在 @CopyField 中指定条件表达式：
+
+```java
+@CopyTarget(source = User.class)
+public class UserDto {
+    // 仅当源字段不为 null 时才映射
+    @CopyField(condition = "java(source.getName() != null)")
+    private String name;
+    
+    // 仅当年龄大于 18 时才映射
+    @CopyField(condition = "java(source.getAge() != null && source.getAge() > 18)")
+    private Integer age;
+    
+    // 复杂条件
+    @CopyField(condition = "java(source.getStatus() != null && source.getStatus().equals(\"ACTIVE\"))")
+    private String status;
+}
+```
+
+### 12.2. 表达式格式
+
+- 使用 `java(...)` 格式包裹条件表达式
+- 表达式中 `source` 变量代表源对象
+- 条件为 true 时执行映射，否则跳过该字段
+
+### 12.3. 与其他属性组合
+
+可与 expression、converter 等属性组合使用：
+
+```java
+@CopyField(
+    condition = "java(source.getPrice() != null)",
+    converter = NumberFormatter.class, 
+    format = "#,##0.00"
+)
+private String priceText;
+```
+
+## 13. 默认值和常量（v1.3）
+
+### 13.1. defaultValue 属性
+
+当源字段为 null 时使用的默认值：
+
+```java
+@CopyTarget(source = User.class)
+public class UserDto {
+    @CopyField(defaultValue = "未知")
+    private String name;
+    
+    @CopyField(defaultValue = "0")
+    private Integer count;
+    
+    @CopyField(defaultValue = "0.0")
+    private Double price;
+    
+    @CopyField(defaultValue = "false")
+    private Boolean active;
+}
+```
+
+### 13.2. 支持的类型
+
+- String
+- Integer、Long、Short、Byte
+- Double、Float
+- Boolean
+- BigDecimal、BigInteger
+
+### 13.3. constant 属性
+
+直接设置常量值，不依赖源字段：
+
+```java
+@CopyTarget(source = User.class)
+public class UserDto {
+    @CopyField(constant = "SYSTEM")
+    private String createdBy;
+    
+    @CopyField(constant = "1")
+    private Integer version;
+}
+```
+
+### 13.4. 注意事项
+
+- `constant` 与 `defaultValue` 互斥
+- 使用 `constant` 时，`source` 属性被忽略
+
+## 14. 全局配置（v1.3）
+
+### 14.1. @CopyTargetConfig 注解
+
+包级别配置注解，为包内所有 @CopyTarget 提供默认配置：
+
+```java
+// package-info.java
+@CopyTargetConfig(
+    componentModel = ComponentModel.SPRING,
+    nullValueStrategy = NullValueStrategy.IGNORE
+)
+package com.example.dto;
+
+import com.github.jackieonway.copier.annotation.*;
+```
+
+### 14.2. 配置属性
+
+| 属性 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `componentModel` | `ComponentModel` | `DEFAULT` | 默认组件模型 |
+| `nullValueStrategy` | `NullValueStrategy` | `IGNORE` | 默认 null 值处理策略 |
+
+### 14.3. 配置优先级
+
+类级别 > 包级别 > 默认值
+
+```java
+// 包级别配置 SPRING
+@CopyTargetConfig(componentModel = ComponentModel.SPRING)
+package com.example.dto;
+
+// 类级别覆盖为 DEFAULT
+@CopyTarget(source = User.class, componentModel = ComponentModel.DEFAULT)
+public class UserDto { }
+```
+
+## 15. NullValueStrategy（v1.3）
+
+### 15.1. 枚举值
+
+```java
+public enum NullValueStrategy {
+    IGNORE,   // 忽略 null 值，不更新目标字段（默认）
+    REPLACE   // 替换 null 值，将目标字段设置为 null
+}
+```
+
+### 15.2. 使用场景
+
+主要用于 updateDto/updateEntity 方法：
+
+```java
+// IGNORE 策略（默认）
+UserDto existingDto = new UserDto();
+existingDto.setName("原始名称");
+
+User user = new User();
+user.setName(null);
+
+UserDtoCopier.updateDto(existingDto, user);
+// existingDto.name 保持 "原始名称"（null 被忽略）
+
+// REPLACE 策略
+// existingDto.name 会被设置为 null
+```
+
+## 16. 数据类型转换
+
+### 16.1. 基本类型 ↔ 包装类型
 
 Fast Bean Copier 自动支持基本类型与包装类型之间的转换：
 
@@ -394,13 +655,13 @@ Fast Bean Copier 自动支持基本类型与包装类型之间的转换：
 | `boolean` | `Boolean` | 自动装箱 |
 | `Boolean` | `boolean` | null → false |
 
-### 10.2. 同名字段自动拷贝
+### 16.2. 同名字段自动拷贝
 
 对于同名字段，Fast Bean Copier 会自动拷贝。
 
-## 11. 集合映射
+## 17. 集合映射
 
-### 11.1. List/Set 映射
+### 17.1. List/Set 映射
 
 ```java
 List<UserDto> dtos = UserDtoCopier.toDtoList(users);
@@ -410,37 +671,37 @@ List<User> users = UserDtoCopier.fromDtoList(dtos);
 Set<User> userSet = UserDtoCopier.fromDtoSet(dtoSet);
 ```
 
-### 11.2. Map 映射
+### 17.2. Map 映射
 
 ```java
 Map<String, UserDto> dtoMap = UserDtoCopier.toDtoMap(userMap);
 Map<String, User> userMap = UserDtoCopier.fromDtoMap(dtoMap);
 ```
 
-### 11.3. 数组映射
+### 17.3. 数组映射
 
 ```java
 UserDto[] dtoArr = UserDtoCopier.toDtoArray(userArr);
 User[] userArr = UserDtoCopier.fromDtoArray(dtoArr);
 ```
 
-### 11.4. 深拷贝
+### 17.4. 深拷贝
 
 List/Set/Map/数组字段会自动深拷贝，包括嵌套集合和多维数组。
 
-### 11.5. Raw/通配符处理
+### 17.5. Raw/通配符处理
 
 Raw 类型或无界通配符集合会降级为浅拷贝并给出编译期警告。
 
-## 12. Null 值处理
+## 18. Null 值处理
 
-### 12.1. 对象级别
+### 18.1. 对象级别
 
 ```java
 UserDto dto = UserDtoCopier.toDto(null);  // 返回 null
 ```
 
-### 12.2. 字段级别
+### 18.2. 字段级别
 
 null 值会被保留：
 
@@ -451,9 +712,9 @@ UserDto dto = UserDtoCopier.toDto(user);
 // dto.name 也为 null
 ```
 
-## 13. 生成的代码示例
+## 19. 生成的代码示例
 
-### 13.1. DEFAULT 模式
+### 19.1. DEFAULT 模式
 
 ```java
 public final class UserDtoCopier {
@@ -484,7 +745,7 @@ public final class UserDtoCopier {
 }
 ```
 
-### 13.2. SPRING 模式
+### 19.2. SPRING 模式
 
 ```java
 @Component
@@ -510,9 +771,9 @@ public final class UserDtoCopier {
 }
 ```
 
-## 14. 常见用例
+## 20. 常见用例
 
-### 14.1. API 响应 DTO
+### 20.1. API 响应 DTO
 
 ```java
 @CopyTarget(source = User.class, ignore = {"password"})
@@ -523,14 +784,14 @@ public class UserResponse {
 }
 ```
 
-### 14.2. 批量转换
+### 20.2. 批量转换
 
 ```java
 List<User> users = userRepository.findAll();
 List<UserDto> userDtos = UserDtoCopier.toDtoList(users);
 ```
 
-### 14.3. 复杂字段映射
+### 20.3. 复杂字段映射
 
 ```java
 @CopyTarget(source = Order.class, uses = OrderConverter.class)
@@ -547,42 +808,60 @@ public class OrderDto {
 }
 ```
 
-## 15. 故障排除
+### 20.4. 更新现有对象（v1.3）
 
-### 15.1. 生成的代码未出现
+```java
+// 部分更新场景
+UserDto existingDto = userService.getUser(id);
+UserDtoCopier.updateDto(existingDto, partialUser);
+```
+
+## 21. 故障排除
+
+### 21.1. 生成的代码未出现
 
 1. 确保使用了 `@CopyTarget` 注解
 2. 确保有 getter/setter 方法
 3. 运行 `mvn clean compile`
 
-### 15.2. 字段未被拷贝
+### 21.2. 字段未被拷贝
 
 1. 检查字段名是否相同
 2. 检查是否有 getter/setter
 3. 检查是否在 `ignore` 中
 
-### 15.3. 表达式编译错误
+### 21.3. 表达式编译错误
 
 1. 检查表达式语法
 2. 使用 `source` 变量引用源对象
 3. 添加 null 检查
 
-## 16. 性能考虑
+## 22. 性能考虑
 
 - 编译期代码生成，无运行时反射
 - 直接调用 getter/setter
 - TypeConverter 复用（静态实例或单例）
 - 集合容量预分配
 
-## 17. 最佳实践
+## 23. 最佳实践
 
 1. 为每个 DTO 定义一个 `@CopyTarget`
 2. 使用 `ignore` 排除敏感字段
 3. 使用 TypeConverter 进行格式化
 4. 使用函数式定制添加额外逻辑
 5. 在 Spring 项目中使用 `ComponentModel.SPRING`
+6. 使用 `@CopyTargetConfig` 减少重复配置（v1.3）
+7. 使用 `updateDto/updateEntity` 进行部分更新（v1.3）
 
-## 18. 版本历史
+## 24. 版本历史
+
+### 1.3.0（2026-01-14）
+- 更新现有对象：updateDto/updateEntity 方法
+- 映射前回调：beforeMapping 属性
+- 条件映射：condition 属性
+- 默认值和常量：defaultValue/constant 属性
+- 全局配置：@CopyTargetConfig 注解
+- Null 值处理策略：NullValueStrategy 枚举
 
 ### 1.2.1（2026-01-08）
 - 处理器架构重构
@@ -605,11 +884,11 @@ public class OrderDto {
 ### 1.0.0（2025-12-13）
 - 初始版本
 
-## 19. 许可证
+## 25. 许可证
 
 Fast Bean Copier 采用 Apache License 2.0 许可证。
 
-## 20. 获取帮助
+## 26. 获取帮助
 
 - 查看本参考文档
 - 在 [GitHub Issues](https://github.com/jackieonway/fast-bean-copier/issues) 中搜索或提问

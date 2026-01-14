@@ -1,5 +1,7 @@
 # Fast Bean Copier 快速入门指南
 
+> v1.3 新特性：更新现有对象（updateDto/updateEntity）、映射前回调、条件映射、默认值和常量、全局配置（@CopyTargetConfig）。
+>
 > v1.2.1 重构：处理器架构重构，代码可维护性显著提升。
 >
 > v1.2 新特性：多字段映射（多对一、一对多）、TypeConverter 类型转换器、依赖注入支持、函数式定制拷贝。
@@ -14,13 +16,13 @@
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-annotations</artifactId>
-    <version>1.2.1</version>
+    <version>1.3.0</version>
 </dependency>
 
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-processor</artifactId>
-    <version>1.2.1</version>
+    <version>1.3.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -163,6 +165,79 @@ UserDto dto = UserDtoCopier.toDto(user, result -> {
     result.setDisplayName(result.getName().toUpperCase());
     return result;
 });
+```
+
+## v1.3 新功能
+
+### 更新现有对象
+
+```java
+// 更新已存在的 DTO 对象
+UserDto existingDto = new UserDto();
+existingDto.setName("原始名称");
+UserDtoCopier.updateDto(existingDto, user);
+
+// 更新已存在的实体对象
+User existingUser = new User();
+UserDtoCopier.updateEntity(existingUser, userDto);
+```
+
+### 映射前回调
+
+```java
+@CopyTarget(source = User.class, beforeMapping = "validateAndPrepare")
+public class UserDto {
+    private String name;
+    
+    default void validateAndPrepare(User source) {
+        if (source.getName() == null) {
+            throw new IllegalArgumentException("Name cannot be null");
+        }
+    }
+}
+```
+
+### 条件映射
+
+```java
+@CopyTarget(source = User.class)
+public class UserDto {
+    // 仅当源字段不为 null 时才映射
+    @CopyField(condition = "java(source.getName() != null)")
+    private String name;
+    
+    // 仅当年龄大于 18 时才映射
+    @CopyField(condition = "java(source.getAge() > 18)")
+    private Integer age;
+}
+```
+
+### 默认值和常量
+
+```java
+@CopyTarget(source = User.class)
+public class UserDto {
+    // 当源字段为 null 时使用默认值
+    @CopyField(defaultValue = "未知")
+    private String name;
+    
+    // 设置常量值，不依赖源字段
+    @CopyField(constant = "SYSTEM")
+    private String createdBy;
+}
+```
+
+### 全局配置
+
+```java
+// package-info.java
+@CopyTargetConfig(
+    componentModel = ComponentModel.SPRING,
+    nullValueStrategy = NullValueStrategy.IGNORE
+)
+package com.example.dto;
+
+import com.github.jackieonway.copier.annotation.*;
 ```
 
 ## 下一步

@@ -6,6 +6,15 @@
 
 ## 基本问题
 
+### Q: v1.3 有哪些新增功能？
+**A**: v1.3 主要新增：
+- **更新现有对象**：updateDto/updateEntity 方法，支持更新已存在的对象而不是创建新对象
+- **映射前回调**：beforeMapping 属性，在映射前执行验证、初始化等自定义逻辑
+- **条件映射**：condition 属性，基于条件决定是否映射字段
+- **默认值和常量**：defaultValue/constant 属性，设置字段的默认值和常量值
+- **全局配置**：@CopyTargetConfig 注解，包级别配置减少重复配置
+- **Null 值处理策略**：NullValueStrategy 枚举，IGNORE 或 REPLACE 策略
+
 ### Q: v1.2.1 有哪些变化？
 **A**: v1.2.1 主要是处理器架构重构：
 - **BeanCopierProcessor 重构**：从 ~500 行精简为 ~148 行，作为协调者角色
@@ -39,8 +48,8 @@
 **A**: 可以。在 `build.gradle` 中添加：
 ```gradle
 dependencies {
-    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.2.1'
-    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.2.1'
+    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.3.0'
+    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.3.0'
 }
 ```
 
@@ -144,6 +153,106 @@ UserDto dto = UserDtoCopier.toDto(user, result -> {
 **A**: 
 - DEFAULT 模式：使用静态实例
 - SPRING/CDI/JSR330 模式：通过构造器注入，如果容器中没有 Bean 则使用默认实例
+
+## v1.3 新功能问题
+
+### Q: 如何使用 updateDto/updateEntity 方法？
+**A**: 这些方法用于更新已存在的对象：
+```java
+// 更新已存在的 DTO 对象
+UserDto existingDto = new UserDto();
+existingDto.setName("原始名称");
+UserDtoCopier.updateDto(existingDto, user);
+
+// 更新已存在的实体对象
+User existingUser = new User();
+UserDtoCopier.updateEntity(existingUser, userDto);
+```
+
+### Q: updateDto 和 toDto 有什么区别？
+**A**: 
+- `toDto`：创建新的目标对象并拷贝字段
+- `updateDto`：更新已存在的目标对象，不创建新对象
+
+### Q: 如何使用映射前回调？
+**A**: 使用 `beforeMapping` 属性指定回调方法：
+```java
+@CopyTarget(source = User.class, beforeMapping = "validateAndPrepare")
+public class UserDto {
+    default void validateAndPrepare(User source) {
+        if (source.getName() == null) {
+            throw new IllegalArgumentException("Name cannot be null");
+        }
+    }
+}
+```
+
+### Q: beforeMapping 方法有什么要求？
+**A**: 
+- 必须是目标类中的默认方法（default method）
+- 参数类型为源类类型
+- 返回类型为 void
+
+### Q: 如何使用条件映射？
+**A**: 使用 `@CopyField` 的 `condition` 属性：
+```java
+@CopyField(condition = "java(source.getName() != null)")
+private String name;
+
+@CopyField(condition = "java(source.getAge() > 18)")
+private Integer age;
+```
+
+### Q: 条件表达式的格式是什么？
+**A**: 使用 `java(...)` 格式包裹条件表达式，表达式中 `source` 变量代表源对象。
+
+### Q: 如何设置默认值？
+**A**: 使用 `@CopyField` 的 `defaultValue` 属性：
+```java
+@CopyField(defaultValue = "未知")
+private String name;
+
+@CopyField(defaultValue = "0")
+private Integer count;
+```
+
+### Q: defaultValue 支持哪些类型？
+**A**: 支持 String、Integer、Long、Double、Float、Short、Byte、Boolean、BigDecimal、BigInteger。
+
+### Q: 如何设置常量值？
+**A**: 使用 `@CopyField` 的 `constant` 属性：
+```java
+@CopyField(constant = "SYSTEM")
+private String createdBy;
+```
+
+### Q: defaultValue 和 constant 有什么区别？
+**A**: 
+- `defaultValue`：当源字段为 null 时使用的默认值
+- `constant`：直接设置常量值，不依赖源字段（与 defaultValue 互斥）
+
+### Q: 如何使用全局配置？
+**A**: 在 `package-info.java` 中使用 `@CopyTargetConfig`：
+```java
+@CopyTargetConfig(
+    componentModel = ComponentModel.SPRING,
+    nullValueStrategy = NullValueStrategy.IGNORE
+)
+package com.example.dto;
+
+import com.github.jackieonway.copier.annotation.*;
+```
+
+### Q: 全局配置的优先级是什么？
+**A**: 类级别 > 包级别 > 默认值。类级别的配置会覆盖包级别的配置。
+
+### Q: NullValueStrategy 有哪些选项？
+**A**: 
+- `IGNORE`：忽略 null 值，不更新目标字段（默认）
+- `REPLACE`：替换 null 值，将目标字段设置为 null
+
+### Q: NullValueStrategy 主要用于什么场景？
+**A**: 主要用于 updateDto/updateEntity 方法，决定当源字段为 null 时是否更新目标字段。
 
 ## 类型转换问题
 

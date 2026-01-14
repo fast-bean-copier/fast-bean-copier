@@ -4,13 +4,13 @@
 
 **Fast Bean Copier** 是一个高性能的 Java Bean 拷贝工具，使用 APT（注解处理工具）在编译期自动生成拷贝代码，实现零运行时开销。
 
-**项目状态**：✅ 已完成，生产就绪（v1.2.1 处理器架构重构）
+**项目状态**：✅ 已完成，生产就绪（v1.3.0 新增更新现有对象、条件映射、全局配置等功能）
 
 ## 项目信息
 
 - **项目名称**：Fast Bean Copier
-- **版本**：1.2.1
-- **发布日期**：2026-01-08
+- **版本**：1.3.0
+- **发布日期**：2026-01-14
 - **Java 版本**：Java 8+
 - **构建工具**：Maven
 - **许可证**：Apache License 2.0
@@ -90,6 +90,15 @@ fast-bean-copier/
 21. **FieldMappingAnalyzer** - 字段映射分析器，分析字段映射关系
 22. **生成器组件** - ClassStructureGenerator、BasicMethodGenerator、CollectionMethodGenerator、FieldCopyGenerator、DeepCopyGenerator
 
+### ✅ v1.3.0 功能
+
+23. **更新现有对象** - updateDto/updateEntity 方法，更新已存在的对象而不是创建新对象
+24. **映射前回调** - beforeMapping 属性，在映射前执行验证、初始化等自定义逻辑
+25. **条件映射** - condition 属性，基于条件决定是否映射字段
+26. **默认值和常量** - defaultValue/constant 属性，设置字段的默认值和常量值
+27. **全局配置** - @CopyTargetConfig 注解，包级别配置减少重复配置
+28. **Null 值处理策略** - NullValueStrategy 枚举，IGNORE 或 REPLACE 策略
+
 ## 技术栈
 
 - **Java 8** - 编程语言
@@ -102,10 +111,23 @@ fast-bean-copier/
 
 ## 测试覆盖
 
-- **测试用例**：275+（涵盖所有功能）
+- **测试用例**：330+（涵盖所有功能）
 - **示例模块指令覆盖率**：93%+（Jacoco）
 - **处理器模块覆盖率**：80%+（Jacoco）
 - **所有测试通过** ✅
+
+### v1.3.0 测试类
+
+- `PackageConfigTest` - 全局配置测试
+- `ConditionalMappingTest` - 条件映射测试
+- `DefaultValueConstantTest` - 默认值和常量测试
+- `UpdateExistingObjectTest` - 更新现有对象基础测试
+- `UpdateNestedObjectTest` - 更新现有对象嵌套处理测试
+- `BeforeMappingCallbackTest` - 映射前回调测试
+- `V13IntegrationTest` - v1.3 功能集成测试
+- `V13CombinationTest` - 组合功能测试
+- `V13BackwardCompatibilityTest` - 向后兼容性测试
+- `V13PerformanceBenchmarkTest` - 性能基准测试
 
 ### v1.2.1 测试类
 
@@ -212,6 +234,51 @@ UserDto dto = UserDtoCopier.toDto(user, result -> {
 });
 ```
 
+### 更新现有对象（v1.3）
+
+```java
+// 更新已存在的 DTO 对象
+UserDto existingDto = new UserDto();
+existingDto.setName("原始名称");
+UserDtoCopier.updateDto(existingDto, user);
+
+// 更新已存在的实体对象
+User existingUser = new User();
+UserDtoCopier.updateEntity(existingUser, userDto);
+```
+
+### 条件映射和默认值（v1.3）
+
+```java
+@CopyTarget(source = User.class)
+public class UserDto {
+    // 条件映射
+    @CopyField(condition = "java(source.getName() != null)")
+    private String name;
+    
+    // 默认值
+    @CopyField(defaultValue = "未知")
+    private String status;
+    
+    // 常量值
+    @CopyField(constant = "SYSTEM")
+    private String createdBy;
+}
+```
+
+### 全局配置（v1.3）
+
+```java
+// package-info.java
+@CopyTargetConfig(
+    componentModel = ComponentModel.SPRING,
+    nullValueStrategy = NullValueStrategy.IGNORE
+)
+package com.example.dto;
+
+import com.github.jackieonway.copier.annotation.*;
+```
+
 ## 构建和部署
 
 ### 本地构建
@@ -258,6 +325,15 @@ mvn jacoco:report
 
 ## 版本历史
 
+### 1.3.0（2026-01-14）
+- 更新现有对象：updateDto/updateEntity 方法
+- 映射前回调：beforeMapping 属性
+- 条件映射：condition 属性
+- 默认值和常量：defaultValue/constant 属性
+- 全局配置：@CopyTargetConfig 注解
+- Null 值处理策略：NullValueStrategy 枚举
+- 330+ 测试用例，覆盖率 80%+
+
 ### 1.2.1（2026-01-08）
 - 处理器架构重构：BeanCopierProcessor 和 CodeGenerator 拆分
 - 新增组件：ProcessorContext、AnnotationExtractor、FieldMappingAnalyzer
@@ -285,11 +361,11 @@ mvn jacoco:report
 
 ## 项目统计
 
-- **源代码行数**：~8000 行
-- **测试代码行数**：~4000 行
-- **文档行数**：~5000 行
-- **总代码行数**：~17000 行
-- **测试用例数**：275+ 个
+- **源代码行数**：~10000 行
+- **测试代码行数**：~5000 行
+- **文档行数**：~6000 行
+- **总代码行数**：~21000 行
+- **测试用例数**：330+ 个
 - **文档文件数**：7 个
 
 ## 贡献指南

@@ -5,6 +5,86 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-01-14
+
+### Added
+
+#### Update Existing Objects
+- **updateDto Method**: Update existing DTO objects instead of creating new ones
+  - Method signature: `void updateDto(TargetDto target, Source source)`
+  - Returns immediately when source object is null, without modifying target
+- **updateEntity Method**: Update existing entity objects (reverse update)
+  - Method signature: `void updateEntity(Source target, TargetDto source)`
+  - Supports reverse update
+- **Nested Object Update**: Supports recursive update of nested objects
+  - Automatically creates new object when target nested object is null
+  - Supports nested objects with and without @CopyTarget annotation
+- **Collection Field Update**: Supports List, Set, Map, array field updates
+  - Default strategy: replace entire collection
+
+#### Before Mapping Callback
+- **beforeMapping Attribute**: Specify pre-mapping handler method name in @CopyTarget
+- **Method Signature Requirements**:
+  - Must be a default method in the target class
+  - Parameter type must be the source class type
+  - Return type must be void
+- **Invocation Timing**: Called before mapping logic executes
+- **Use Cases**: Validation, initialization, logging, and other pre-processing operations
+
+#### Conditional Mapping
+- **condition Attribute**: Specify condition expression in @CopyField
+- **Expression Format**: `java(source.getXxx() != null)` format
+- **Mapping executes when condition is true**, otherwise field is skipped
+- **Combination Support**: Can be combined with expression, converter, and other attributes
+
+#### Default Values and Constants
+- **defaultValue Attribute**: Default value used when source field is null
+  - Supported types: String, Integer, Long, Double, Float, Short, Byte, Boolean, BigDecimal, BigInteger
+  - Automatic type conversion
+- **constant Attribute**: Set constant value directly, independent of source field
+  - Mutually exclusive with defaultValue
+  - source attribute is ignored when used
+
+#### Global Configuration
+- **@CopyTargetConfig Annotation**: Package-level configuration annotation
+  - Applied to package-info.java files
+  - Provides default configuration for all @CopyTarget in the package
+- **componentModel Attribute**: Default component model
+- **nullValueStrategy Attribute**: Default null value handling strategy
+- **Configuration Priority**: Class level > Package level > Default value
+
+#### NullValueStrategy Enum
+- **IGNORE**: Ignore null values, don't update target field (default)
+- **REPLACE**: Replace null values, set target field to null
+
+### Improved
+- Update methods support primitive type fields (skip null check)
+- Condition expression parser supports complex Java expressions
+- Default values and constants support automatic conversion for multiple data types
+
+### Testing
+- Added `PackageConfigTest`: Global configuration tests
+- Added `ConditionalMappingTest`: Conditional mapping tests
+- Added `DefaultValueConstantTest`: Default value and constant tests
+- Added `UpdateExistingObjectTest`: Update existing object basic tests
+- Added `UpdateNestedObjectTest`: Update existing object nested handling tests
+- Added `BeforeMappingCallbackTest`: Before mapping callback tests
+- Added `V13IntegrationTest`: v1.3 feature integration tests
+- Added `V13CombinationTest`: Combination feature tests
+- Added `V13BackwardCompatibilityTest`: Backward compatibility tests
+- Added `V13PerformanceBenchmarkTest`: Performance benchmark tests
+- All 330 test cases pass
+
+### Compatibility
+- Java 8+, Maven build
+- Fully backward compatible with v1.2.x
+- Maintains zero runtime reflection overhead
+
+### Verification
+- `mvn clean install`
+- `mvn jacoco:report`
+- `mvn javadoc:javadoc`
+
 ## [1.2.1] - 2026-01-08
 
 ### Refactored
@@ -259,6 +339,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.3.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.3.0
 [1.2.1]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.2.1
 [1.2.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.2.0
 [1.1.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.1.0
