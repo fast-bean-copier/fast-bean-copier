@@ -387,7 +387,7 @@ mvn jacoco:report
 
 ## 联系方式
 
-- **GitHub Issues**：[https://github.com/jackieonway/fast-bean-copier/issues](https://github.com/jackieonway/fast-bean-copier/issues)
+- **GitHub Issues**：[https://github.com/fast-bean-copier/fast-bean-copier/issues](https://github.com/fast-bean-copier/fast-bean-copier/issues)
 
 ---
 

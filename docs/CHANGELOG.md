@@ -339,8 +339,8 @@
 
 ---
 
-[1.3.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.3.0
-[1.2.1]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.2.1
-[1.2.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.2.0
-[1.1.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.1.0
-[1.0.0]: https://github.com/jackieonway/fast-bean-copier/releases/tag/v1.0.0
+[1.3.0]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.3.0
+[1.2.1]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.2.1
+[1.2.0]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.2.0
+[1.1.0]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.1.0
+[1.0.0]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.0.0

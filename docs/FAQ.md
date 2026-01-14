@@ -337,10 +337,10 @@ public class UserDto { }
 ## 获取帮助
 
 ### Q: 如何报告 Bug？
-**A**: 在 [GitHub Issues](https://github.com/jackieonway/fast-bean-copier/issues) 中提出问题。
+**A**: 在 [GitHub Issues](https://github.com/fast-bean-copier/fast-bean-copier/issues) 中提出问题。
 
 ### Q: 如何提出功能请求？
-**A**: 在 [GitHub Issues](https://github.com/jackieonway/fast-bean-copier/issues) 中提出。
+**A**: 在 [GitHub Issues](https://github.com/fast-bean-copier/fast-bean-copier/issues) 中提出。
 
 ### Q: 如何贡献代码？
 **A**: 欢迎提交 Pull Request！
