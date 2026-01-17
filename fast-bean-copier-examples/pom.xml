@@ -47,6 +47,30 @@
             <version>4.11.0</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- Spring Framework (provided - 用于容器模式测试) -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <version>5.3.31</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- CDI API (provided - 用于容器模式测试) -->
+        <dependency>
+            <groupId>javax.enterprise</groupId>
+            <artifactId>cdi-api</artifactId>
+            <version>2.0</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- JSR-330 Inject API (provided - 用于容器模式测试) -->
+        <dependency>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
+            <version>1</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
     <build>
