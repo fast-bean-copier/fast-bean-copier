@@ -329,6 +329,13 @@ public class FieldCopyGenerator {
             return;
         }
 
+        // v1.3.1: 检查是否在逆向转换中跳过
+        if (reverse && mapping.isSkipInReverseMapping()) {
+            String skipReason = mapping.getReverseSkipReason();
+            methodBuilder.addComment(skipReason + " '" + targetFieldName + "' 不可逆，在 fromDto()/updateEntity() 中跳过");
+            return;
+        }
+
         String getterName = "get" + capitalize(sourceFieldName);
         String setterName = "set" + capitalize(targetFieldName);
 
@@ -394,14 +401,13 @@ public class FieldCopyGenerator {
             return;
         }
         
-        // 表达式只在正向拷贝时使用，反向拷贝时跳过（因为表达式通常是单向的）
+        // v1.3.1: 表达式只在正向拷贝时使用，反向拷贝时跳过
         if (reverse) {
-            // 反向拷贝时，尝试使用简单映射
-            if (mapping.getSourceFieldNames() != null && mapping.getSourceFieldNames().size() == 1) {
-                String sourceFieldName = mapping.getSourceFieldNames().get(0);
-                methodBuilder.addStatement("target.$L(source.$L())", 
-                        "set" + capitalize(sourceFieldName), 
-                        "get" + capitalize(targetFieldName));
+            if (mapping.isSkipInReverseMapping()) {
+                String skipReason = mapping.getReverseSkipReason();
+                String sourceFieldName = mapping.getSourceFieldNames() != null && !mapping.getSourceFieldNames().isEmpty() 
+                        ? mapping.getSourceFieldNames().get(0) : targetFieldName;
+                methodBuilder.addComment(skipReason + " '" + sourceFieldName + "' 不可逆，在 fromDto()/updateEntity() 中跳过");
             }
             return;
         }
@@ -419,6 +425,13 @@ public class FieldCopyGenerator {
         String targetFieldName = reverse ? mapping.getSourceFieldName() : mapping.getTargetFieldName();
         
         if (sourceFieldName == null) {
+            return;
+        }
+        
+        // v1.3.1: 转换器映射在逆向转换中跳过
+        if (reverse && mapping.isSkipInReverseMapping()) {
+            String skipReason = mapping.getReverseSkipReason();
+            methodBuilder.addComment(skipReason + " '" + targetFieldName + "' 不可逆，在 fromDto()/updateEntity() 中跳过");
             return;
         }
         
@@ -442,8 +455,13 @@ public class FieldCopyGenerator {
      */
     private void generateQualifiedByNameFieldCopyCode(MethodSpec.Builder methodBuilder, 
                                                        FieldMapping mapping, boolean reverse) {
-        // qualifiedByName 映射通常是单向的，反向拷贝时跳过
+        // v1.3.1: qualifiedByName 映射在逆向转换中跳过
         if (reverse) {
+            if (mapping.isSkipInReverseMapping()) {
+                String skipReason = mapping.getReverseSkipReason();
+                String targetFieldName = mapping.getSourceFieldName();
+                methodBuilder.addComment(skipReason + " '" + targetFieldName + "' 不可逆，在 fromDto() 中跳过");
+            }
             return;
         }
         

@@ -132,6 +132,22 @@ public class FieldMapping {
      */
     private String constant;
 
+    // ========== v1.3.1 新增字段 ==========
+
+    /**
+     * 逆向转换跳过标记。
+     *
+     * @since 1.3.1
+     */
+    private boolean skipInReverseMapping = false;
+
+    /**
+     * 逆向转换跳过原因。
+     *
+     * @since 1.3.1
+     */
+    private String reverseSkipReason;
+
     /**
      * 构造方法。
      *
@@ -484,6 +500,48 @@ public class FieldMapping {
      */
     public boolean isConstantMapping() {
         return hasConstant();
+    }
+
+    // ========== v1.3.1 新增方法 ==========
+
+    /**
+     * 判断是否在逆向转换中跳过。
+     *
+     * @return 如果需要跳过返回 true
+     * @since 1.3.1
+     */
+    public boolean isSkipInReverseMapping() {
+        return skipInReverseMapping;
+    }
+
+    /**
+     * 设置逆向转换跳过标记。
+     *
+     * @param skipInReverseMapping 是否跳过
+     * @since 1.3.1
+     */
+    public void setSkipInReverseMapping(boolean skipInReverseMapping) {
+        this.skipInReverseMapping = skipInReverseMapping;
+    }
+
+    /**
+     * 获取逆向转换跳过原因。
+     *
+     * @return 跳过原因
+     * @since 1.3.1
+     */
+    public String getReverseSkipReason() {
+        return reverseSkipReason;
+    }
+
+    /**
+     * 设置逆向转换跳过原因。
+     *
+     * @param reverseSkipReason 跳过原因
+     * @since 1.3.1
+     */
+    public void setReverseSkipReason(String reverseSkipReason) {
+        this.reverseSkipReason = reverseSkipReason;
     }
 
     /**

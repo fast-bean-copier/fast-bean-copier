@@ -248,6 +248,9 @@ public class FieldMappingAnalyzer {
         FieldMapping mapping = new FieldMapping(null, targetField, null, targetFieldType);
         mapping.setConstant(constant);
         mapping.setMappingType(FieldMapping.MappingType.SIMPLE);
+        // v1.3.1: 常量映射在逆向转换中跳过
+        mapping.setSkipInReverseMapping(true);
+        mapping.setReverseSkipReason("常量映射");
         return mapping;
     }
 
@@ -362,6 +365,10 @@ public class FieldMappingAnalyzer {
             mapping.setMappingType(FieldMapping.MappingType.EXPRESSION);
         }
 
+        // v1.3.1: 表达式映射在逆向转换中跳过
+        mapping.setSkipInReverseMapping(true);
+        mapping.setReverseSkipReason("表达式映射");
+
         return mapping;
     }
 
@@ -400,6 +407,10 @@ public class FieldMappingAnalyzer {
         mapping.setConverterClassName(converterClassName);
         mapping.setFormat(format);
 
+        // v1.3.1: 类型转换器映射在逆向转换中跳过
+        mapping.setSkipInReverseMapping(true);
+        mapping.setReverseSkipReason("类型转换器映射");
+
         return mapping;
     }
 
@@ -434,6 +445,10 @@ public class FieldMappingAnalyzer {
         FieldMapping mapping = new FieldMapping(sourceField, targetField, sourceFieldType, targetFieldType);
         mapping.setMappingType(FieldMapping.MappingType.QUALIFIED_BY_NAME);
         mapping.setQualifiedByName(qualifiedByName);
+
+        // v1.3.1: 具名方法映射在逆向转换中跳过
+        mapping.setSkipInReverseMapping(true);
+        mapping.setReverseSkipReason("具名方法映射");
 
         return mapping;
     }
