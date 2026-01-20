@@ -216,6 +216,12 @@ public final class CodeGenerator {
             classBuilder.addMethod(collectionMethodGenerator.generateToDtoSetWithCustomizer());
             classBuilder.addMethod(collectionMethodGenerator.generateFromDtoSetWithCustomizer());
 
+            // 4.1 生成带 customizer 的 Map/Array 方法（v1.3.1 新增）
+            classBuilder.addMethod(collectionMethodGenerator.generateToDtoMapWithCustomizer());
+            classBuilder.addMethod(collectionMethodGenerator.generateFromDtoMapWithCustomizer());
+            classBuilder.addMethod(collectionMethodGenerator.generateToDtoArrayWithCustomizer());
+            classBuilder.addMethod(collectionMethodGenerator.generateFromDtoArrayWithCustomizer());
+
             // 生成 Java 文件并写入
             JavaFile javaFile = JavaFile.builder(packageName, classBuilder.build()).build();
             javaFile.writeTo(processingEnv.getFiler());

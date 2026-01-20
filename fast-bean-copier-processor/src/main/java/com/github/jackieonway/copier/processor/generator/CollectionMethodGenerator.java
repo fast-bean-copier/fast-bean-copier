@@ -603,6 +603,178 @@ public class CollectionMethodGenerator {
         return methodBuilder.build();
     }
 
+    // ========== v1.3.1 新增：Map UnaryOperator 重载方法 ==========
+
+    /**
+     * 生成带 customizer 的 toDtoMap 方法。
+     *
+     * @return 生成的方法规范
+     * @since 1.3.1
+     */
+    public MethodSpec generateToDtoMapWithCustomizer() {
+        TypeVariableName keyType = TypeVariableName.get("K");
+        TypeName sourceTypeName = ClassName.get(sourceType);
+        TypeName targetTypeName = ClassName.get(targetType);
+        TypeName mapOfSource = ParameterizedTypeName.get(ClassName.get(java.util.Map.class), keyType, sourceTypeName);
+        TypeName mapOfTarget = ParameterizedTypeName.get(ClassName.get(java.util.Map.class), keyType, targetTypeName);
+        TypeName customizerType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), mapOfTarget);
+
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDtoMap")
+                .addModifiers(Modifier.PUBLIC)
+                .addTypeVariable(keyType)
+                .returns(mapOfTarget)
+                .addParameter(mapOfSource, "sources")
+                .addParameter(customizerType, "customizer");
+
+        if (useStaticMethods) {
+            methodBuilder.addModifiers(Modifier.STATIC);
+        }
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        if (useStaticMethods) {
+            methodBuilder.addStatement("$T result = toDtoMap(sources)", mapOfTarget);
+        } else {
+            methodBuilder.addStatement("$T result = this.toDtoMap(sources)", mapOfTarget);
+        }
+
+        methodBuilder.beginControlFlow("if (result != null && customizer != null)")
+                .addStatement("result = customizer.apply(result)")
+                .endControlFlow()
+                .addStatement("return result");
+
+        return methodBuilder.build();
+    }
+
+    /**
+     * 生成带 customizer 的 fromDtoMap 方法。
+     *
+     * @return 生成的方法规范
+     * @since 1.3.1
+     */
+    public MethodSpec generateFromDtoMapWithCustomizer() {
+        TypeVariableName keyType = TypeVariableName.get("K");
+        TypeName sourceTypeName = ClassName.get(sourceType);
+        TypeName targetTypeName = ClassName.get(targetType);
+        TypeName mapOfSource = ParameterizedTypeName.get(ClassName.get(java.util.Map.class), keyType, sourceTypeName);
+        TypeName mapOfTarget = ParameterizedTypeName.get(ClassName.get(java.util.Map.class), keyType, targetTypeName);
+        TypeName customizerType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), mapOfSource);
+
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDtoMap")
+                .addModifiers(Modifier.PUBLIC)
+                .addTypeVariable(keyType)
+                .returns(mapOfSource)
+                .addParameter(mapOfTarget, "sources")
+                .addParameter(customizerType, "customizer");
+
+        if (useStaticMethods) {
+            methodBuilder.addModifiers(Modifier.STATIC);
+        }
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        if (useStaticMethods) {
+            methodBuilder.addStatement("$T result = fromDtoMap(sources)", mapOfSource);
+        } else {
+            methodBuilder.addStatement("$T result = this.fromDtoMap(sources)", mapOfSource);
+        }
+
+        methodBuilder.beginControlFlow("if (result != null && customizer != null)")
+                .addStatement("result = customizer.apply(result)")
+                .endControlFlow()
+                .addStatement("return result");
+
+        return methodBuilder.build();
+    }
+
+    // ========== v1.3.1 新增：Array UnaryOperator 重载方法 ==========
+
+    /**
+     * 生成带 customizer 的 toDtoArray 方法。
+     *
+     * @return 生成的方法规范
+     * @since 1.3.1
+     */
+    public MethodSpec generateToDtoArrayWithCustomizer() {
+        TypeName sourceArrayType = ArrayTypeName.of(ClassName.get(sourceType));
+        TypeName targetArrayType = ArrayTypeName.of(ClassName.get(targetType));
+        TypeName customizerType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), targetArrayType);
+
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDtoArray")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(targetArrayType)
+                .addParameter(sourceArrayType, "sources")
+                .addParameter(customizerType, "customizer");
+
+        if (useStaticMethods) {
+            methodBuilder.addModifiers(Modifier.STATIC);
+        }
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        if (useStaticMethods) {
+            methodBuilder.addStatement("$T result = toDtoArray(sources)", targetArrayType);
+        } else {
+            methodBuilder.addStatement("$T result = this.toDtoArray(sources)", targetArrayType);
+        }
+
+        methodBuilder.beginControlFlow("if (result != null && customizer != null)")
+                .addStatement("result = customizer.apply(result)")
+                .endControlFlow()
+                .addStatement("return result");
+
+        return methodBuilder.build();
+    }
+
+    /**
+     * 生成带 customizer 的 fromDtoArray 方法。
+     *
+     * @return 生成的方法规范
+     * @since 1.3.1
+     */
+    public MethodSpec generateFromDtoArrayWithCustomizer() {
+        TypeName sourceArrayType = ArrayTypeName.of(ClassName.get(sourceType));
+        TypeName targetArrayType = ArrayTypeName.of(ClassName.get(targetType));
+        TypeName customizerType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), sourceArrayType);
+
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDtoArray")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(sourceArrayType)
+                .addParameter(targetArrayType, "sources")
+                .addParameter(customizerType, "customizer");
+
+        if (useStaticMethods) {
+            methodBuilder.addModifiers(Modifier.STATIC);
+        }
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        if (useStaticMethods) {
+            methodBuilder.addStatement("$T result = fromDtoArray(sources)", sourceArrayType);
+        } else {
+            methodBuilder.addStatement("$T result = this.fromDtoArray(sources)", sourceArrayType);
+        }
+
+        methodBuilder.beginControlFlow("if (result != null && customizer != null)")
+                .addStatement("result = customizer.apply(result)")
+                .endControlFlow()
+                .addStatement("return result");
+
+        return methodBuilder.build();
+    }
+
     // ========== 辅助方法 ==========
 
     /**
