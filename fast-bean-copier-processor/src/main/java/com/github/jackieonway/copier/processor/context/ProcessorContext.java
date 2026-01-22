@@ -163,6 +163,16 @@ public class ProcessorContext {
         return messager;
     }
 
+    /**
+     * 获取 Filer 工具。
+     *
+     * @return Filer 工具
+     * @since 1.3.1
+     */
+    public javax.annotation.processing.Filer getFiler() {
+        return processingEnv.getFiler();
+    }
+
     // ========== 类型信息访问方法 ==========
 
     /**

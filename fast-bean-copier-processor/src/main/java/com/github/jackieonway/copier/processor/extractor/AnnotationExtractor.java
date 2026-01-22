@@ -6,6 +6,8 @@ import com.github.jackieonway.copier.annotation.CopyTarget;
 import com.github.jackieonway.copier.annotation.CopyTargetConfig;
 import com.github.jackieonway.copier.annotation.NullValueStrategy;
 import com.github.jackieonway.copier.converter.TypeConverter;
+import com.github.jackieonway.copier.processor.config.ConfigMerger;
+import com.github.jackieonway.copier.processor.config.PropertiesConfigLoader;
 import com.github.jackieonway.copier.processor.context.ProcessorContext;
 import com.github.jackieonway.copier.processor.model.CopyFieldConfig;
 
@@ -17,6 +19,7 @@ import javax.lang.model.type.TypeMirror;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 
 /**
@@ -25,6 +28,9 @@ import java.util.Set;
  * <p>该类封装了从 {@link CopyTarget} 和 {@link CopyField} 注解中
  * 提取配置信息的逻辑，包括处理 {@link MirroredTypeException} 等
  * 注解处理器特有的异常。
+ *
+ * <p>v1.3.1 新增：支持从 {@code fast-bean-copier.properties} 配置文件
+ * 读取全局配置，并按照优先级合并配置。
  *
  * @author jackieonway
  * @since 1.2.1
@@ -37,12 +43,36 @@ public class AnnotationExtractor {
     private final ProcessorContext context;
 
     /**
+     * Properties 配置文件读取器。
+     *
+     * @since 1.3.1
+     */
+    private final PropertiesConfigLoader propertiesConfigLoader;
+
+    /**
+     * 配置合并器。
+     *
+     * @since 1.3.1
+     */
+    private final ConfigMerger configMerger;
+
+    /**
+     * 缓存的配置文件内容。
+     *
+     * @since 1.3.1
+     */
+    private Properties cachedProperties;
+
+    /**
      * 构造方法。
      *
      * @param context 处理器上下文
      */
     public AnnotationExtractor(ProcessorContext context) {
         this.context = context;
+        this.propertiesConfigLoader = new PropertiesConfigLoader(context.getFiler());
+        this.configMerger = new ConfigMerger();
+        this.cachedProperties = null;
     }
 
     /**
@@ -263,7 +293,7 @@ public class AnnotationExtractor {
     /**
      * 合并类级别配置和包级别配置。
      *
-     * <p>配置优先级：类级别 > 包级别 > 默认值
+     * <p>配置优先级：类级别 > 包级别 > 配置文件 > 默认值
      *
      * @param classComponentModel 类级别组件模型配置（可能为 null）
      * @param packageConfig 包级别配置（可能为 null）
@@ -271,34 +301,81 @@ public class AnnotationExtractor {
      * @since 1.3.0
      */
     public ComponentModel mergeComponentModel(ComponentModel classComponentModel, PackageConfig packageConfig) {
-        // 类级别配置优先
-        if (classComponentModel != null && classComponentModel != ComponentModel.DEFAULT) {
-            return classComponentModel;
-        }
+        // 获取配置文件中的配置
+        String fileComponentModel = getFileComponentModel();
 
-        // 包级别配置次之
-        if (packageConfig != null && packageConfig.getComponentModel() != null) {
-            return packageConfig.getComponentModel();
-        }
+        // 转换为字符串进行合并
+        String classLevel = classComponentModel != null && classComponentModel != ComponentModel.DEFAULT 
+                ? classComponentModel.name() : null;
+        String packageLevel = packageConfig != null && packageConfig.getComponentModel() != null 
+                ? packageConfig.getComponentModel().name() : null;
 
-        // 默认值
-        return ComponentModel.DEFAULT;
+        // 使用 ConfigMerger 合并配置
+        String merged = configMerger.mergeComponentModel(classLevel, packageLevel, fileComponentModel);
+
+        // 转换回 ComponentModel 枚举
+        return ComponentModel.valueOf(merged);
     }
 
     /**
      * 获取有效的 null 值处理策略。
      *
-     * <p>配置优先级：包级别 > 默认值（IGNORE）
+     * <p>配置优先级：包级别 > 配置文件 > 默认值（IGNORE）
      *
      * @param packageConfig 包级别配置（可能为 null）
      * @return 有效的 null 值处理策略
      * @since 1.3.0
      */
     public NullValueStrategy getEffectiveNullValueStrategy(PackageConfig packageConfig) {
-        if (packageConfig != null && packageConfig.getNullValueStrategy() != null) {
-            return packageConfig.getNullValueStrategy();
+        // 获取配置文件中的配置
+        String fileNullValueStrategy = getFileNullValueStrategy();
+
+        // 转换为字符串进行合并
+        String packageLevel = packageConfig != null && packageConfig.getNullValueStrategy() != null 
+                ? packageConfig.getNullValueStrategy().name() : null;
+
+        // 使用 ConfigMerger 合并配置（null 值策略没有类级别配置）
+        String merged = configMerger.mergeNullValueStrategy(null, packageLevel, fileNullValueStrategy);
+
+        // 转换回 NullValueStrategy 枚举
+        return NullValueStrategy.valueOf(merged);
+    }
+
+    /**
+     * 从配置文件中获取组件模型配置。
+     *
+     * @return 组件模型配置字符串，如果未配置返回 null
+     * @since 1.3.1
+     */
+    private String getFileComponentModel() {
+        Properties props = getOrLoadProperties();
+        return propertiesConfigLoader.parseComponentModel(props);
+    }
+
+    /**
+     * 从配置文件中获取空值策略配置。
+     *
+     * @return 空值策略配置字符串，如果未配置返回 null
+     * @since 1.3.1
+     */
+    private String getFileNullValueStrategy() {
+        Properties props = getOrLoadProperties();
+        return propertiesConfigLoader.parseNullValueStrategy(props);
+    }
+
+    /**
+     * 获取或加载配置文件。
+     *
+     * <p>使用缓存机制，避免重复读取配置文件。
+     *
+     * @return Properties 对象
+     * @since 1.3.1
+     */
+    private Properties getOrLoadProperties() {
+        if (cachedProperties == null) {
+            cachedProperties = propertiesConfigLoader.loadConfig();
         }
-        return NullValueStrategy.IGNORE;
+        return cachedProperties;
     }
 
     /**
