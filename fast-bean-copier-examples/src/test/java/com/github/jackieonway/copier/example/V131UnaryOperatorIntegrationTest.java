@@ -1,98 +1,178 @@
 package com.github.jackieonway.copier.example;
 
-import com.github.jackieonway.copier.example.v131.User;
-import com.github.jackieonway.copier.example.v131.UserDto;
-import com.github.jackieonway.copier.example.v131.UserDtoCopier;
+import com.github.jackieonway.copier.example.v131.SimpleProduct;
+import com.github.jackieonway.copier.example.v131.SimpleProductDto;
+import com.github.jackieonway.copier.example.v131.SimpleProductDtoCopier;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 /**
- * v1.3.1 UnaryOperator 集成测试。
+ * v1.3.1 UnaryOperator integration test.
+ *
+ * <p>Tests Map and Array UnaryOperator overload methods.
  *
  * @author jackieonway
  * @since 1.3.1
  */
 public class V131UnaryOperatorIntegrationTest {
 
-    @Test
-    public void testToDtoMapWithCustomizer() {
-        // 准备测试数据
-        Map<String, User> userMap = new HashMap<>();
-        userMap.put("user1", new User(1L, "Alice"));
-        userMap.put("user2", new User(null, "Bob"));
-        userMap.put("user3", new User(3L, "Charlie"));
+    // ========== Map UnaryOperator Tests ==========
 
-        // 使用 customizer 过滤掉 id 为 null 的条目
-        Map<String, UserDto> result = UserDtoCopier.toDtoMap(userMap, map -> {
-            Map<String, UserDto> filtered = new HashMap<>();
-            for (Map.Entry<String, UserDto> entry : map.entrySet()) {
-                if (entry.getValue().getId() != null) {
+    @Test
+    public void testToDtoMap_withCustomizer_filterNullIds() {
+        // Prepare test data
+        Map<String, SimpleProduct> sources = new LinkedHashMap<>();
+        sources.put("p1", new SimpleProduct(1L, "Product 1", 100.0));
+        sources.put("p2", new SimpleProduct(null, "Product 2", 200.0));
+        sources.put("p3", new SimpleProduct(3L, "Product 3", 300.0));
+
+        // Define customizer: filter out entries with null id
+        UnaryOperator<Map<String, SimpleProductDto>> customizer = map -> {
+            Map<String, SimpleProductDto> filtered = new LinkedHashMap<>();
+            for (Map.Entry<String, SimpleProductDto> entry : map.entrySet()) {
+                if (entry.getValue() != null && entry.getValue().getId() != null) {
                     filtered.put(entry.getKey(), entry.getValue());
                 }
             }
             return filtered;
-        });
-
-        // 验证结果
-        assertNotNull(result);
-        assertEquals(2, result.size());
-        assertTrue(result.containsKey("user1"));
-        assertFalse(result.containsKey("user2")); // 被过滤掉
-        assertTrue(result.containsKey("user3"));
-    }
-
-    @Test
-    public void testFromDtoMapWithCustomizer() {
-        // 准备测试数据
-        Map<String, UserDto> dtoMap = new HashMap<>();
-        UserDto dto1 = new UserDto();
-        dto1.setId(1L);
-        dto1.setName("Alice");
-        dtoMap.put("user1", dto1);
-
-        UserDto dto2 = new UserDto();
-        dto2.setId(2L);
-        dto2.setName("Bob");
-        dtoMap.put("user2", dto2);
-
-        // 使用 customizer 添加额外条目
-        Map<String, User> result = UserDtoCopier.fromDtoMap(dtoMap, map -> {
-            User defaultUser = new User(999L, "Default");
-            map.put("default", defaultUser);
-            return map;
-        });
-
-        // 验证结果
-        assertNotNull(result);
-        assertEquals(3, result.size());
-        assertTrue(result.containsKey("user1"));
-        assertTrue(result.containsKey("user2"));
-        assertTrue(result.containsKey("default"));
-        assertEquals(Long.valueOf(999L), result.get("default").getId());
-    }
-
-    @Test
-    public void testToDtoArrayWithCustomizer() {
-        // 准备测试数据
-        User[] users = {
-                new User(1L, "Alice"),
-                new User(null, "Bob"),
-                new User(3L, "Charlie")
         };
 
-        // 使用 customizer 过滤掉 id 为 null 的元素
-        UserDto[] result = UserDtoCopier.toDtoArray(users, array -> {
-            return Arrays.stream(array)
-                    .filter(dto -> dto.getId() != null)
-                    .toArray(UserDto[]::new);
-        });
+        // Execute conversion
+        Map<String, SimpleProductDto> result = SimpleProductDtoCopier.toDtoMap(sources, customizer);
 
-        // 验证结果
+        // Verify result
+        assertNotNull(result);
+        assertEquals(2, result.size());
+        assertTrue(result.containsKey("p1"));
+        assertTrue(result.containsKey("p3"));
+        assertEquals(Long.valueOf(1L), result.get("p1").getId());
+        assertEquals(Long.valueOf(3L), result.get("p3").getId());
+    }
+
+    @Test
+    public void testToDtoMap_withCustomizer_unmodifiableMap() {
+        // Prepare test data
+        Map<String, SimpleProduct> sources = new LinkedHashMap<>();
+        sources.put("p1", new SimpleProduct(1L, "Product 1", 100.0));
+
+        // Define customizer: convert to unmodifiable map
+        UnaryOperator<Map<String, SimpleProductDto>> customizer = Collections::unmodifiableMap;
+
+        // Execute conversion
+        Map<String, SimpleProductDto> result = SimpleProductDtoCopier.toDtoMap(sources, customizer);
+
+        // Verify result
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        
+        // Verify it's unmodifiable
+        try {
+            result.put("p2", new SimpleProductDto());
+            assertTrue("Should throw UnsupportedOperationException", false);
+        } catch (UnsupportedOperationException e) {
+            // Expected
+        }
+    }
+
+    @Test
+    public void testToDtoMap_withNullCustomizer() {
+        // Prepare test data
+        Map<String, SimpleProduct> sources = new LinkedHashMap<>();
+        sources.put("p1", new SimpleProduct(1L, "Product 1", 100.0));
+
+        // Execute conversion with null customizer
+        Map<String, SimpleProductDto> result = SimpleProductDtoCopier.toDtoMap(sources, null);
+
+        // Verify result
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals(Long.valueOf(1L), result.get("p1").getId());
+    }
+
+    @Test
+    public void testToDtoMap_withNullSources() {
+        // Execute conversion with null sources
+        Map<String, SimpleProductDto> result = SimpleProductDtoCopier.toDtoMap(null, map -> map);
+
+        // Verify result
+        assertNull(result);
+    }
+
+    @Test
+    public void testFromDtoMap_withCustomizer_filterNullIds() {
+        // Prepare test data
+        Map<String, SimpleProductDto> sources = new LinkedHashMap<>();
+        SimpleProductDto dto1 = new SimpleProductDto();
+        dto1.setId(1L);
+        dto1.setName("Product 1");
+        dto1.setPrice(100.0);
+        
+        SimpleProductDto dto2 = new SimpleProductDto();
+        dto2.setId(null);
+        dto2.setName("Product 2");
+        dto2.setPrice(200.0);
+        
+        sources.put("p1", dto1);
+        sources.put("p2", dto2);
+
+        // Define customizer: filter out entries with null id
+        UnaryOperator<Map<String, SimpleProduct>> customizer = map -> {
+            Map<String, SimpleProduct> filtered = new LinkedHashMap<>();
+            for (Map.Entry<String, SimpleProduct> entry : map.entrySet()) {
+                if (entry.getValue() != null && entry.getValue().getId() != null) {
+                    filtered.put(entry.getKey(), entry.getValue());
+                }
+            }
+            return filtered;
+        };
+
+        // Execute conversion
+        Map<String, SimpleProduct> result = SimpleProductDtoCopier.fromDtoMap(sources, customizer);
+
+        // Verify result
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertTrue(result.containsKey("p1"));
+        assertEquals(Long.valueOf(1L), result.get("p1").getId());
+    }
+
+    // ========== Array UnaryOperator Tests ==========
+
+    @Test
+    public void testToDtoArray_withCustomizer_filterNullIds() {
+        // Prepare test data
+        SimpleProduct[] sources = new SimpleProduct[]{
+                new SimpleProduct(1L, "Product 1", 100.0),
+                new SimpleProduct(null, "Product 2", 200.0),
+                new SimpleProduct(3L, "Product 3", 300.0)
+        };
+
+        // Define customizer: filter out elements with null id
+        UnaryOperator<SimpleProductDto[]> customizer = array -> {
+            return Arrays.stream(array)
+                    .filter(dto -> dto != null && dto.getId() != null)
+                    .toArray(SimpleProductDto[]::new);
+        };
+
+        // Execute conversion
+        SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(sources, customizer);
+
+        // Verify result
         assertNotNull(result);
         assertEquals(2, result.length);
         assertEquals(Long.valueOf(1L), result[0].getId());
@@ -100,53 +180,170 @@ public class V131UnaryOperatorIntegrationTest {
     }
 
     @Test
-    public void testFromDtoArrayWithCustomizer() {
-        // 准备测试数据
-        UserDto dto1 = new UserDto();
-        dto1.setId(1L);
-        dto1.setName("Alice");
+    public void testToDtoArray_withCustomizer_sort() {
+        // Prepare test data
+        SimpleProduct[] sources = new SimpleProduct[]{
+                new SimpleProduct(3L, "Product 3", 300.0),
+                new SimpleProduct(1L, "Product 1", 100.0),
+                new SimpleProduct(2L, "Product 2", 200.0)
+        };
 
-        UserDto dto2 = new UserDto();
-        dto2.setId(2L);
-        dto2.setName("Bob");
-
-        UserDto[] dtos = {dto1, dto2};
-
-        // 使用 customizer 排序
-        User[] result = UserDtoCopier.fromDtoArray(dtos, array -> {
-            Arrays.sort(array, (a, b) -> b.getId().compareTo(a.getId())); // 降序
+        // Define customizer: sort by id
+        UnaryOperator<SimpleProductDto[]> customizer = array -> {
+            Arrays.sort(array, Comparator.comparing(SimpleProductDto::getId));
             return array;
-        });
+        };
 
-        // 验证结果
+        // Execute conversion
+        SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(sources, customizer);
+
+        // Verify result
+        assertNotNull(result);
+        assertEquals(3, result.length);
+        assertEquals(Long.valueOf(1L), result[0].getId());
+        assertEquals(Long.valueOf(2L), result[1].getId());
+        assertEquals(Long.valueOf(3L), result[2].getId());
+    }
+
+    @Test
+    public void testToDtoArray_withCustomizer_limitSize() {
+        // Prepare test data
+        SimpleProduct[] sources = new SimpleProduct[]{
+                new SimpleProduct(1L, "Product 1", 100.0),
+                new SimpleProduct(2L, "Product 2", 200.0),
+                new SimpleProduct(3L, "Product 3", 300.0)
+        };
+
+        // Define customizer: limit to first 2 elements
+        UnaryOperator<SimpleProductDto[]> customizer = array -> {
+            return Arrays.copyOf(array, Math.min(2, array.length));
+        };
+
+        // Execute conversion
+        SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(sources, customizer);
+
+        // Verify result
         assertNotNull(result);
         assertEquals(2, result.length);
-        assertEquals(Long.valueOf(2L), result[0].getId()); // Bob 在前
-        assertEquals(Long.valueOf(1L), result[1].getId()); // Alice 在后
+        assertEquals(Long.valueOf(1L), result[0].getId());
+        assertEquals(Long.valueOf(2L), result[1].getId());
     }
 
     @Test
-    public void testMapCustomizerWithNull() {
-        // 测试 customizer 为 null 的情况
-        Map<String, User> userMap = new HashMap<>();
-        userMap.put("user1", new User(1L, "Alice"));
+    public void testToDtoArray_withNullCustomizer() {
+        // Prepare test data
+        SimpleProduct[] sources = new SimpleProduct[]{
+                new SimpleProduct(1L, "Product 1", 100.0)
+        };
 
-        Map<String, UserDto> result = UserDtoCopier.toDtoMap(userMap, null);
+        // Execute conversion with null customizer
+        SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(sources, null);
 
-        assertNotNull(result);
-        assertEquals(1, result.size());
-        assertEquals("Alice", result.get("user1").getName());
-    }
-
-    @Test
-    public void testArrayCustomizerWithNull() {
-        // 测试 customizer 为 null 的情况
-        User[] users = {new User(1L, "Alice")};
-
-        UserDto[] result = UserDtoCopier.toDtoArray(users, null);
-
+        // Verify result
         assertNotNull(result);
         assertEquals(1, result.length);
-        assertEquals("Alice", result[0].getName());
+        assertEquals(Long.valueOf(1L), result[0].getId());
+    }
+
+    @Test
+    public void testToDtoArray_withNullSources() {
+        // Execute conversion with null sources
+        SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(null, array -> array);
+
+        // Verify result
+        assertNull(result);
+    }
+
+    @Test
+    public void testFromDtoArray_withCustomizer_filterNullIds() {
+        // Prepare test data
+        SimpleProductDto dto1 = new SimpleProductDto();
+        dto1.setId(1L);
+        dto1.setName("Product 1");
+        dto1.setPrice(100.0);
+        
+        SimpleProductDto dto2 = new SimpleProductDto();
+        dto2.setId(null);
+        dto2.setName("Product 2");
+        dto2.setPrice(200.0);
+        
+        SimpleProductDto[] sources = new SimpleProductDto[]{dto1, dto2};
+
+        // Define customizer: filter out elements with null id
+        UnaryOperator<SimpleProduct[]> customizer = array -> {
+            return Arrays.stream(array)
+                    .filter(product -> product != null && product.getId() != null)
+                    .toArray(SimpleProduct[]::new);
+        };
+
+        // Execute conversion
+        SimpleProduct[] result = SimpleProductDtoCopier.fromDtoArray(sources, customizer);
+
+        // Verify result
+        assertNotNull(result);
+        assertEquals(1, result.length);
+        assertEquals(Long.valueOf(1L), result[0].getId());
+    }
+
+    @Test
+    public void testFromDtoArray_withCustomizer_sort() {
+        // Prepare test data
+        SimpleProductDto dto1 = new SimpleProductDto();
+        dto1.setId(3L);
+        dto1.setName("Product 3");
+        
+        SimpleProductDto dto2 = new SimpleProductDto();
+        dto2.setId(1L);
+        dto2.setName("Product 1");
+        
+        SimpleProductDto[] sources = new SimpleProductDto[]{dto1, dto2};
+
+        // Define customizer: sort by id
+        UnaryOperator<SimpleProduct[]> customizer = array -> {
+            Arrays.sort(array, Comparator.comparing(SimpleProduct::getId));
+            return array;
+        };
+
+        // Execute conversion
+        SimpleProduct[] result = SimpleProductDtoCopier.fromDtoArray(sources, customizer);
+
+        // Verify result
+        assertNotNull(result);
+        assertEquals(2, result.length);
+        assertEquals(Long.valueOf(1L), result[0].getId());
+        assertEquals(Long.valueOf(3L), result[1].getId());
+    }
+
+    // ========== Backward Compatibility Tests ==========
+
+    @Test
+    public void testBasicMapMethods_stillWork() {
+        // Prepare test data
+        Map<String, SimpleProduct> sources = new LinkedHashMap<>();
+        sources.put("p1", new SimpleProduct(1L, "Product 1", 100.0));
+
+        // Execute conversion without customizer
+        Map<String, SimpleProductDto> result = SimpleProductDtoCopier.toDtoMap(sources);
+
+        // Verify result
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals(Long.valueOf(1L), result.get("p1").getId());
+    }
+
+    @Test
+    public void testBasicArrayMethods_stillWork() {
+        // Prepare test data
+        SimpleProduct[] sources = new SimpleProduct[]{
+                new SimpleProduct(1L, "Product 1", 100.0)
+        };
+
+        // Execute conversion without customizer
+        SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(sources);
+
+        // Verify result
+        assertNotNull(result);
+        assertEquals(1, result.length);
+        assertEquals(Long.valueOf(1L), result[0].getId());
     }
 }

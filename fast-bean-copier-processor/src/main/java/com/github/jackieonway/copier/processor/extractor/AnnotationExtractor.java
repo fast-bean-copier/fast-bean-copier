@@ -305,9 +305,10 @@ public class AnnotationExtractor {
         String fileComponentModel = getFileComponentModel();
 
         // 转换为字符串进行合并
-        String classLevel = classComponentModel != null && classComponentModel != ComponentModel.DEFAULT 
-                ? classComponentModel.name() : null;
+        // 注意：类级别配置即使是 DEFAULT 也应该被视为显式配置，因为用户明确指定了
+        String classLevel = classComponentModel != null ? classComponentModel.name() : null;
         String packageLevel = packageConfig != null && packageConfig.getComponentModel() != null 
+                && packageConfig.getComponentModel() != ComponentModel.DEFAULT
                 ? packageConfig.getComponentModel().name() : null;
 
         // 使用 ConfigMerger 合并配置

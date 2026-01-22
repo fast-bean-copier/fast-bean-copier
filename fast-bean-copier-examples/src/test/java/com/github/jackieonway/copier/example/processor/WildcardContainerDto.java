@@ -1,5 +1,6 @@
 package com.github.jackieonway.copier.example.processor;
 
+import com.github.jackieonway.copier.annotation.ComponentModel;
 import com.github.jackieonway.copier.annotation.CopyTarget;
 import com.github.jackieonway.copier.example.UserDto;
 import java.util.List;

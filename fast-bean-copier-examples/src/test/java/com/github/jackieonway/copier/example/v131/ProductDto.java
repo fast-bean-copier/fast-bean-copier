@@ -23,6 +23,7 @@ import java.util.Date;
 public class ProductDto {
     private Long id;
     private String name;
+    private Double price;
     
     // 使用 converter - 应该在逆向转换中跳过
     @CopyField(source = "createdDate", converter = DateToStringConverter.class, format = "yyyy-MM-dd HH:mm:ss")
@@ -46,6 +47,8 @@ public class ProductDto {
     public void setId(Long id) { this.id = id; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+    public Double getPrice() { return price; }
+    public void setPrice(Double price) { this.price = price; }
     public String getFormattedDate() { return formattedDate; }
     public void setFormattedDate(String formattedDate) { this.formattedDate = formattedDate; }
     public String getDisplayPrice() { return displayPrice; }
