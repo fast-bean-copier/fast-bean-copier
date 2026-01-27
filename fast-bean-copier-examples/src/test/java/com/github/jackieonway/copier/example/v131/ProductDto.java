@@ -30,7 +30,7 @@ public class ProductDto {
     private String formattedDate;
     
     // 使用 expression - 应该在逆向转换中跳过
-    @CopyField(expression = "source.getPrice() != null ? String.format(\"$%.2f\", source.getPrice()) : \"N/A\"")
+    @CopyField(expression = "java(source.getPrice() != null ? String.format(\"$%.2f\", source.getPrice()) : \"N/A\")")
     private String displayPrice;
     
     // 使用 qualifiedByName - 应该在逆向转换中跳过

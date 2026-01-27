@@ -1,5 +1,6 @@
 package com.github.jackieonway.copier.example;
 
+import com.github.jackieonway.copier.annotation.CopyField;
 import com.github.jackieonway.copier.annotation.CopyTarget;
 
 /**

@@ -6,6 +6,7 @@ import com.github.jackieonway.copier.annotation.CopyTarget;
 import com.github.jackieonway.copier.annotation.CopyTargetConfig;
 import com.github.jackieonway.copier.annotation.NullValueStrategy;
 import com.github.jackieonway.copier.converter.TypeConverter;
+import com.github.jackieonway.copier.processor.ExpressionUtils;
 import com.github.jackieonway.copier.processor.config.ConfigMerger;
 import com.github.jackieonway.copier.processor.config.PropertiesConfigLoader;
 import com.github.jackieonway.copier.processor.context.ProcessorContext;
@@ -169,7 +170,7 @@ public class AnnotationExtractor {
 
         String[] sourceNames = annotation.source();
         String target = annotation.target();
-        String expression = annotation.expression();
+        String expression = ExpressionUtils.unwrapJavaExpression(annotation.expression());
         String qualifiedByName = annotation.qualifiedByName();
         String format = annotation.format();
         String converterClassName = extractConverterClassName(annotation);

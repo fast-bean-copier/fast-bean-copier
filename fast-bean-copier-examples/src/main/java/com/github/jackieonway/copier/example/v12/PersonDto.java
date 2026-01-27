@@ -18,7 +18,7 @@ public class PersonDto {
      * 多对一映射：firstName + lastName -> fullName
      */
     @CopyField(source = {"firstName", "lastName"}, 
-               expression = "source.getFirstName() + \" \" + source.getLastName()")
+               expression = "java(source.getFirstName() + \" \" + source.getLastName())")
     private String fullName;
     
     /**
@@ -36,7 +36,7 @@ public class PersonDto {
      * 多对一映射：city + country -> location
      */
     @CopyField(source = {"city", "country"}, 
-               expression = "source.getCity() + \", \" + source.getCountry()")
+               expression = "java(source.getCity() + \", \" + source.getCountry())")
     private String location;
 
     public PersonDto() {

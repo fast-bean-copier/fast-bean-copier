@@ -317,4 +317,36 @@ public final class ExpressionUtils {
 
         return null;
     }
+
+    /**
+     * 从表达式中移除 java(...) 包裹。
+     *
+     * <p>如果表达式以 {@code java(} 开头并以 {@code )} 结尾，
+     * 则移除这个包裹，返回内部的 Java 表达式。
+     *
+     * <p>示例：
+     * <ul>
+     *   <li>{@code java(source.getName())} → {@code source.getName()}</li>
+     *   <li>{@code source.getName()} → {@code source.getName()}</li>
+     * </ul>
+     *
+     * @param expression 原始表达式
+     * @return 移除包裹后的表达式
+     * @since 1.3.1
+     */
+    public static String unwrapJavaExpression(String expression) {
+        if (expression == null || expression.trim().isEmpty()) {
+            return expression;
+        }
+
+        String trimmed = expression.trim();
+        
+        // 检查是否以 java( 开头并以 ) 结尾
+        if (trimmed.startsWith("java(") && trimmed.endsWith(")")) {
+            // 移除 java( 和最后的 )
+            return trimmed.substring(5, trimmed.length() - 1).trim();
+        }
+
+        return expression;
+    }
 }

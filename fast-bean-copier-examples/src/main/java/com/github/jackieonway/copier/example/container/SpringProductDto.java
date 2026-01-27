@@ -17,6 +17,8 @@ public class SpringProductDto {
     
     private Long id;
     private String name;
+    
+    @CopyField(expression = "java(source.getPrice() != null ? source.getPrice().toString() : null)")
     private String price;
     
     /**

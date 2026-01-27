@@ -18,39 +18,39 @@ public class FullNameDto {
      * 一对多映射：fullName -> firstName（取第一个单词）
      */
     @CopyField(source = "fullName", 
-               expression = "source.getFullName() != null && !source.getFullName().isEmpty() ? " +
-                           "source.getFullName().split(\" \")[0] : source.getFullName()")
+               expression = "java(source.getFullName() != null && !source.getFullName().isEmpty() ? " +
+                           "source.getFullName().split(\" \")[0] : source.getFullName())")
     private String firstName;
     
     /**
      * 一对多映射：fullName -> lastName（取第二个单词，如果存在）
      */
     @CopyField(source = "fullName", 
-               expression = "source.getFullName() != null && !source.getFullName().isEmpty() && " +
+               expression = "java(source.getFullName() != null && !source.getFullName().isEmpty() && " +
                            "source.getFullName().split(\" \").length > 1 ? " +
                            "source.getFullName().split(\" \")[1] : " +
-                           "(source.getFullName() != null ? \"\" : null)")
+                           "(source.getFullName() != null ? \"\" : null))")
     private String lastName;
     
     /**
      * 一对多映射：address -> city（取逗号前的部分）
      */
     @CopyField(source = "address", 
-               expression = "source.getAddress() != null && !source.getAddress().isEmpty() && " +
+               expression = "java(source.getAddress() != null && !source.getAddress().isEmpty() && " +
                            "source.getAddress().contains(\",\") ? " +
                            "source.getAddress().split(\",\")[0].trim() : " +
-                           "(source.getAddress() != null ? source.getAddress() : null)")
+                           "(source.getAddress() != null ? source.getAddress() : null))")
     private String city;
     
     /**
      * 一对多映射：address -> country（取逗号后的部分）
      */
     @CopyField(source = "address", 
-               expression = "source.getAddress() != null && !source.getAddress().isEmpty() && " +
+               expression = "java(source.getAddress() != null && !source.getAddress().isEmpty() && " +
                            "source.getAddress().contains(\",\") && " +
                            "source.getAddress().split(\",\").length > 1 ? " +
                            "source.getAddress().split(\",\")[1].trim() : " +
-                           "(source.getAddress() != null ? \"\" : null)")
+                           "(source.getAddress() != null ? \"\" : null))")
     private String country;
     
     /**

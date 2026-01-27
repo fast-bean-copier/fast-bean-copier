@@ -23,16 +23,16 @@ import com.github.jackieonway.copier.converter.TypeConverter;
  *
  * <p><b>1. 多对一映射（多个源字段合并）</b></p>
  * <pre>
- * &#64;CopyField(source = {"firstName", "lastName"}, expression = "source.getFirstName() + \" \" + source.getLastName()")
+ * &#64;CopyField(source = {"firstName", "lastName"}, expression = "java(source.getFirstName() + \" \" + source.getLastName())")
  * private String fullName;
  * </pre>
  *
  * <p><b>2. 一对多映射（一个源字段拆分）</b></p>
  * <pre>
- * &#64;CopyField(source = "fullName", expression = "source.getFullName().split(\" \")[0]")
+ * &#64;CopyField(source = "fullName", expression = "java(source.getFullName().split(\" \")[0])")
  * private String firstName;
  *
- * &#64;CopyField(source = "fullName", expression = "source.getFullName().split(\" \")[1]")
+ * &#64;CopyField(source = "fullName", expression = "java(source.getFullName().split(\" \")[1])")
  * private String lastName;
  * </pre>
  *
@@ -82,14 +82,15 @@ public @interface CopyField {
     /**
      * Java 表达式，用于字段值转换。
      *
-     * <p>表达式中可以使用 {@code source} 变量引用源对象，
+     * <p>表达式必须使用 {@code java(...)} 包裹，括号内为有效的 Java 表达式。
+     * 表达式中可以使用 {@code source} 变量引用源对象，
      * 通过调用源对象的 getter 方法获取字段值。
      *
      * <p>表达式示例：
      * <ul>
-     *   <li>{@code source.getFirstName() + " " + source.getLastName()} - 字符串拼接</li>
-     *   <li>{@code source.getAge() >= 18 ? "成年" : "未成年"} - 三元运算符</li>
-     *   <li>{@code source.getPrice() * source.getQuantity()} - 数学运算</li>
+     *   <li>{@code java(source.getFirstName() + " " + source.getLastName())} - 字符串拼接</li>
+     *   <li>{@code java(source.getAge() >= 18 ? "成年" : "未成年")} - 三元运算符</li>
+     *   <li>{@code java(source.getPrice() * source.getQuantity())} - 数学运算</li>
      * </ul>
      *
      * @return Java 表达式字符串
