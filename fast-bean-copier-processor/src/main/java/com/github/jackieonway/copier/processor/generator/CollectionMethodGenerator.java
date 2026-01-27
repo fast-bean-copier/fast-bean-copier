@@ -21,8 +21,53 @@ import java.util.function.UnaryOperator;
  *   <li>toDtoSet / fromDtoSet - Set 转换方法</li>
  *   <li>toDtoMap / fromDtoMap - Map 转换方法</li>
  *   <li>toDtoArray / fromDtoArray - Array 转换方法</li>
- *   <li>带 customizer 的 List/Set 重载方法</li>
+ *   <li>带 customizer 的 List/Set 重载方法（v1.2.1）</li>
+ *   <li>带 customizer 的 Map/Array 重载方法（v1.3.1 新增）</li>
  * </ul>
+ *
+ * <p>v1.3.1 新增功能：
+ * <ul>
+ *   <li>Map 批量转换方法的 UnaryOperator 重载</li>
+ *   <li>Array 批量转换方法的 UnaryOperator 重载</li>
+ * </ul>
+ *
+ * <h3>使用示例</h3>
+ *
+ * <p>Map UnaryOperator 重载：
+ * <pre>{@code
+ * // 过滤 Map 中的 null 值条目
+ * Map<String, UserDto> result = UserDtoCopier.toDtoMap(sourceMap, map -> {
+ *     Map<String, UserDto> filtered = new LinkedHashMap<>();
+ *     for (Map.Entry<String, UserDto> entry : map.entrySet()) {
+ *         if (entry.getValue() != null && entry.getValue().getId() != null) {
+ *             filtered.put(entry.getKey(), entry.getValue());
+ *         }
+ *     }
+ *     return filtered;
+ * });
+ *
+ * // 转换为不可变 Map
+ * Map<String, UserDto> immutable = UserDtoCopier.toDtoMap(
+ *     sourceMap,
+ *     Collections::unmodifiableMap
+ * );
+ * }</pre>
+ *
+ * <p>Array UnaryOperator 重载：
+ * <pre>{@code
+ * // 过滤数组中的 null 值元素
+ * UserDto[] result = UserDtoCopier.toDtoArray(sourceArray, array -> {
+ *     return Arrays.stream(array)
+ *         .filter(dto -> dto != null && dto.getId() != null)
+ *         .toArray(UserDto[]::new);
+ * });
+ *
+ * // 排序数组
+ * UserDto[] sorted = UserDtoCopier.toDtoArray(sourceArray, array -> {
+ *     Arrays.sort(array, Comparator.comparing(UserDto::getId));
+ *     return array;
+ * });
+ * }</pre>
  *
  * @author jackieonway
  * @since 1.2.1
