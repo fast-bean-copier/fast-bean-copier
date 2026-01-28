@@ -160,16 +160,40 @@ public class UserService {
 }
 ```
 
-### 函数式定制
+### 函数式定制（v1.3.1 统一行为）
+
+> **v1.3.1 重要变更**：所有集合类型的 customizer 现在都操作整个集合，提供一致且强大的定制能力。
 
 ```java
+// 单对象定制
 UserDto dto = UserDtoCopier.toDto(user, result -> {
     result.setDisplayName(result.getName().toUpperCase());
     return result;
 });
+
+// List 定制 - 过滤和排序（v1.3.1 统一行为）
+List<UserDto> result = UserDtoCopier.toDtoList(users, list -> 
+    list.stream()
+        .filter(dto -> dto.getPrice() >= 100)
+        .sorted(Comparator.comparing(UserDto::getName))
+        .collect(Collectors.toList())
+);
+
+// Set 定制 - 不可变集合（v1.3.1 统一行为）
+Set<UserDto> immutableSet = UserDtoCopier.toDtoSet(userSet, 
+    Collections::unmodifiableSet);
 ```
 
 ## v1.3.1 新功能
+
+### 统一 UnaryOperator 行为
+
+v1.3.1 统一了所有集合类型的 UnaryOperator 行为：
+
+- List: `UnaryOperator<List<T>>` - 操作整个列表
+- Set: `UnaryOperator<Set<T>>` - 操作整个集合
+- Map: `UnaryOperator<Map<K, T>>` - 操作整个 Map
+- Array: `UnaryOperator<T[]>` - 操作整个数组
 
 ### Map 批量转换的 UnaryOperator 重载
 
@@ -182,7 +206,7 @@ Map<String, UserDto> filteredMap = UserDtoCopier.toDtoMap(userMap, result -> {
 
 // 转换为不可变 Map
 Map<String, UserDto> immutableMap = UserDtoCopier.toDtoMap(userMap, 
-    result -> Collections.unmodifiableMap(result));
+    Collections::unmodifiableMap);
 ```
 
 ### Array 批量转换的 UnaryOperator 重载

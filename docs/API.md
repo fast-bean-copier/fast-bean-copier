@@ -1,6 +1,6 @@
 # Fast Bean Copier API 文档
 
-> v1.3.1 新增：Map/Array 批量转换的 UnaryOperator 重载、Properties 配置文件支持、逆向转换智能跳过。
+> v1.3.1 新增：统一所有集合类型的 UnaryOperator 行为（List/Set/Map/Array）、Properties 配置文件支持、逆向转换智能跳过。
 >
 > v1.3 新增：更新现有对象（updateDto/updateEntity）、映射前回调（beforeMapping）、条件映射（condition）、默认值和常量（defaultValue/constant）、全局配置（@CopyTargetConfig）、Null 值处理策略（NullValueStrategy）。
 >
@@ -517,15 +517,33 @@ List<User> users = userRepository.findAll();
 List<UserDto> userDtos = UserDtoCopier.toDtoList(users);
 ```
 
-#### toDtoList(sources, customizer)（v1.2 新增）
+#### toDtoList(sources, customizer)（v1.2 新增 / v1.3.1 统一行为）
 
-将源对象列表转换为目标 DTO 对象列表，并对每个元素应用自定义逻辑。
+将源对象列表转换为目标 DTO 对象列表，并对整个列表应用自定义逻辑。
+
+**v1.3.1 变更**：customizer 现在操作整个列表而非单个元素，支持过滤、排序、限制等操作。
 
 **签名**：
 ```java
 public static java.util.List<TargetType> toDtoList(
     java.util.List<SourceType> sources, 
-    UnaryOperator<TargetType> customizer)
+    UnaryOperator<java.util.List<TargetType>> customizer)
+```
+
+**示例**：
+```java
+// 过滤列表
+List<UserDto> filtered = UserDtoCopier.toDtoList(users, list -> 
+    list.stream()
+        .filter(dto -> dto.getPrice() >= 100)
+        .collect(Collectors.toList())
+);
+
+// 排序列表
+List<UserDto> sorted = UserDtoCopier.toDtoList(users, list -> {
+    list.sort(Comparator.comparing(UserDto::getName));
+    return list;
+});
 ```
 
 #### toDtoSet(sources)
@@ -537,9 +555,18 @@ public static java.util.List<TargetType> toDtoList(
 public static java.util.Set<TargetType> toDtoSet(java.util.Set<SourceType> sources)
 ```
 
-#### toDtoSet(sources, customizer)（v1.2 新增）
+#### toDtoSet(sources, customizer)（v1.2 新增 / v1.3.1 统一行为）
 
-将源对象集合转换为目标 DTO 对象集合，并对每个元素应用自定义逻辑。
+将源对象集合转换为目标 DTO 对象集合，并对整个集合应用自定义逻辑。
+
+**v1.3.1 变更**：customizer 现在操作整个集合而非单个元素。
+
+**签名**：
+```java
+public static java.util.Set<TargetType> toDtoSet(
+    java.util.Set<SourceType> sources, 
+    UnaryOperator<java.util.Set<TargetType>> customizer)
+```
 
 #### fromDtoList(sources)
 
@@ -550,9 +577,18 @@ public static java.util.Set<TargetType> toDtoSet(java.util.Set<SourceType> sourc
 public static java.util.List<SourceType> fromDtoList(java.util.List<TargetType> sources)
 ```
 
-#### fromDtoList(sources, customizer)（v1.2 新增）
+#### fromDtoList(sources, customizer)（v1.2 新增 / v1.3.1 统一行为）
 
-将目标 DTO 对象列表转换回源对象列表，并对每个元素应用自定义逻辑。
+将目标 DTO 对象列表转换回源对象列表，并对整个列表应用自定义逻辑。
+
+**v1.3.1 变更**：customizer 现在操作整个列表而非单个元素。
+
+**签名**：
+```java
+public static java.util.List<SourceType> fromDtoList(
+    java.util.List<TargetType> sources, 
+    UnaryOperator<java.util.List<SourceType>> customizer)
+```
 
 #### fromDtoSet(sources)
 
@@ -563,9 +599,18 @@ public static java.util.List<SourceType> fromDtoList(java.util.List<TargetType> 
 public static java.util.Set<SourceType> fromDtoSet(java.util.Set<TargetType> sources)
 ```
 
-#### fromDtoSet(sources, customizer)（v1.2 新增）
+#### fromDtoSet(sources, customizer)（v1.2 新增 / v1.3.1 统一行为）
 
-将目标 DTO 对象集合转换回源对象集合，并对每个元素应用自定义逻辑。
+将目标 DTO 对象集合转换回源对象集合，并对整个集合应用自定义逻辑。
+
+**v1.3.1 变更**：customizer 现在操作整个集合而非单个元素。
+
+**签名**：
+```java
+public static java.util.Set<SourceType> fromDtoSet(
+    java.util.Set<TargetType> sources, 
+    UnaryOperator<java.util.Set<SourceType>> customizer)
+```
 
 #### toDtoMap(sources)
 

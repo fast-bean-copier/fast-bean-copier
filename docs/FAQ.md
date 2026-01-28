@@ -7,8 +7,10 @@
 ## 基本问题
 
 ### Q: v1.3.1 有哪些新增功能？
-**A**: v1.3.1 主要新增：
-- **Map/Array 批量转换的 UnaryOperator 重载**：支持在批量转换后立即进行后处理（过滤、排序、转换为不可变集合等）
+**A**: v1.3.1 主要新增和改进：
+- **统一 UnaryOperator 行为**：所有集合类型（List/Set/Map/Array）的 customizer 现在都操作整个集合，提供一致且强大的定制能力
+- **List/Set UnaryOperator 增强**：从操作单个元素改为操作整个集合，支持过滤、排序、限制、不可变转换等高级操作
+- **Map/Array UnaryOperator 重载**：新增 Map 和 Array 批量转换的 UnaryOperator 重载方法
 - **Properties 配置文件支持**：通过 `fast-bean-copier.properties` 文件进行全局配置
 - **逆向转换智能跳过**：自动跳过使用了特殊映射配置的字段（typeConverter、expression、qualifiedByName、constant）
 

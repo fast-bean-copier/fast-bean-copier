@@ -2,7 +2,7 @@
 
 Fast Bean Copier 是一个高性能的 Java Bean 拷贝工具，使用 APT（注解处理工具）在编译期自动生成拷贝代码，实现零运行时开销。
 
-> **v1.3.1 新特性**：Map/Array 批量转换的 UnaryOperator 重载、Properties 配置文件支持、逆向转换特殊字段自动跳过。
+> **v1.3.1 新特性**：统一所有集合类型的 UnaryOperator 行为（List/Set/Map/Array）、Properties 配置文件支持、逆向转换特殊字段自动跳过。
 >
 > **v1.3 新特性**：更新现有对象（updateDto/updateEntity）、映射前回调、条件映射、默认值和常量、全局配置（@CopyTargetConfig）。
 >
@@ -27,7 +27,7 @@ Fast Bean Copier 是一个高性能的 Java Bean 拷贝工具，使用 APT（注
 - ✅ **条件映射** - 支持基于条件决定是否映射字段
 - ✅ **默认值和常量** - 支持设置字段的默认值和常量值
 - ✅ **全局配置** - 支持包级别配置，减少重复配置
-- 🆕 **批量转换定制**（v1.3.1）- Map/Array 批量转换支持 UnaryOperator 后处理
+- 🆕 **统一集合定制**（v1.3.1）- 所有集合类型（List/Set/Map/Array）使用一致的 UnaryOperator 行为
 - 🆕 **配置文件支持**（v1.3.1）- 支持通过 Properties 文件进行全局配置
 - 🆕 **智能逆向转换**（v1.3.1）- 自动跳过不可逆的特殊字段映射
 
@@ -168,9 +168,45 @@ UserDto dto = UserDtoCopier.toDto(user, result -> {
 
 ## v1.3.1 新功能
 
-### Map/Array 批量转换的 UnaryOperator 重载
+### 统一 UnaryOperator 行为（重要变更）
 
-对批量转换方法提供 UnaryOperator 重载，支持在转换后立即进行过滤、排序、转换为不可变集合等操作：
+v1.3.1 统一了所有集合类型的 UnaryOperator 行为，现在所有 customizer 都操作整个集合，提供一致且强大的定制能力：
+
+**统一后的类型签名：**
+- List: `UnaryOperator<List<T>>`
+- Set: `UnaryOperator<Set<T>>`
+- Map: `UnaryOperator<Map<K, T>>`
+- Array: `UnaryOperator<T[]>`
+
+**好处：**
+- ✅ 一致的 API 设计，更容易理解和使用
+- ✅ 更强大的灵活性：支持过滤、排序、限制、替换实现等操作
+- ✅ 更直观：方法返回 `List<T>`，customizer 就操作 `List<T>`
+
+```java
+// List 过滤和排序
+List<UserDto> result = UserDtoCopier.toDtoList(users, list -> 
+    list.stream()
+        .filter(dto -> dto.getPrice() >= 100)
+        .sorted(Comparator.comparing(UserDto::getName))
+        .limit(10)
+        .collect(Collectors.toList())
+);
+
+// Set 转换为不可变集合
+Set<UserDto> immutableSet = UserDtoCopier.toDtoSet(userSet, 
+    Collections::unmodifiableSet);
+
+// 如果需要修改每个元素，在 customizer 中遍历
+List<UserDto> modified = UserDtoCopier.toDtoList(users, list -> {
+    list.forEach(dto -> dto.setSource("batch"));
+    return list;
+});
+```
+
+### Map/Array UnaryOperator 重载（v1.3.1 新增）
+
+新增 Map 和 Array 批量转换的 UnaryOperator 重载：
 
 ```java
 // Map 过滤：移除 id 为 null 的条目
@@ -181,7 +217,7 @@ Map<String, UserDto> filteredMap = UserDtoCopier.toDtoMap(userMap, result -> {
 
 // Map 转换为不可变集合
 Map<String, UserDto> immutableMap = UserDtoCopier.toDtoMap(userMap, 
-    result -> Collections.unmodifiableMap(result));
+    Collections::unmodifiableMap);
 
 // Array 过滤：移除 id 为 null 的元素
 UserDto[] filteredArray = UserDtoCopier.toDtoArray(users, result -> 
