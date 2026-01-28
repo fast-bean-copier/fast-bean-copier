@@ -21,19 +21,45 @@ import java.util.function.UnaryOperator;
  *   <li>toDtoSet / fromDtoSet - Set 转换方法</li>
  *   <li>toDtoMap / fromDtoMap - Map 转换方法</li>
  *   <li>toDtoArray / fromDtoArray - Array 转换方法</li>
- *   <li>带 customizer 的 List/Set 重载方法（v1.2.1）</li>
- *   <li>带 customizer 的 Map/Array 重载方法（v1.3.1 新增）</li>
+ *   <li>带 customizer 的 List/Set/Map/Array 重载方法（v1.2.1 新增 List/Set，v1.3.1 新增 Map/Array 并统一 List/Set 行为）</li>
  * </ul>
  *
- * <p>v1.3.1 新增功能：
+ * <p>v1.3.1 重要变更：
  * <ul>
- *   <li>Map 批量转换方法的 UnaryOperator 重载</li>
- *   <li>Array 批量转换方法的 UnaryOperator 重载</li>
+ *   <li>统一所有集合方法的 customizer 行为：对整个集合应用而非单个元素</li>
+ *   <li>List/Set customizer 从 {@code UnaryOperator<Element>} 改为 {@code UnaryOperator<Collection>}</li>
+ *   <li>新增 Map 批量转换方法的 {@code UnaryOperator<Map>} 重载</li>
+ *   <li>新增 Array 批量转换方法的 {@code UnaryOperator<Array>} 重载</li>
  * </ul>
  *
  * <h3>使用示例</h3>
  *
- * <p>Map UnaryOperator 重载：
+ * <p>List UnaryOperator 重载（v1.3.1 统一行为）：
+ * <pre>{@code
+ * // 过滤列表
+ * List<UserDto> result = UserDtoCopier.toDtoList(sourceList, list -> 
+ *     list.stream()
+ *         .filter(dto -> dto.getAge() > 18)
+ *         .collect(Collectors.toList())
+ * );
+ *
+ * // 排序列表
+ * List<UserDto> sorted = UserDtoCopier.toDtoList(sourceList, list -> {
+ *     list.sort(Comparator.comparing(UserDto::getName));
+ *     return list;
+ * });
+ * }</pre>
+ *
+ * <p>Set UnaryOperator 重载（v1.3.1 统一行为）：
+ * <pre>{@code
+ * // 去重并转换为不可变 Set
+ * Set<UserDto> immutable = UserDtoCopier.toDtoSet(
+ *     sourceSet,
+ *     Collections::unmodifiableSet
+ * );
+ * }</pre>
+ *
+ * <p>Map UnaryOperator 重载（v1.3.1 新增）：
  * <pre>{@code
  * // 过滤 Map 中的 null 值条目
  * Map<String, UserDto> result = UserDtoCopier.toDtoMap(sourceMap, map -> {
@@ -45,27 +71,15 @@ import java.util.function.UnaryOperator;
  *     }
  *     return filtered;
  * });
- *
- * // 转换为不可变 Map
- * Map<String, UserDto> immutable = UserDtoCopier.toDtoMap(
- *     sourceMap,
- *     Collections::unmodifiableMap
- * );
  * }</pre>
  *
- * <p>Array UnaryOperator 重载：
+ * <p>Array UnaryOperator 重载（v1.3.1 新增）：
  * <pre>{@code
  * // 过滤数组中的 null 值元素
  * UserDto[] result = UserDtoCopier.toDtoArray(sourceArray, array -> {
  *     return Arrays.stream(array)
  *         .filter(dto -> dto != null && dto.getId() != null)
  *         .toArray(UserDto[]::new);
- * });
- *
- * // 排序数组
- * UserDto[] sorted = UserDtoCopier.toDtoArray(sourceArray, array -> {
- *     Arrays.sort(array, Comparator.comparing(UserDto::getId));
- *     return array;
  * });
  * }</pre>
  *
@@ -215,7 +229,7 @@ public class CollectionMethodGenerator {
         TypeName listOfSource = ParameterizedTypeName.get(ClassName.get(java.util.List.class), sourceTypeName);
         TypeName listOfTarget = ParameterizedTypeName.get(ClassName.get(java.util.List.class), targetTypeName);
         TypeName customizerType = ParameterizedTypeName.get(
-                ClassName.get(UnaryOperator.class), targetTypeName);
+                ClassName.get(UnaryOperator.class), listOfTarget);
 
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDtoList")
                 .addModifiers(Modifier.PUBLIC)
@@ -231,18 +245,16 @@ public class CollectionMethodGenerator {
                 .addStatement("return null")
                 .endControlFlow();
 
-        methodBuilder.addStatement("$T result = new $T<>(sources.size())",
-                listOfTarget, ClassName.get(java.util.ArrayList.class));
-
-        methodBuilder.beginControlFlow("for ($T source : sources)", sourceTypeName);
         if (useStaticMethods) {
-            methodBuilder.addStatement("result.add(toDto(source, customizer))");
+            methodBuilder.addStatement("$T result = toDtoList(sources)", listOfTarget);
         } else {
-            methodBuilder.addStatement("result.add(this.toDto(source, customizer))");
+            methodBuilder.addStatement("$T result = this.toDtoList(sources)", listOfTarget);
         }
-        methodBuilder.endControlFlow();
 
-        methodBuilder.addStatement("return result");
+        methodBuilder.beginControlFlow("if (result != null && customizer != null)")
+                .addStatement("result = customizer.apply(result)")
+                .endControlFlow()
+                .addStatement("return result");
 
         return methodBuilder.build();
     }
@@ -259,7 +271,7 @@ public class CollectionMethodGenerator {
         TypeName listOfSource = ParameterizedTypeName.get(ClassName.get(java.util.List.class), sourceTypeName);
         TypeName listOfTarget = ParameterizedTypeName.get(ClassName.get(java.util.List.class), targetTypeName);
         TypeName customizerType = ParameterizedTypeName.get(
-                ClassName.get(UnaryOperator.class), sourceTypeName);
+                ClassName.get(UnaryOperator.class), listOfSource);
 
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDtoList")
                 .addModifiers(Modifier.PUBLIC)
@@ -275,18 +287,16 @@ public class CollectionMethodGenerator {
                 .addStatement("return null")
                 .endControlFlow();
 
-        methodBuilder.addStatement("$T result = new $T<>(sources.size())",
-                listOfSource, ClassName.get(java.util.ArrayList.class));
-
-        methodBuilder.beginControlFlow("for ($T source : sources)", targetTypeName);
         if (useStaticMethods) {
-            methodBuilder.addStatement("result.add(fromDto(source, customizer))");
+            methodBuilder.addStatement("$T result = fromDtoList(sources)", listOfSource);
         } else {
-            methodBuilder.addStatement("result.add(this.fromDto(source, customizer))");
+            methodBuilder.addStatement("$T result = this.fromDtoList(sources)", listOfSource);
         }
-        methodBuilder.endControlFlow();
 
-        methodBuilder.addStatement("return result");
+        methodBuilder.beginControlFlow("if (result != null && customizer != null)")
+                .addStatement("result = customizer.apply(result)")
+                .endControlFlow()
+                .addStatement("return result");
 
         return methodBuilder.build();
     }
@@ -386,7 +396,7 @@ public class CollectionMethodGenerator {
         TypeName setOfSource = ParameterizedTypeName.get(ClassName.get(java.util.Set.class), sourceTypeName);
         TypeName setOfTarget = ParameterizedTypeName.get(ClassName.get(java.util.Set.class), targetTypeName);
         TypeName customizerType = ParameterizedTypeName.get(
-                ClassName.get(UnaryOperator.class), targetTypeName);
+                ClassName.get(UnaryOperator.class), setOfTarget);
 
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDtoSet")
                 .addModifiers(Modifier.PUBLIC)
@@ -402,18 +412,16 @@ public class CollectionMethodGenerator {
                 .addStatement("return null")
                 .endControlFlow();
 
-        methodBuilder.addStatement("$T result = new $T<>(sources.size())",
-                setOfTarget, ClassName.get(java.util.LinkedHashSet.class));
-
-        methodBuilder.beginControlFlow("for ($T source : sources)", sourceTypeName);
         if (useStaticMethods) {
-            methodBuilder.addStatement("result.add(toDto(source, customizer))");
+            methodBuilder.addStatement("$T result = toDtoSet(sources)", setOfTarget);
         } else {
-            methodBuilder.addStatement("result.add(this.toDto(source, customizer))");
+            methodBuilder.addStatement("$T result = this.toDtoSet(sources)", setOfTarget);
         }
-        methodBuilder.endControlFlow();
 
-        methodBuilder.addStatement("return result");
+        methodBuilder.beginControlFlow("if (result != null && customizer != null)")
+                .addStatement("result = customizer.apply(result)")
+                .endControlFlow()
+                .addStatement("return result");
 
         return methodBuilder.build();
     }
@@ -430,7 +438,7 @@ public class CollectionMethodGenerator {
         TypeName setOfSource = ParameterizedTypeName.get(ClassName.get(java.util.Set.class), sourceTypeName);
         TypeName setOfTarget = ParameterizedTypeName.get(ClassName.get(java.util.Set.class), targetTypeName);
         TypeName customizerType = ParameterizedTypeName.get(
-                ClassName.get(UnaryOperator.class), sourceTypeName);
+                ClassName.get(UnaryOperator.class), setOfSource);
 
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDtoSet")
                 .addModifiers(Modifier.PUBLIC)
@@ -446,18 +454,16 @@ public class CollectionMethodGenerator {
                 .addStatement("return null")
                 .endControlFlow();
 
-        methodBuilder.addStatement("$T result = new $T<>(sources.size())",
-                setOfSource, ClassName.get(java.util.LinkedHashSet.class));
-
-        methodBuilder.beginControlFlow("for ($T source : sources)", targetTypeName);
         if (useStaticMethods) {
-            methodBuilder.addStatement("result.add(fromDto(source, customizer))");
+            methodBuilder.addStatement("$T result = fromDtoSet(sources)", setOfSource);
         } else {
-            methodBuilder.addStatement("result.add(this.fromDto(source, customizer))");
+            methodBuilder.addStatement("$T result = this.fromDtoSet(sources)", setOfSource);
         }
-        methodBuilder.endControlFlow();
 
-        methodBuilder.addStatement("return result");
+        methodBuilder.beginControlFlow("if (result != null && customizer != null)")
+                .addStatement("result = customizer.apply(result)")
+                .endControlFlow()
+                .addStatement("return result");
 
         return methodBuilder.build();
     }

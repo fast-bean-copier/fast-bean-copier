@@ -24,12 +24,225 @@ import static org.junit.Assert.assertTrue;
 /**
  * v1.3.1 UnaryOperator integration test.
  *
- * <p>Tests Map and Array UnaryOperator overload methods.
+ * <p>Tests unified UnaryOperator behavior for all collection types (List, Set, Map, Array).
+ * <p>v1.3.1 统一了所有集合方法的 customizer 行为：对整个集合应用而非单个元素。
  *
  * @author jackieonway
  * @since 1.3.1
  */
 public class V131UnaryOperatorIntegrationTest {
+
+    // ========== List UnaryOperator Tests (v1.3.1 统一行为) ==========
+
+    @Test
+    public void testToDtoList_withCustomizer_filterByPrice() {
+        // Prepare test data
+        List<SimpleProduct> sources = Arrays.asList(
+                new SimpleProduct(1L, "Product 1", 100.0),
+                new SimpleProduct(2L, "Product 2", 50.0),
+                new SimpleProduct(3L, "Product 3", 200.0)
+        );
+
+        // Define customizer: filter products with price > 100
+        UnaryOperator<List<SimpleProductDto>> customizer = list -> 
+                list.stream()
+                        .filter(dto -> dto.getPrice() > 100.0)
+                        .collect(Collectors.toList());
+
+        // Execute conversion
+        List<SimpleProductDto> result = SimpleProductDtoCopier.toDtoList(sources, customizer);
+
+        // Verify result
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals(Long.valueOf(3L), result.get(0).getId());
+        assertEquals("Product 3", result.get(0).getName());
+    }
+
+    @Test
+    public void testToDtoList_withCustomizer_sortByName() {
+        // Prepare test data
+        List<SimpleProduct> sources = Arrays.asList(
+                new SimpleProduct(1L, "Zebra", 100.0),
+                new SimpleProduct(2L, "Apple", 200.0),
+                new SimpleProduct(3L, "Mango", 150.0)
+        );
+
+        // Define customizer: sort by name
+        UnaryOperator<List<SimpleProductDto>> customizer = list -> {
+            list.sort(Comparator.comparing(SimpleProductDto::getName));
+            return list;
+        };
+
+        // Execute conversion
+        List<SimpleProductDto> result = SimpleProductDtoCopier.toDtoList(sources, customizer);
+
+        // Verify result
+        assertNotNull(result);
+        assertEquals(3, result.size());
+        assertEquals("Apple", result.get(0).getName());
+        assertEquals("Mango", result.get(1).getName());
+        assertEquals("Zebra", result.get(2).getName());
+    }
+
+    @Test
+    public void testToDtoList_withCustomizer_limitSize() {
+        // Prepare test data
+        List<SimpleProduct> sources = Arrays.asList(
+                new SimpleProduct(1L, "Product 1", 100.0),
+                new SimpleProduct(2L, "Product 2", 200.0),
+                new SimpleProduct(3L, "Product 3", 300.0)
+        );
+
+        // Define customizer: limit to first 2 elements
+        UnaryOperator<List<SimpleProductDto>> customizer = list -> 
+                list.stream().limit(2).collect(Collectors.toList());
+
+        // Execute conversion
+        List<SimpleProductDto> result = SimpleProductDtoCopier.toDtoList(sources, customizer);
+
+        // Verify result
+        assertNotNull(result);
+        assertEquals(2, result.size());
+        assertEquals(Long.valueOf(1L), result.get(0).getId());
+        assertEquals(Long.valueOf(2L), result.get(1).getId());
+    }
+
+    @Test
+    public void testToDtoList_withCustomizer_unmodifiableList() {
+        // Prepare test data
+        List<SimpleProduct> sources = Arrays.asList(
+                new SimpleProduct(1L, "Product 1", 100.0)
+        );
+
+        // Define customizer: convert to unmodifiable list
+        UnaryOperator<List<SimpleProductDto>> customizer = Collections::unmodifiableList;
+
+        // Execute conversion
+        List<SimpleProductDto> result = SimpleProductDtoCopier.toDtoList(sources, customizer);
+
+        // Verify result
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        
+        // Verify it's unmodifiable
+        try {
+            result.add(new SimpleProductDto());
+            assertTrue("Should throw UnsupportedOperationException", false);
+        } catch (UnsupportedOperationException e) {
+            // Expected
+        }
+    }
+
+    @Test
+    public void testFromDtoList_withCustomizer_filterNullIds() {
+        // Prepare test data
+        SimpleProductDto dto1 = new SimpleProductDto();
+        dto1.setId(1L);
+        dto1.setName("Product 1");
+        
+        SimpleProductDto dto2 = new SimpleProductDto();
+        dto2.setId(null);
+        dto2.setName("Product 2");
+        
+        List<SimpleProductDto> sources = Arrays.asList(dto1, dto2);
+
+        // Define customizer: filter out elements with null id
+        UnaryOperator<List<SimpleProduct>> customizer = list -> 
+                list.stream()
+                        .filter(product -> product.getId() != null)
+                        .collect(Collectors.toList());
+
+        // Execute conversion
+        List<SimpleProduct> result = SimpleProductDtoCopier.fromDtoList(sources, customizer);
+
+        // Verify result
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals(Long.valueOf(1L), result.get(0).getId());
+    }
+
+    // ========== Set UnaryOperator Tests (v1.3.1 统一行为) ==========
+
+    @Test
+    public void testToDtoSet_withCustomizer_filterByPrice() {
+        // Prepare test data
+        java.util.Set<SimpleProduct> sources = new java.util.LinkedHashSet<>();
+        sources.add(new SimpleProduct(1L, "Product 1", 100.0));
+        sources.add(new SimpleProduct(2L, "Product 2", 50.0));
+        sources.add(new SimpleProduct(3L, "Product 3", 200.0));
+
+        // Define customizer: filter products with price > 100
+        UnaryOperator<java.util.Set<SimpleProductDto>> customizer = set -> 
+                set.stream()
+                        .filter(dto -> dto.getPrice() > 100.0)
+                        .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+
+        // Execute conversion
+        java.util.Set<SimpleProductDto> result = SimpleProductDtoCopier.toDtoSet(sources, customizer);
+
+        // Verify result
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        SimpleProductDto dto = result.iterator().next();
+        assertEquals(Long.valueOf(3L), dto.getId());
+    }
+
+    @Test
+    public void testToDtoSet_withCustomizer_unmodifiableSet() {
+        // Prepare test data
+        java.util.Set<SimpleProduct> sources = new java.util.LinkedHashSet<>();
+        sources.add(new SimpleProduct(1L, "Product 1", 100.0));
+
+        // Define customizer: convert to unmodifiable set
+        UnaryOperator<java.util.Set<SimpleProductDto>> customizer = Collections::unmodifiableSet;
+
+        // Execute conversion
+        java.util.Set<SimpleProductDto> result = SimpleProductDtoCopier.toDtoSet(sources, customizer);
+
+        // Verify result
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        
+        // Verify it's unmodifiable
+        try {
+            result.add(new SimpleProductDto());
+            assertTrue("Should throw UnsupportedOperationException", false);
+        } catch (UnsupportedOperationException e) {
+            // Expected
+        }
+    }
+
+    @Test
+    public void testFromDtoSet_withCustomizer_filterNullIds() {
+        // Prepare test data
+        SimpleProductDto dto1 = new SimpleProductDto();
+        dto1.setId(1L);
+        dto1.setName("Product 1");
+        
+        SimpleProductDto dto2 = new SimpleProductDto();
+        dto2.setId(null);
+        dto2.setName("Product 2");
+        
+        java.util.Set<SimpleProductDto> sources = new java.util.LinkedHashSet<>();
+        sources.add(dto1);
+        sources.add(dto2);
+
+        // Define customizer: filter out elements with null id
+        UnaryOperator<java.util.Set<SimpleProduct>> customizer = set -> 
+                set.stream()
+                        .filter(product -> product.getId() != null)
+                        .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+
+        // Execute conversion
+        java.util.Set<SimpleProduct> result = SimpleProductDtoCopier.fromDtoSet(sources, customizer);
+
+        // Verify result
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        SimpleProduct product = result.iterator().next();
+        assertEquals(Long.valueOf(1L), product.getId());
+    }
 
     // ========== Map UnaryOperator Tests ==========
 
