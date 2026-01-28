@@ -6,6 +6,12 @@
 
 ## 基本问题
 
+### Q: v1.3.1 有哪些新增功能？
+**A**: v1.3.1 主要新增：
+- **Map/Array 批量转换的 UnaryOperator 重载**：支持在批量转换后立即进行后处理（过滤、排序、转换为不可变集合等）
+- **Properties 配置文件支持**：通过 `fast-bean-copier.properties` 文件进行全局配置
+- **逆向转换智能跳过**：自动跳过使用了特殊映射配置的字段（typeConverter、expression、qualifiedByName、constant）
+
 ### Q: v1.3 有哪些新增功能？
 **A**: v1.3 主要新增：
 - **更新现有对象**：updateDto/updateEntity 方法，支持更新已存在的对象而不是创建新对象
@@ -82,7 +88,7 @@ dependencies {
 **A**: 使用 `@CopyField` 注解的 `source` 数组和 `expression` 属性：
 ```java
 @CopyField(source = {"firstName", "lastName"}, 
-           expression = "source.getFirstName() + \" \" + source.getLastName()")
+           expression = "java(source.getFirstName() + \" \" + source.getLastName())")
 private String fullName;
 ```
 
@@ -90,11 +96,11 @@ private String fullName;
 **A**: 多个目标字段引用同一个源字段：
 ```java
 @CopyField(source = "fullName", 
-           expression = "source.getFullName().split(\" \")[0]")
+           expression = "java(source.getFullName().split(\" \")[0])")
 private String firstName;
 
 @CopyField(source = "fullName", 
-           expression = "source.getFullName().split(\" \")[1]")
+           expression = "java(source.getFullName().split(\" \")[1])")
 private String lastName;
 ```
 
@@ -253,6 +259,67 @@ import com.github.jackieonway.copier.annotation.*;
 
 ### Q: NullValueStrategy 主要用于什么场景？
 **A**: 主要用于 updateDto/updateEntity 方法，决定当源字段为 null 时是否更新目标字段。
+
+## v1.3.1 新功能问题
+
+### Q: 如何使用 Map 批量转换的 UnaryOperator 重载？
+**A**: 使用带 `UnaryOperator` 参数的重载方法：
+```java
+// 过滤 Map 条目
+Map<String, UserDto> filteredMap = UserDtoCopier.toDtoMap(userMap, result -> {
+    result.entrySet().removeIf(entry -> entry.getValue().getId() == null);
+    return result;
+});
+
+// 转换为不可变 Map
+Map<String, UserDto> immutableMap = UserDtoCopier.toDtoMap(userMap, 
+    result -> Collections.unmodifiableMap(result));
+```
+
+### Q: 如何使用 Array 批量转换的 UnaryOperator 重载？
+**A**: 使用带 `UnaryOperator` 参数的重载方法：
+```java
+// 过滤数组元素
+UserDto[] filteredArray = UserDtoCopier.toDtoArray(users, result -> 
+    Arrays.stream(result)
+        .filter(dto -> dto.getId() != null)
+        .toArray(UserDto[]::new));
+
+// 排序数组
+UserDto[] sortedArray = UserDtoCopier.toDtoArray(users, result -> {
+    Arrays.sort(result, Comparator.comparing(UserDto::getName));
+    return result;
+});
+```
+
+### Q: 如何使用 Properties 配置文件？
+**A**: 在 `src/main/resources/` 目录下创建 `fast-bean-copier.properties` 文件：
+```properties
+# 组件模型：DEFAULT, SPRING, CDI, JSR330
+fast.bean.copier.componentModel=SPRING
+
+# 空值策略：IGNORE, REPLACE
+fast.bean.copier.nullValueStrategy=IGNORE
+```
+
+### Q: Properties 配置文件的优先级是什么？
+**A**: 配置优先级：类级别 > 包级别 > 配置文件 > 默认值。类级别的配置会覆盖配置文件中的配置。
+
+### Q: 什么是逆向转换智能跳过？
+**A**: 在 `fromDto/updateEntity` 方法中，使用了特殊映射配置的字段会自动跳过，因为这些映射是不可逆的：
+- 使用了 `typeConverter` 的字段
+- 使用了 `expression` 的字段
+- 使用了 `qualifiedByName` 的字段
+- 使用了 `constant` 的字段
+
+生成的代码会包含中文注释说明跳过原因。
+
+### Q: 为什么特殊字段在逆向转换时会被跳过？
+**A**: 这些字段的映射是单向的、不可逆的：
+- **typeConverter**：类型转换器通常是单向转换，逆向转换可能丢失信息
+- **expression**：表达式映射是计算得出的，无法反向推导
+- **qualifiedByName**：具名方法映射是自定义转换，通常不可逆
+- **constant**：常量值不依赖源字段，无法反向映射
 
 ## 类型转换问题
 

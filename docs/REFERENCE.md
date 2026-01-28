@@ -1,4 +1,4 @@
-# Fast Bean Copier 1.3.0 参考文档
+# Fast Bean Copier 1.3.1 参考文档
 
 ## 前言
 
@@ -24,6 +24,8 @@ Fast Bean Copier 是一个 Java 注解处理器，用于生成类型安全的 Be
 - **模块化架构** - v1.2.1 重构后，处理器采用职责单一的组件架构，易于维护和扩展
 - **更新现有对象** - v1.3 新增 updateDto/updateEntity 方法，支持更新已存在的对象
 - **条件映射和默认值** - v1.3 新增条件映射、默认值、常量等高级特性
+- **批量转换定制** - v1.3.1 新增 Map/Array 批量转换的 UnaryOperator 重载，支持函数式后处理
+- **全局配置** - v1.3.1 新增 Properties 配置文件支持，统一管理项目配置
 
 ## 2. 设置
 
@@ -33,13 +35,13 @@ Fast Bean Copier 是一个 Java 注解处理器，用于生成类型安全的 Be
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-annotations</artifactId>
-    <version>1.3.0</version>
+    <version>1.3.1</version>
 </dependency>
 
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-processor</artifactId>
-    <version>1.3.0</version>
+    <version>1.3.1</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -48,8 +50,8 @@ Fast Bean Copier 是一个 Java 注解处理器，用于生成类型安全的 Be
 
 ```gradle
 dependencies {
-    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.3.0'
-    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.3.0'
+    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.3.1'
+    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.3.1'
 }
 ```
 
@@ -131,7 +133,7 @@ public class Person {
 @CopyTarget(source = Person.class)
 public class PersonDto {
     @CopyField(source = {"firstName", "lastName"}, 
-               expression = "source.getFirstName() + \" \" + source.getLastName()")
+               expression = "java(source.getFirstName() + \" \" + source.getLastName())")
     private String fullName;
 }
 ```
@@ -148,11 +150,11 @@ public class FullNameSource {
 @CopyTarget(source = FullNameSource.class)
 public class NameDto {
     @CopyField(source = "fullName", 
-               expression = "source.getFullName() != null ? source.getFullName().split(\" \")[0] : null")
+               expression = "java(source.getFullName() != null ? source.getFullName().split(\" \")[0] : null)")
     private String firstName;
     
     @CopyField(source = "fullName", 
-               expression = "source.getFullName() != null && source.getFullName().contains(\" \") ? source.getFullName().split(\" \")[1] : null")
+               expression = "java(source.getFullName() != null && source.getFullName().contains(\" \") ? source.getFullName().split(\" \")[1] : null)")
     private String lastName;
 }
 ```
@@ -638,9 +640,203 @@ UserDtoCopier.updateDto(existingDto, user);
 // existingDto.name 会被设置为 null
 ```
 
-## 16. 数据类型转换
+## 16. Map/Array 批量转换的 UnaryOperator 重载（v1.3.1）
 
-### 16.1. 基本类型 ↔ 包装类型
+### 16.1. Map 批量转换定制
+
+Map 批量转换方法支持 UnaryOperator 重载，用于立即后处理：
+
+```java
+import java.util.function.UnaryOperator;
+import java.util.Collections;
+
+// 过滤 Map 条目 - 移除 id 为 null 的条目
+Map<String, UserDto> filteredMap = UserDtoCopier.toDtoMap(userMap, result -> {
+    result.entrySet().removeIf(entry -> entry.getValue().getId() == null);
+    return result;
+});
+
+// 转换为不可变 Map
+Map<String, UserDto> immutableMap = UserDtoCopier.toDtoMap(userMap, 
+    result -> Collections.unmodifiableMap(result));
+
+// 添加额外条目
+Map<String, UserDto> enrichedMap = UserDtoCopier.toDtoMap(userMap, result -> {
+    result.put("default", createDefaultUserDto());
+    return result;
+});
+
+// 反向转换定制
+Map<Long, User> customizedUsers = UserDtoCopier.fromDtoMap(dtoMap, result -> {
+    // 自定义后处理逻辑
+    return result;
+});
+```
+
+**生成的方法签名**：
+- `<K> Map<K, TargetDto> toDtoMap(Map<K, Source> sources, UnaryOperator<Map<K, TargetDto>> customizer)`
+- `<K> Map<K, Source> fromDtoMap(Map<K, TargetDto> sources, UnaryOperator<Map<K, Source>> customizer)`
+
+**Null 安全**：
+- 当 `sources` 为 null 时，返回 null 而不调用 customizer
+- 当 `customizer` 为 null 时，直接返回转换结果
+- 当转换结果为 null 时，返回 null 而不调用 customizer
+
+### 16.2. Array 批量转换定制
+
+Array 批量转换方法支持 UnaryOperator 重载，用于立即后处理：
+
+```java
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.function.UnaryOperator;
+
+// 过滤数组元素 - 移除 id 为 null 的元素
+UserDto[] filteredArray = UserDtoCopier.toDtoArray(users, result -> 
+    Arrays.stream(result)
+        .filter(dto -> dto.getId() != null)
+        .toArray(UserDto[]::new));
+
+// 排序数组
+UserDto[] sortedArray = UserDtoCopier.toDtoArray(users, result -> {
+    Arrays.sort(result, Comparator.comparing(UserDto::getName));
+    return result;
+});
+
+// 限制数组大小 - 取前 10 个元素
+UserDto[] limitedArray = UserDtoCopier.toDtoArray(users, result -> 
+    Arrays.stream(result)
+        .limit(10)
+        .toArray(UserDto[]::new));
+
+// 反向转换定制
+User[] customizedUsers = UserDtoCopier.fromDtoArray(dtoArray, result -> {
+    // 自定义后处理逻辑
+    return result;
+});
+```
+
+**生成的方法签名**：
+- `TargetDto[] toDtoArray(Source[] sources, UnaryOperator<TargetDto[]> customizer)`
+- `Source[] fromDtoArray(TargetDto[] sources, UnaryOperator<Source[]> customizer)`
+
+**Null 安全**：
+- 当 `sources` 为 null 时，返回 null 而不调用 customizer
+- 当 `customizer` 为 null 时，直接返回转换结果
+- 当转换结果为 null 时，返回 null 而不调用 customizer
+
+## 17. Properties 配置文件支持（v1.3.1）
+
+### 17.1. 配置文件格式
+
+在 `src/main/resources/` 目录下创建 `fast-bean-copier.properties` 文件：
+
+```properties
+# 组件模型：DEFAULT, SPRING, CDI, JSR330
+fast.bean.copier.componentModel=SPRING
+
+# 空值策略：IGNORE, REPLACE
+fast.bean.copier.nullValueStrategy=IGNORE
+```
+
+**支持的配置文件路径**：
+1. `fast-bean-copier.properties`（类路径根目录）
+2. `META-INF/fast-bean-copier.properties`
+
+### 17.2. 配置优先级
+
+```
+类级别配置 (@CopyTarget)
+    ↓ 覆盖
+包级别配置 (@CopyTargetConfig)
+    ↓ 覆盖
+配置文件配置 (fast-bean-copier.properties)
+    ↓ 覆盖
+默认值
+```
+
+### 17.3. 使用示例
+
+```java
+// 类级别配置优先级最高
+@CopyTarget(source = User.class, componentModel = ComponentModel.DEFAULT)
+public class UserDto { }  // 使用 DEFAULT（静态方法）
+
+// 未配置时使用配置文件中的设置
+@CopyTarget(source = Product.class)
+public class ProductDto { }  // 使用配置文件中的 SPRING
+
+// 包级别配置
+// package-info.java
+@CopyTargetConfig(componentModel = ComponentModel.CDI)
+package com.example.dto;
+```
+
+### 17.4. 配置优势
+
+- **集中管理**：统一管理项目配置
+- **减少重复**：避免在每个 DTO 上重复配置
+- **易于修改**：修改配置文件即可影响所有 Copier
+- **团队协作**：统一团队配置风格
+
+## 18. 逆向转换智能跳过（v1.3.1）
+
+### 18.1. 自动跳过特殊字段
+
+在 `fromDto()` 和 `updateEntity()` 方法中，使用了特殊映射配置的字段会自动跳过：
+
+```java
+@CopyTarget(source = User.class)
+public class UserDto {
+    // TypeConverter 字段 - 自动跳过
+    @CopyField(converter = DateFormatter.class, format = "yyyy-MM-dd")
+    private String createTimeText;
+    
+    // Expression 字段 - 自动跳过
+    @CopyField(source = {"firstName", "lastName"}, 
+               expression = "java(source.getFirstName() + \" \" + source.getLastName())")
+    private String fullName;
+    
+    // QualifiedByName 字段 - 自动跳过
+    @CopyField(qualifiedByName = "formatAge")
+    private String ageText;
+    
+    // Constant 字段 - 自动跳过
+    @CopyField(constant = "SYSTEM")
+    private String createdBy;
+}
+```
+
+### 18.2. 生成的代码示例
+
+```java
+public static User fromDto(UserDto source) {
+    if (source == null) {
+        return null;
+    }
+    User target = new User();
+    target.setId(source.getId());
+    target.setName(source.getName());
+    // 类型转换器映射 'createTimeText' 不可逆，在 fromDto() 中跳过
+    // 表达式映射 'fullName' 不可逆，在 fromDto() 中跳过
+    // 具名方法映射 'ageText' 不可逆，在 fromDto() 中跳过
+    // 常量映射 'createdBy' 不可逆，在 fromDto() 中跳过
+    return target;
+}
+```
+
+### 18.3. 跳过原因
+
+| 映射类型 | 跳过原因 | 注释文本 |
+|---------|---------|---------|
+| `typeConverter` | 类型转换器通常是单向的 | "类型转换器映射 '{字段名}' 不可逆，在 fromDto() 中跳过" |
+| `expression` | 表达式是计算得出的 | "表达式映射 '{字段名}' 不可逆，在 fromDto() 中跳过" |
+| `qualifiedByName` | 具名方法是自定义转换 | "具名方法映射 '{字段名}' 不可逆，在 fromDto() 中跳过" |
+| `constant` | 常量值不依赖源字段 | "常量映射 '{字段名}' 不可逆，在 fromDto() 中跳过" |
+
+## 19. 数据类型转换
+
+### 19.1. 基本类型 ↔ 包装类型
 
 Fast Bean Copier 自动支持基本类型与包装类型之间的转换：
 
@@ -797,7 +993,7 @@ List<UserDto> userDtos = UserDtoCopier.toDtoList(users);
 @CopyTarget(source = Order.class, uses = OrderConverter.class)
 public class OrderDto {
     @CopyField(source = {"items"}, 
-               expression = "source.getItems().stream().mapToDouble(Item::getPrice).sum()")
+               expression = "java(source.getItems().stream().mapToDouble(Item::getPrice).sum())")
     private double totalPrice;
     
     @CopyField(converter = DateFormatter.class, format = "yyyy-MM-dd")
@@ -852,8 +1048,17 @@ UserDtoCopier.updateDto(existingDto, partialUser);
 5. 在 Spring 项目中使用 `ComponentModel.SPRING`
 6. 使用 `@CopyTargetConfig` 减少重复配置（v1.3）
 7. 使用 `updateDto/updateEntity` 进行部分更新（v1.3）
+8. 使用 `UnaryOperator` 重载进行批量转换定制（v1.3.1）
+9. 使用 Properties 配置文件统一管理配置（v1.3.1）
 
 ## 24. 版本历史
+
+### 1.3.1（2026-01-28）
+- Map/Array 批量转换的 UnaryOperator 重载
+- Properties 配置文件支持
+- 逆向转换智能跳过特殊字段
+- 配置优先级合并器
+- 66+ 新增测试用例
 
 ### 1.3.0（2026-01-14）
 - 更新现有对象：updateDto/updateEntity 方法

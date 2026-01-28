@@ -5,6 +5,73 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-01-28
+
+### Added
+
+#### Map/Array Batch Conversion UnaryOperator Overloads
+- **toDtoMap/fromDtoMap UnaryOperator Overloads**: Support immediate post-processing after Map batch conversion
+  - Method signature: `<K> Map<K, TargetDto> toDtoMap(Map<K, Source> sources, UnaryOperator<Map<K, TargetDto>> customizer)`
+  - Supports filtering, converting to immutable collections, adding extra entries, etc.
+  - Null-safe: returns conversion result directly when customizer is null
+- **toDtoArray/fromDtoArray UnaryOperator Overloads**: Support immediate post-processing after Array batch conversion
+  - Method signature: `TargetDto[] toDtoArray(Source[] sources, UnaryOperator<TargetDto[]> customizer)`
+  - Supports filtering, sorting, deduplication, limiting quantity, etc.
+  - Null-safe: returns conversion result directly when customizer is null
+
+#### Properties File Configuration Support
+- **PropertiesConfigLoader**: Configuration file reader
+  - Supports reading from `fast-bean-copier.properties` or `META-INF/fast-bean-copier.properties`
+  - Supported configuration items: `fast.bean.copier.componentModel`, `fast.bean.copier.nullValueStrategy`
+  - Configuration value validation and error handling
+- **ConfigMerger**: Configuration priority merger
+  - Configuration priority: Class level > Package level > Properties file > Default values
+  - Supports partial configuration override
+- **Global Configuration**: Provides default configuration for all Copiers through properties file
+  - Reduces repetitive configuration
+  - Unifies project configuration style
+
+#### Smart Reverse Conversion Skip
+- **Automatic Special Field Skip**: Automatically skips irreversible fields in `fromDto/updateEntity` methods
+  - Skips fields using `typeConverter`
+  - Skips fields using `expression`
+  - Skips fields using `qualifiedByName`
+  - Skips fields using `constant`
+- **Skip Reason Comments**: Generates Chinese comments explaining skip reasons
+  - Comment format: `// {mapping type} '{field name}' is irreversible, skipped in fromDto()`
+  - Improves generated code readability
+
+### Improved
+- UnaryOperator methods support method chaining and functional programming style
+- Configuration file reading supports multi-path search, improving flexibility
+- Configuration priority merge logic is clear, easy to understand and maintain
+- Reverse conversion skip logic is automated, avoiding manual configuration
+
+### Fixed
+- **Fixed**: Class-level `ComponentModel.DEFAULT` being overridden by properties file
+  - Ensures class-level configuration has highest priority
+  - Even when properties file specifies other values, class-level DEFAULT is not overridden
+
+### Testing
+- New `ReverseSkipFieldTest`: Reverse conversion field skip tests (7 test cases)
+- New `PropertiesConfigLoaderTest`: Configuration file reading tests (19 test cases)
+- New `ConfigMergerTest`: Configuration priority merge tests (20 test cases)
+- New `V131UnaryOperatorIntegrationTest`: UnaryOperator integration tests (14 test cases)
+- New `PropertiesConfigIntegrationTest`: Properties configuration integration tests (6 test cases)
+- All 66 new test cases pass
+- All existing tests pass, ensuring backward compatibility
+
+### Compatibility
+- Java 8+, Maven build
+- Fully backward compatible with v1.3.0
+- New features are optional, do not affect existing code
+- Maintains zero runtime reflection overhead
+
+### Verification
+- `mvn clean install`
+- `mvn jacoco:report`
+- `mvn javadoc:javadoc`
+
 ## [1.3.0] - 2026-01-14
 
 ### Added
@@ -133,7 +200,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Multi-Field Mapping
 - **Many-to-One Conversion**: Support merging multiple source fields into one target field
-  - Syntax: `@CopyField(source = {"field1", "field2"}, expression = "...")`
+  - Syntax: `@CopyField(source = {"field1", "field2"}, expression = "java(...)")`
   - Support Java expressions for complex transformations
   - Example: `firstName + lastName -> fullName`
 - **One-to-Many Conversion**: Support splitting one source field into multiple target fields

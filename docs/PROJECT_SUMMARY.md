@@ -4,13 +4,13 @@
 
 **Fast Bean Copier** 是一个高性能的 Java Bean 拷贝工具，使用 APT（注解处理工具）在编译期自动生成拷贝代码，实现零运行时开销。
 
-**项目状态**：✅ 已完成，生产就绪（v1.3.0 新增更新现有对象、条件映射、全局配置等功能）
+**项目状态**：✅ 已完成，生产就绪（v1.3.1 新增 Map/Array 批量转换 UnaryOperator 重载、Properties 配置文件支持、逆向转换智能跳过）
 
 ## 项目信息
 
 - **项目名称**：Fast Bean Copier
-- **版本**：1.3.0
-- **发布日期**：2026-01-14
+- **版本**：1.3.1
+- **发布日期**：2026-01-28
 - **Java 版本**：Java 8+
 - **构建工具**：Maven
 - **许可证**：Apache License 2.0
@@ -90,14 +90,13 @@ fast-bean-copier/
 21. **FieldMappingAnalyzer** - 字段映射分析器，分析字段映射关系
 22. **生成器组件** - ClassStructureGenerator、BasicMethodGenerator、CollectionMethodGenerator、FieldCopyGenerator、DeepCopyGenerator
 
-### ✅ v1.3.0 功能
+### ✅ v1.3.1 功能
 
-23. **更新现有对象** - updateDto/updateEntity 方法，更新已存在的对象而不是创建新对象
-24. **映射前回调** - beforeMapping 属性，在映射前执行验证、初始化等自定义逻辑
-25. **条件映射** - condition 属性，基于条件决定是否映射字段
-26. **默认值和常量** - defaultValue/constant 属性，设置字段的默认值和常量值
-27. **全局配置** - @CopyTargetConfig 注解，包级别配置减少重复配置
-28. **Null 值处理策略** - NullValueStrategy 枚举，IGNORE 或 REPLACE 策略
+29. **Map 批量转换 UnaryOperator 重载** - toDtoMap/fromDtoMap 支持函数式后处理
+30. **Array 批量转换 UnaryOperator 重载** - toDtoArray/fromDtoArray 支持函数式后处理
+31. **Properties 配置文件支持** - 通过 fast-bean-copier.properties 进行全局配置
+32. **配置优先级合并** - 类级别 > 包级别 > 配置文件 > 默认值
+33. **逆向转换智能跳过** - 自动跳过不可逆的特殊字段映射（typeConverter、expression、qualifiedByName、constant）
 
 ## 技术栈
 
@@ -111,10 +110,18 @@ fast-bean-copier/
 
 ## 测试覆盖
 
-- **测试用例**：330+（涵盖所有功能）
+- **测试用例**：396+（涵盖所有功能）
 - **示例模块指令覆盖率**：93%+（Jacoco）
 - **处理器模块覆盖率**：80%+（Jacoco）
 - **所有测试通过** ✅
+
+### v1.3.1 测试类
+
+- `ReverseSkipFieldTest` - 逆向转换跳过字段测试（7 个测试用例）
+- `PropertiesConfigLoaderTest` - 配置文件读取测试（19 个测试用例）
+- `ConfigMergerTest` - 配置优先级合并测试（20 个测试用例）
+- `V131UnaryOperatorIntegrationTest` - UnaryOperator 集成测试（14 个测试用例）
+- `PropertiesConfigIntegrationTest` - Properties 配置集成测试（6 个测试用例）
 
 ### v1.3.0 测试类
 
@@ -197,7 +204,7 @@ UserDto dto = UserDtoCopier.toDto(user);
 @CopyTarget(source = Person.class)
 public class PersonDto {
     @CopyField(source = {"firstName", "lastName"}, 
-               expression = "source.getFirstName() + \" \" + source.getLastName()")
+               expression = "java(source.getFirstName() + \" \" + source.getLastName())")
     private String fullName;
 }
 ```
@@ -245,6 +252,28 @@ UserDtoCopier.updateDto(existingDto, user);
 // 更新已存在的实体对象
 User existingUser = new User();
 UserDtoCopier.updateEntity(existingUser, userDto);
+```
+
+### Map 批量转换定制（v1.3.1）
+
+```java
+// 过滤 Map 条目
+Map<String, UserDto> filteredMap = UserDtoCopier.toDtoMap(userMap, result -> {
+    result.entrySet().removeIf(entry -> entry.getValue().getId() == null);
+    return result;
+});
+
+// 转换为不可变 Map
+Map<String, UserDto> immutableMap = UserDtoCopier.toDtoMap(userMap, 
+    result -> Collections.unmodifiableMap(result));
+```
+
+### Properties 配置文件（v1.3.1）
+
+```properties
+# fast-bean-copier.properties
+fast.bean.copier.componentModel=SPRING
+fast.bean.copier.nullValueStrategy=IGNORE
 ```
 
 ### 条件映射和默认值（v1.3）
@@ -325,6 +354,13 @@ mvn jacoco:report
 
 ## 版本历史
 
+### 1.3.1（2026-01-28）
+- Map/Array 批量转换的 UnaryOperator 重载
+- Properties 配置文件支持
+- 逆向转换智能跳过特殊字段
+- 配置优先级合并器
+- 66+ 新增测试用例，总计 396+ 测试用例
+
 ### 1.3.0（2026-01-14）
 - 更新现有对象：updateDto/updateEntity 方法
 - 映射前回调：beforeMapping 属性
@@ -361,12 +397,12 @@ mvn jacoco:report
 
 ## 项目统计
 
-- **源代码行数**：~10000 行
-- **测试代码行数**：~5000 行
-- **文档行数**：~6000 行
-- **总代码行数**：~21000 行
-- **测试用例数**：330+ 个
-- **文档文件数**：7 个
+- **源代码行数**：~11000 行
+- **测试代码行数**：~6000 行
+- **文档行数**：~7000 行
+- **总代码行数**：~24000 行
+- **测试用例数**：396+ 个
+- **文档文件数**：8 个
 
 ## 贡献指南
 

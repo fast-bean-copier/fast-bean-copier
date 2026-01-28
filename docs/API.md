@@ -1,5 +1,7 @@
 # Fast Bean Copier API 文档
 
+> v1.3.1 新增：Map/Array 批量转换的 UnaryOperator 重载、Properties 配置文件支持、逆向转换智能跳过。
+>
 > v1.3 新增：更新现有对象（updateDto/updateEntity）、映射前回调（beforeMapping）、条件映射（condition）、默认值和常量（defaultValue/constant）、全局配置（@CopyTargetConfig）、Null 值处理策略（NullValueStrategy）。
 >
 > v1.2.1 重构：处理器架构重构，代码可维护性显著提升。
@@ -169,12 +171,12 @@ public @interface CopyField {
 ```java
 // 多对一映射
 @CopyField(source = {"firstName", "lastName"}, 
-           expression = "source.getFirstName() + \" \" + source.getLastName()")
+           expression = "java(source.getFirstName() + \" \" + source.getLastName())")
 private String fullName;
 
 // 一对多映射
 @CopyField(source = "fullName", 
-           expression = "source.getFullName().split(\" \")[0]")
+           expression = "java(source.getFullName().split(\" \")[0])")
 private String firstName;
 
 // 使用 TypeConverter
@@ -574,6 +576,37 @@ public static java.util.Set<SourceType> fromDtoSet(java.util.Set<TargetType> sou
 public static <K> java.util.Map<K, TargetType> toDtoMap(java.util.Map<K, SourceType> sources)
 ```
 
+#### toDtoMap(sources, customizer)（v1.3.1 新增）
+
+将源对象 Map 转换为目标 DTO Map，并应用自定义逻辑。
+
+**签名**：
+```java
+public static <K> java.util.Map<K, TargetType> toDtoMap(
+    java.util.Map<K, SourceType> sources, 
+    UnaryOperator<java.util.Map<K, TargetType>> customizer)
+```
+
+**参数**：
+- `sources` - 源对象 Map
+- `customizer` - 自定义函数
+
+**返回值**：
+- 经过自定义处理的目标 DTO Map
+
+**示例**：
+```java
+// 过滤 Map 条目
+Map<String, UserDto> filteredMap = UserDtoCopier.toDtoMap(userMap, result -> {
+    result.entrySet().removeIf(entry -> entry.getValue().getId() == null);
+    return result;
+});
+
+// 转换为不可变 Map
+Map<String, UserDto> immutableMap = UserDtoCopier.toDtoMap(userMap, 
+    result -> Collections.unmodifiableMap(result));
+```
+
 #### fromDtoMap(sources)
 
 将目标 DTO Map 反向转换为源对象 Map。
@@ -581,6 +614,17 @@ public static <K> java.util.Map<K, TargetType> toDtoMap(java.util.Map<K, SourceT
 **签名**：
 ```java
 public static <K> java.util.Map<K, SourceType> fromDtoMap(java.util.Map<K, TargetType> sources)
+```
+
+#### fromDtoMap(sources, customizer)（v1.3.1 新增）
+
+将目标 DTO Map 反向转换为源对象 Map，并应用自定义逻辑。
+
+**签名**：
+```java
+public static <K> java.util.Map<K, SourceType> fromDtoMap(
+    java.util.Map<K, TargetType> sources, 
+    UnaryOperator<java.util.Map<K, SourceType>> customizer)
 ```
 
 #### toDtoArray(sources)
@@ -592,6 +636,37 @@ public static <K> java.util.Map<K, SourceType> fromDtoMap(java.util.Map<K, Targe
 public static TargetType[] toDtoArray(SourceType[] sources)
 ```
 
+#### toDtoArray(sources, customizer)（v1.3.1 新增）
+
+将源对象数组转换为目标 DTO 数组，并应用自定义逻辑。
+
+**签名**：
+```java
+public static TargetType[] toDtoArray(SourceType[] sources, UnaryOperator<TargetType[]> customizer)
+```
+
+**参数**：
+- `sources` - 源对象数组
+- `customizer` - 自定义函数
+
+**返回值**：
+- 经过自定义处理的目标 DTO 数组
+
+**示例**：
+```java
+// 过滤数组元素
+UserDto[] filteredArray = UserDtoCopier.toDtoArray(users, result -> 
+    Arrays.stream(result)
+        .filter(dto -> dto.getId() != null)
+        .toArray(UserDto[]::new));
+
+// 排序数组
+UserDto[] sortedArray = UserDtoCopier.toDtoArray(users, result -> {
+    Arrays.sort(result, Comparator.comparing(UserDto::getName));
+    return result;
+});
+```
+
 #### fromDtoArray(sources)
 
 将目标 DTO 数组转换回源对象数组。
@@ -599,6 +674,15 @@ public static TargetType[] toDtoArray(SourceType[] sources)
 **签名**：
 ```java
 public static SourceType[] fromDtoArray(TargetType[] sources)
+```
+
+#### fromDtoArray(sources, customizer)（v1.3.1 新增）
+
+将目标 DTO 数组转换回源对象数组，并应用自定义逻辑。
+
+**签名**：
+```java
+public static SourceType[] fromDtoArray(TargetType[] sources, UnaryOperator<SourceType[]> customizer)
 ```
 
 ## 类型转换

@@ -5,6 +5,73 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/),
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.3.1] - 2026-01-28
+
+### 新增
+
+#### Map/Array 批量转换的 UnaryOperator 重载
+- **toDtoMap/fromDtoMap UnaryOperator 重载**：支持在 Map 批量转换后立即进行后处理
+  - 方法签名：`<K> Map<K, TargetDto> toDtoMap(Map<K, Source> sources, UnaryOperator<Map<K, TargetDto>> customizer)`
+  - 支持过滤、转换为不可变集合、添加额外条目等操作
+  - null 安全：customizer 为 null 时直接返回转换结果
+- **toDtoArray/fromDtoArray UnaryOperator 重载**：支持在 Array 批量转换后立即进行后处理
+  - 方法签名：`TargetDto[] toDtoArray(Source[] sources, UnaryOperator<TargetDto[]> customizer)`
+  - 支持过滤、排序、去重、限制数量等操作
+  - null 安全：customizer 为 null 时直接返回转换结果
+
+#### Properties 配置文件支持
+- **PropertiesConfigLoader**：配置文件读取器
+  - 支持从 `fast-bean-copier.properties` 或 `META-INF/fast-bean-copier.properties` 读取配置
+  - 支持配置项：`fast.bean.copier.componentModel`、`fast.bean.copier.nullValueStrategy`
+  - 配置项值验证和错误处理
+- **ConfigMerger**：配置优先级合并器
+  - 配置优先级：类级别 > 包级别 > 配置文件 > 默认值
+  - 支持部分配置覆盖
+- **全局配置**：通过配置文件为所有 Copier 提供默认配置
+  - 减少重复配置
+  - 统一项目配置风格
+
+#### 逆向转换智能跳过
+- **特殊字段自动跳过**：在 `fromDto/updateEntity` 方法中自动跳过不可逆的字段
+  - 跳过使用了 `typeConverter` 的字段
+  - 跳过使用了 `expression` 的字段
+  - 跳过使用了 `qualifiedByName` 的字段
+  - 跳过使用了 `constant` 的字段
+- **跳过原因注释**：生成中文注释说明跳过原因
+  - 注释格式：`// {映射类型} '{字段名}' 不可逆，在 fromDto() 中跳过`
+  - 提高生成代码的可读性
+
+### 改进
+- UnaryOperator 方法支持链式调用和函数式编程风格
+- 配置文件读取支持多路径查找，提高灵活性
+- 配置优先级合并逻辑清晰，易于理解和维护
+- 逆向转换跳过逻辑自动化，避免手动配置
+
+### 修复
+- 修复类级别 `ComponentModel.DEFAULT` 被配置文件覆盖的问题
+  - 确保类级别配置优先级最高
+  - 即使配置文件中设置了其他值，类级别的 DEFAULT 也不会被覆盖
+
+### 测试
+- 新增 `ReverseSkipFieldTest`：逆向转换跳过字段测试（7 个测试用例）
+- 新增 `PropertiesConfigLoaderTest`：配置文件读取测试（19 个测试用例）
+- 新增 `ConfigMergerTest`：配置优先级合并测试（20 个测试用例）
+- 新增 `V131UnaryOperatorIntegrationTest`：UnaryOperator 集成测试（14 个测试用例）
+- 新增 `PropertiesConfigIntegrationTest`：配置文件集成测试（6 个测试用例）
+- 所有 66 个新增测试用例通过
+- 所有现有测试通过，确保向后兼容
+
+### 兼容性
+- Java 8+，Maven 构建
+- 完全向后兼容 v1.3.0
+- 新功能为可选功能，不影响现有代码
+- 保持零运行时反射开销
+
+### 验证
+- `mvn clean install`
+- `mvn jacoco:report`
+- `mvn javadoc:javadoc`
+
 ## [1.3.0] - 2026-01-14
 
 ### 新增
@@ -133,7 +200,7 @@
 
 #### 多字段映射
 - **多对一转换**：支持将多个源字段合并映射到一个目标字段
-  - 使用 `@CopyField(source = {"field1", "field2"}, expression = "...")` 语法
+  - 使用 `@CopyField(source = {"field1", "field2"}, expression = "java(...)")` 语法
   - 支持 Java 表达式进行复杂转换
   - 示例：`firstName + lastName -> fullName`
 - **一对多转换**：支持将一个源字段拆分映射到多个目标字段

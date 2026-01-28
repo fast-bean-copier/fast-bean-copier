@@ -1,5 +1,7 @@
 # Fast Bean Copier 快速入门指南
 
+> v1.3.1 新特性：Map/Array 批量转换的 UnaryOperator 重载、Properties 配置文件支持、逆向转换智能跳过。
+>
 > v1.3 新特性：更新现有对象（updateDto/updateEntity）、映射前回调、条件映射、默认值和常量、全局配置（@CopyTargetConfig）。
 >
 > v1.2.1 重构：处理器架构重构，代码可维护性显著提升。
@@ -16,13 +18,13 @@
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-annotations</artifactId>
-    <version>1.3.0</version>
+    <version>1.3.1</version>
 </dependency>
 
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-processor</artifactId>
-    <version>1.3.0</version>
+    <version>1.3.1</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -105,7 +107,7 @@ Set<UserDto> dtoSet = UserDtoCopier.toDtoSet(users);
 @CopyTarget(source = Person.class)
 public class PersonDto {
     @CopyField(source = {"firstName", "lastName"}, 
-               expression = "source.getFirstName() + \" \" + source.getLastName()")
+               expression = "java(source.getFirstName() + \" \" + source.getLastName())")
     private String fullName;
 }
 ```
@@ -116,7 +118,7 @@ public class PersonDto {
 @CopyTarget(source = FullNameSource.class)
 public class NameDto {
     @CopyField(source = "fullName", 
-               expression = "source.getFullName().split(\" \")[0]")
+               expression = "java(source.getFullName().split(\" \")[0])")
     private String firstName;
 }
 ```
@@ -165,6 +167,77 @@ UserDto dto = UserDtoCopier.toDto(user, result -> {
     result.setDisplayName(result.getName().toUpperCase());
     return result;
 });
+```
+
+## v1.3.1 新功能
+
+### Map 批量转换的 UnaryOperator 重载
+
+```java
+// 过滤 Map 条目
+Map<String, UserDto> filteredMap = UserDtoCopier.toDtoMap(userMap, result -> {
+    result.entrySet().removeIf(entry -> entry.getValue().getId() == null);
+    return result;
+});
+
+// 转换为不可变 Map
+Map<String, UserDto> immutableMap = UserDtoCopier.toDtoMap(userMap, 
+    result -> Collections.unmodifiableMap(result));
+```
+
+### Array 批量转换的 UnaryOperator 重载
+
+```java
+// 过滤数组元素
+UserDto[] filteredArray = UserDtoCopier.toDtoArray(users, result -> 
+    Arrays.stream(result)
+        .filter(dto -> dto.getId() != null)
+        .toArray(UserDto[]::new));
+
+// 排序数组
+UserDto[] sortedArray = UserDtoCopier.toDtoArray(users, result -> {
+    Arrays.sort(result, Comparator.comparing(UserDto::getName));
+    return result;
+});
+```
+
+### Properties 配置文件支持
+
+```properties
+# 在 src/main/resources/fast-bean-copier.properties 中配置
+fast.bean.copier.componentModel=SPRING
+fast.bean.copier.nullValueStrategy=IGNORE
+```
+
+配置优先级：类级别 > 包级别 > 配置文件 > 默认值
+
+```java
+// 类级别配置优先级最高
+@CopyTarget(source = User.class, componentModel = ComponentModel.DEFAULT)
+public class UserDto { }
+
+// 未配置时使用配置文件中的设置
+@CopyTarget(source = Product.class)
+public class ProductDto { }  // 使用配置文件中的 SPRING 模式
+```
+
+### 逆向转换智能跳过
+
+```java
+@CopyTarget(source = User.class)
+public class UserDto {
+    // 使用类型转换器的字段在逆向转换时自动跳过
+    @CopyField(converter = DateFormatter.class, format = "yyyy-MM-dd")
+    private String createTimeText;
+    
+    // 使用表达式的字段在逆向转换时自动跳过
+    @CopyField(source = {"firstName", "lastName"}, 
+               expression = "java(source.getFirstName() + \" \" + source.getLastName())")
+    private String fullName;
+}
+
+// 生成的 fromDto 方法会自动跳过这些字段并添加注释
+// 注释格式：// 类型转换器映射 'createTimeText' 不可逆，在 fromDto() 中跳过
 ```
 
 ## v1.3 新功能
