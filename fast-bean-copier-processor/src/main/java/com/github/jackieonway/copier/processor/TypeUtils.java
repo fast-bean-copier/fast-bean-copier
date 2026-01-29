@@ -6,6 +6,7 @@ import javax.lang.model.element.VariableElement;
 import com.github.jackieonway.copier.annotation.CopyTarget;
 
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
@@ -153,7 +154,8 @@ public final class TypeUtils {
     /**
      * 获取类的所有字段。
      *
-     * 包括继承自父类的字段，但不包括 static 和 transient 字段。
+     * <p>包括继承自父类的字段，但不包括 static 和 transient 字段。
+     * <p>字段顺序：父类字段在前，子类字段在后。
      *
      * @param element 要获取字段的类元素
      * @return 字段列表
@@ -164,9 +166,21 @@ public final class TypeUtils {
             return fields;
         }
 
+        // 递归获取父类字段
+        TypeMirror superclass = element.getSuperclass();
+        if (superclass.getKind() == TypeKind.DECLARED) {
+            DeclaredType declaredType = (DeclaredType) superclass;
+            TypeElement superElement = (TypeElement) declaredType.asElement();
+            
+            // 递归获取父类的所有字段（排除 Object 类）
+            if (!superElement.getQualifiedName().toString().equals("java.lang.Object")) {
+                fields.addAll(getAllFields(superElement));
+            }
+        }
+
         // 获取当前类的所有字段
-        for (Object enclosedElement : element.getEnclosedElements()) {
-            if (enclosedElement instanceof VariableElement) {
+        for (Element enclosedElement : element.getEnclosedElements()) {
+            if (enclosedElement.getKind() == ElementKind.FIELD) {
                 VariableElement field = (VariableElement) enclosedElement;
                 Set<Modifier> modifiers = field.getModifiers();
                 // 过滤掉 static 和 transient 字段
