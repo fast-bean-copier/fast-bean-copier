@@ -115,6 +115,12 @@ public final class TypeUtils {
             return true;
         }
 
+        // ⭐ 新增：嵌套对象兼容性检查
+        if (needsDeepCopy(source) && needsDeepCopy(target)) {
+            // 两个都是自定义对象，允许不同类型
+            return true;
+        }
+
         return false;
     }
 
