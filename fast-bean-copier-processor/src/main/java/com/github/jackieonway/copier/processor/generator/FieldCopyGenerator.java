@@ -5,8 +5,13 @@ import com.github.jackieonway.copier.processor.TypeUtils;
 import com.github.jackieonway.copier.processor.context.ProcessorContext;
 import com.squareup.javapoet.MethodSpec;
 
+import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 /**
  * 字段拷贝代码生成器。
@@ -19,6 +24,15 @@ import java.util.List;
  *   <li>具名方法字段拷贝（使用 qualifiedByName）</li>
  *   <li>基本类型/包装类型转换</li>
  *   <li>集合类型深拷贝（委托给 DeepCopyGenerator）</li>
+ *   <li>嵌套对象深拷贝（v1.3.2 新增）</li>
+ * </ul>
+ *
+ * <p>v1.3.2 新增功能：
+ * <ul>
+ *   <li>支持不同类型嵌套对象的自动深拷贝（Address → AddressDto）</li>
+ *   <li>优先使用 Copier 类进行拷贝（性能最优）</li>
+ *   <li>无 Copier 时自动回退到字段拷贝（智能回退机制）</li>
+ *   <li>支持无限层级嵌套（A→B→C→D...）</li>
  * </ul>
  *
  * @author jackieonway
@@ -320,6 +334,23 @@ public class FieldCopyGenerator {
 
     /**
      * 生成简单字段拷贝代码。
+     *
+     * <p>处理以下类型的字段拷贝：
+     * <ul>
+     *   <li>集合类型（List、Set、Map、数组）：委托给 DeepCopyGenerator</li>
+     *   <li>嵌套对象（v1.3.2）：调用 {@link #generateNestedObjectCopyCode}</li>
+     *   <li>基本类型/包装类型：自动装箱/拆箱</li>
+     *   <li>简单字段：直接赋值</li>
+     * </ul>
+     *
+     * <p>v1.3.2 新增：支持不同类型嵌套对象的深拷贝。
+     * 如果源字段和目标字段都是自定义对象且类型不同，
+     * 会尝试使用 Copier 或字段拷贝实现转换。
+     *
+     * @param methodBuilder 方法构建器
+     * @param mapping       字段映射
+     * @param reverse       是否反向拷贝
+     * @since 1.2.1
      */
     private void generateSimpleFieldCopyCode(MethodSpec.Builder methodBuilder, FieldMapping mapping, boolean reverse) {
         String sourceFieldName = reverse ? mapping.getTargetFieldName() : mapping.getSourceFieldName();
@@ -579,7 +610,16 @@ public class FieldCopyGenerator {
      * 检查目标类型是否有对应的 Copier 类。
      *
      * <p>通过检查目标类型是否有 @CopyTarget 注解来判断是否会生成 Copier。
-     * <p>注意：不能直接检查 Copier 类是否存在，因为在 APT 编译期该类可能还未生成。
+     * <p><strong>重要：</strong>不能直接检查 Copier 类是否存在，因为在 APT 编译期该类可能还未生成。
+     * 正确的做法是检查目标类型是否有 @CopyTarget 注解，如果有注解则会生成对应的 Copier 类。
+     *
+     * <p>示例：
+     * <pre>{@code
+     * @CopyTarget(source = Address.class)
+     * public class AddressDto {
+     *     // 会生成 AddressDtoCopier 类
+     * }
+     * }</pre>
      *
      * @param targetType 目标类型
      * @return 如果目标类型有 @CopyTarget 注解返回 true，否则返回 false
@@ -591,14 +631,13 @@ public class FieldCopyGenerator {
         }
         
         // 获取目标类型的 TypeElement
-        javax.lang.model.element.Element element = context.getTypeUtils().asElement(targetType);
-        if (!(element instanceof javax.lang.model.element.TypeElement)) {
+        Element element = context.getTypeUtils().asElement(targetType);
+        if (!(element instanceof TypeElement)) {
             return false;
         }
         
         // 检查是否有 @CopyTarget 注解
-        javax.lang.model.element.TypeElement typeElement = 
-                (javax.lang.model.element.TypeElement) element;
+        TypeElement typeElement = (TypeElement) element;
         return typeElement.getAnnotation(com.github.jackieonway.copier.annotation.CopyTarget.class) != null;
     }
 
@@ -607,13 +646,41 @@ public class FieldCopyGenerator {
      *
      * <p>优先使用 Copier 类进行拷贝，如果没有 Copier 则使用字段拷贝。
      *
+     * <p>实现策略：
+     * <ol>
+     *   <li>检查 DTO 类型是否有 @CopyTarget 注解（通过 {@link #checkCopierExists}）</li>
+     *   <li>如果有注解：生成调用 Copier 的代码（toDto/fromDto）</li>
+     *   <li>如果没有注解：生成字段拷贝代码（通过 {@link #generateFieldBasedCopy}）</li>
+     * </ol>
+     *
+     * <p>生成的代码示例（有 Copier）：
+     * <pre>{@code
+     * if (source.getAddress() != null) {
+     *     target.setAddress(AddressDtoCopier.toDto(source.getAddress()));
+     * } else {
+     *     target.setAddress(null);
+     * }
+     * }</pre>
+     *
+     * <p>生成的代码示例（无 Copier）：
+     * <pre>{@code
+     * if (source.getAddress() != null) {
+     *     AddressDto nestedAddress = new AddressDto();
+     *     nestedAddress.setProvince(source.getAddress().getProvince());
+     *     nestedAddress.setCity(source.getAddress().getCity());
+     *     target.setAddress(nestedAddress);
+     * } else {
+     *     target.setAddress(null);
+     * }
+     * }</pre>
+     *
      * @param methodBuilder    方法构建器
      * @param mapping          字段映射
-     * @param reverse          是否反向拷贝
+     * @param reverse          是否反向拷贝（true: fromDto, false: toDto）
      * @param sourceFieldType  源字段类型
      * @param targetFieldType  目标字段类型
-     * @param getterName       getter 方法名
-     * @param setterName       setter 方法名
+     * @param getterName       getter 方法名（不含括号）
+     * @param setterName       setter 方法名（不含括号）
      * @since 1.3.2
      */
     private void generateNestedObjectCopyCode(MethodSpec.Builder methodBuilder,
@@ -629,20 +696,16 @@ public class FieldCopyGenerator {
         boolean hasCopier = checkCopierExists(dtoType);
         
         if (hasCopier) {
-            // 使用 Copier 进行拷贝
+            // 使用 Copier 进行拷贝（使用三元表达式简化）
             String copierClassName = dtoType.toString() + "Copier";
             String copierSimpleName = copierClassName.substring(copierClassName.lastIndexOf('.') + 1);
             
             // 根据转换方向选择方法名
             String copierMethod = reverse ? "fromDto" : "toDto";
             
-            // 生成 null 检查和 Copier 调用
-            methodBuilder.beginControlFlow("if (source.$L() != null)", getterName);
-            methodBuilder.addStatement("target.$L($L.$L(source.$L()))", 
-                    setterName, copierSimpleName, copierMethod, getterName);
-            methodBuilder.nextControlFlow("else");
-            methodBuilder.addStatement("target.$L(null)", setterName);
-            methodBuilder.endControlFlow();
+            // 生成三元表达式形式的 Copier 调用
+            methodBuilder.addStatement("target.$L(source.$L() != null ? $L.$L(source.$L()) : null)", 
+                    setterName, getterName, copierSimpleName, copierMethod, getterName);
         } else {
             // 没有 Copier，使用字段拷贝
             generateFieldBasedCopy(methodBuilder, sourceFieldType, targetFieldType, 
@@ -653,12 +716,39 @@ public class FieldCopyGenerator {
     /**
      * 生成基于字段的拷贝代码（无 Copier 时使用）。
      *
+     * <p>当嵌套对象没有 @CopyTarget 注解时，使用此方法生成字段拷贝代码。
+     * 通过 getter/setter 递归拷贝所有同名且类型兼容的字段。
+     *
+     * <p>拷贝规则：
+     * <ul>
+     *   <li>只拷贝同名字段</li>
+     *   <li>只拷贝类型兼容的字段（通过 {@link TypeUtils#isTypeCompatible} 判断）</li>
+     *   <li>递归处理嵌套对象的嵌套对象</li>
+     *   <li>对于嵌套对象，优先检查是否有 Copier，有则使用 Copier</li>
+     *   <li>跳过 static 和 transient 字段</li>
+     * </ul>
+     *
+     * <p>生成的代码示例：
+     * <pre>{@code
+     * if (source.getAddress() != null) {
+     *     Address sourceAddress = source.getAddress();
+     *     AddressDto nestedAddress = new AddressDto();
+     *     nestedAddress.setProvince(sourceAddress.getProvince());
+     *     nestedAddress.setCity(sourceAddress.getCity());
+     *     // 如果 Address 有嵌套对象 Country，且 CountryDto 有 @CopyTarget
+     *     nestedAddress.setCountry(sourceAddress.getCountry() != null ? CountryDtoCopier.toDto(sourceAddress.getCountry()) : null);
+     *     target.setAddress(nestedAddress);
+     * } else {
+     *     target.setAddress(null);
+     * }
+     * }</pre>
+     *
      * @param methodBuilder  方法构建器
      * @param sourceType     源类型
      * @param targetType     目标类型
-     * @param sourceGetter   源对象的 getter 表达式
-     * @param targetSetter   目标对象的 setter 表达式（不含括号）
-     * @param reverse        是否反向拷贝
+     * @param sourceGetter   源对象的 getter 表达式（如 "source.getAddress()"）
+     * @param targetSetter   目标对象的 setter 表达式，不含括号（如 "target.setAddress"）
+     * @param reverse        是否反向拷贝（true: fromDto, false: toDto）
      * @since 1.3.2
      */
     private void generateFieldBasedCopy(MethodSpec.Builder methodBuilder,
@@ -668,43 +758,41 @@ public class FieldCopyGenerator {
                                         String targetSetter,
                                         boolean reverse) {
         // 获取源类型和目标类型的 TypeElement
-        javax.lang.model.element.Element sourceElement = context.getTypeUtils().asElement(sourceType);
-        javax.lang.model.element.Element targetElement = context.getTypeUtils().asElement(targetType);
+        Element sourceElement = context.getTypeUtils().asElement(sourceType);
+        Element targetElement = context.getTypeUtils().asElement(targetType);
         
-        if (!(sourceElement instanceof javax.lang.model.element.TypeElement) ||
-            !(targetElement instanceof javax.lang.model.element.TypeElement)) {
+        if (!(sourceElement instanceof TypeElement) ||
+            !(targetElement instanceof TypeElement)) {
             // 无法获取字段信息，使用简单赋值
             methodBuilder.addStatement("$L($L)", targetSetter, sourceGetter);
             return;
         }
         
-        javax.lang.model.element.TypeElement sourceTypeElement = 
-                (javax.lang.model.element.TypeElement) sourceElement;
-        javax.lang.model.element.TypeElement targetTypeElement = 
-                (javax.lang.model.element.TypeElement) targetElement;
+        TypeElement sourceTypeElement = (TypeElement) sourceElement;
+        TypeElement targetTypeElement = (TypeElement) targetElement;
         
         // 获取所有字段
-        java.util.List<javax.lang.model.element.VariableElement> sourceFields = 
-                TypeUtils.getAllFields(sourceTypeElement);
-        java.util.List<javax.lang.model.element.VariableElement> targetFields = 
-                TypeUtils.getAllFields(targetTypeElement);
+        List<VariableElement> sourceFields = TypeUtils.getAllFields(sourceTypeElement);
+        List<VariableElement> targetFields = TypeUtils.getAllFields(targetTypeElement);
         
         // 构建目标字段映射表
-        java.util.Map<String, javax.lang.model.element.VariableElement> targetFieldMap = 
-                buildFieldMap(targetFields);
+        Map<String, VariableElement> targetFieldMap = buildFieldMap(targetFields);
         
         // 生成临时变量和拷贝代码
-        String tempVarName = "nested" + capitalize(targetTypeElement.getSimpleName().toString());
-        String targetTypeName = targetType.toString();
+        String targetTempVarName = "nested" + capitalize(targetTypeElement.getSimpleName().toString());
+        String sourceTempVarName = "source" + capitalize(sourceTypeElement.getSimpleName().toString());
         
         methodBuilder.beginControlFlow("if ($L != null)", sourceGetter);
-        methodBuilder.addStatement("$L $L = new $L()", 
-                targetTypeName, tempVarName, targetTypeName);
+        // 引入源对象临时变量，避免重复调用 getter
+        methodBuilder.addStatement("$T $L = $L", 
+                sourceType, sourceTempVarName, sourceGetter);
+        methodBuilder.addStatement("$T $L = new $T()", 
+                targetType, targetTempVarName, targetType);
         
         // 为每个同名字段生成拷贝代码
-        for (javax.lang.model.element.VariableElement sourceField : sourceFields) {
+        for (VariableElement sourceField : sourceFields) {
             String fieldName = sourceField.getSimpleName().toString();
-            javax.lang.model.element.VariableElement targetField = targetFieldMap.get(fieldName);
+            VariableElement targetField = targetFieldMap.get(fieldName);
             
             if (targetField == null) {
                 continue; // 目标类型没有同名字段，跳过
@@ -729,21 +817,18 @@ public class FieldCopyGenerator {
                     boolean hasNestedCopier = checkCopierExists(nestedDtoType);
                     
                     if (hasNestedCopier) {
-                        // 有 Copier，使用 Copier 进行拷贝
+                        // 有 Copier，使用 Copier 进行拷贝（使用三元表达式简化）
                         String copierClassName = nestedDtoType.toString() + "Copier";
                         String copierSimpleName = copierClassName.substring(copierClassName.lastIndexOf('.') + 1);
                         String copierMethod = reverse ? "fromDto" : "toDto";
                         
-                        methodBuilder.beginControlFlow("if ($L.$L() != null)", sourceGetter, fieldGetterName);
-                        methodBuilder.addStatement("$L.$L($L.$L($L.$L()))", 
-                                tempVarName, fieldSetterName, copierSimpleName, copierMethod, sourceGetter, fieldGetterName);
-                        methodBuilder.nextControlFlow("else");
-                        methodBuilder.addStatement("$L.$L(null)", tempVarName, fieldSetterName);
-                        methodBuilder.endControlFlow();
+                        methodBuilder.addStatement("$L.$L($L.$L() != null ? $L.$L($L.$L()) : null)", 
+                                targetTempVarName, fieldSetterName, sourceTempVarName, fieldGetterName,
+                                copierSimpleName, copierMethod, sourceTempVarName, fieldGetterName);
                     } else {
                         // 没有 Copier，递归生成字段拷贝
-                        String nestedSourceGetter = sourceGetter + "." + fieldGetterName + "()";
-                        String nestedTargetSetter = tempVarName + "." + fieldSetterName;
+                        String nestedSourceGetter = sourceTempVarName + "." + fieldGetterName + "()";
+                        String nestedTargetSetter = targetTempVarName + "." + fieldSetterName;
                         generateFieldBasedCopy(methodBuilder, sourceFieldType, targetFieldType,
                                 nestedSourceGetter, nestedTargetSetter, reverse);
                     }
@@ -753,10 +838,10 @@ public class FieldCopyGenerator {
             
             // 简单字段拷贝
             methodBuilder.addStatement("$L.$L($L.$L())", 
-                    tempVarName, fieldSetterName, sourceGetter, fieldGetterName);
+                    targetTempVarName, fieldSetterName, sourceTempVarName, fieldGetterName);
         }
         
-        methodBuilder.addStatement("$L($L)", targetSetter, tempVarName);
+        methodBuilder.addStatement("$L($L)", targetSetter, targetTempVarName);
         methodBuilder.nextControlFlow("else");
         methodBuilder.addStatement("$L(null)", targetSetter);
         methodBuilder.endControlFlow();
@@ -765,15 +850,16 @@ public class FieldCopyGenerator {
     /**
      * 构建字段映射表。
      *
+     * <p>将字段列表转换为 Map，key 为字段名，value 为字段元素。
+     * 用于快速查找目标类型中是否存在同名字段。
+     *
      * @param fields 字段列表
      * @return 字段名到字段元素的映射
      * @since 1.3.2
      */
-    private java.util.Map<String, javax.lang.model.element.VariableElement> buildFieldMap(
-            java.util.List<javax.lang.model.element.VariableElement> fields) {
-        java.util.Map<String, javax.lang.model.element.VariableElement> fieldMap = 
-                new java.util.HashMap<>();
-        for (javax.lang.model.element.VariableElement field : fields) {
+    private Map<String, VariableElement> buildFieldMap(List<VariableElement> fields) {
+        Map<String, VariableElement> fieldMap = new HashMap<>();
+        for (VariableElement field : fields) {
             fieldMap.put(field.getSimpleName().toString(), field);
         }
         return fieldMap;

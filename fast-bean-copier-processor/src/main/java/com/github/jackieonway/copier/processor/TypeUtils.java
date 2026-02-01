@@ -74,13 +74,22 @@ public final class TypeUtils {
     /**
      * 判断两个类型是否兼容。
      *
-     * 兼容的情况包括：
-     * - 完全相同的类型
-     * - 基本类型与对应的包装类型
+     * <p>兼容的情况包括：
+     * <ul>
+     *   <li>完全相同的类型</li>
+     *   <li>基本类型与对应的包装类型</li>
+     *   <li>同类型的集合（List、Set、Map、数组），允许泛型不同</li>
+     *   <li>两个都是自定义对象（非 JDK 类），允许不同类型（v1.3.2 新增）</li>
+     * </ul>
+     *
+     * <p>v1.3.2 增强：支持不同类型的嵌套对象兼容性判断。
+     * 如果两个类型都是自定义对象（通过 {@link #needsDeepCopy(TypeMirror)} 判断），
+     * 则认为它们是兼容的，后续可以通过 Copier 或字段拷贝实现转换。
      *
      * @param source 源类型
      * @param target 目标类型
      * @return 如果两个类型兼容，返回 true；否则返回 false
+     * @since 1.0.0
      */
     public static boolean isTypeCompatible(TypeMirror source, TypeMirror target) {
         if (source == null || target == null) {
@@ -370,12 +379,24 @@ public final class TypeUtils {
     /**
      * 判断元素类型是否需要深拷贝。
      *
-     * 基本类型、包装类型和 String 直接返回 false；
-     * 被 @CopyTarget 标注的类型或用户自定义对象返回 true；
-     * 其他情况默认返回 false。
+     * <p>判断规则：
+     * <ul>
+     *   <li>基本类型、包装类型和 String：返回 false</li>
+     *   <li>数组类型：递归检查元素类型</li>
+     *   <li>被 @CopyTarget 标注的类型：返回 true</li>
+     *   <li>非 JDK 的自定义对象（不以 "java." 开头）：返回 true</li>
+     *   <li>其他情况：返回 false</li>
+     * </ul>
+     *
+     * <p>此方法用于判断字段是否需要深拷贝处理，包括：
+     * <ul>
+     *   <li>集合中的元素类型</li>
+     *   <li>嵌套对象字段（v1.3.2）</li>
+     * </ul>
      *
      * @param elementType 元素类型
-     * @return 是否需要深拷贝
+     * @return 如果需要深拷贝返回 true，否则返回 false
+     * @since 1.0.0
      */
     public static boolean needsDeepCopy(TypeMirror elementType) {
         if (elementType == null) {
@@ -543,7 +564,7 @@ public final class TypeUtils {
         // 检查该类型的声明是否有类型参数（即是否是泛型类）
         // 只有泛型类在使用时没有指定类型参数才是原始类型
         // 非泛型类（如 String、Long）不是原始类型
-        javax.lang.model.element.Element element = declaredType.asElement();
+        Element element = declaredType.asElement();
         if (element instanceof TypeElement) {
             TypeElement typeElement = (TypeElement) element;
             // 如果类声明有类型参数，但使用时没有指定，则是原始类型

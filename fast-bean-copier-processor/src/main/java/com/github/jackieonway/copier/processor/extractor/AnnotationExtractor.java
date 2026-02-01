@@ -12,6 +12,9 @@ import com.github.jackieonway.copier.processor.config.PropertiesConfigLoader;
 import com.github.jackieonway.copier.processor.context.ProcessorContext;
 import com.github.jackieonway.copier.processor.model.CopyFieldConfig;
 
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.MirroredTypeException;
@@ -417,9 +420,9 @@ public class AnnotationExtractor {
         }
 
         // 查找目标类中的方法
-        for (javax.lang.model.element.Element element : targetType.getEnclosedElements()) {
-            if (element.getKind() == javax.lang.model.element.ElementKind.METHOD) {
-                javax.lang.model.element.ExecutableElement method = (javax.lang.model.element.ExecutableElement) element;
+        for (Element element : targetType.getEnclosedElements()) {
+            if (element.getKind() == ElementKind.METHOD) {
+                ExecutableElement method = (ExecutableElement) element;
                 if (method.getSimpleName().toString().equals(beforeMapping)) {
                     // 验证返回类型为 void
                     if (method.getReturnType().getKind() != javax.lang.model.type.TypeKind.VOID) {
@@ -428,13 +431,13 @@ public class AnnotationExtractor {
                     }
 
                     // 验证参数类型
-                    java.util.List<? extends javax.lang.model.element.VariableElement> params = method.getParameters();
+                    List<? extends javax.lang.model.element.VariableElement> params = method.getParameters();
                     if (params.size() != 1) {
                         context.error("beforeMapping 方法 '" + beforeMapping + "' 必须有且仅有一个参数", targetType);
                         return false;
                     }
 
-                    javax.lang.model.type.TypeMirror paramType = params.get(0).asType();
+                    TypeMirror paramType = params.get(0).asType();
                     if (!context.getTypeUtils().isSameType(paramType, sourceType.asType())) {
                         context.error("beforeMapping 方法 '" + beforeMapping + "' 的参数类型必须为源类型 " + sourceType.getSimpleName(), targetType);
                         return false;
