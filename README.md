@@ -2,6 +2,8 @@
 
 Fast Bean Copier 是一个高性能的 Java Bean 拷贝工具，使用 APT（注解处理工具）在编译期自动生成拷贝代码，实现零运行时开销。
 
+> **v1.3.2 新特性**：嵌套对象深拷贝支持（自动深拷贝不同类型的嵌套对象、无限层级嵌套、混合模式支持）。
+>
 > **v1.3.1 新特性**：统一所有集合类型的 UnaryOperator 行为（List/Set/Map/Array）、Properties 配置文件支持、逆向转换特殊字段自动跳过。
 >
 > **v1.3 新特性**：更新现有对象（updateDto/updateEntity）、映射前回调、条件映射、默认值和常量、全局配置（@CopyTargetConfig）。
@@ -17,7 +19,7 @@ Fast Bean Copier 是一个高性能的 Java Bean 拷贝工具，使用 APT（注
 - ✅ **高性能** - 生成的代码直接调用 getter/setter，性能最优
 - ✅ **易用** - 只需添加 `@CopyTarget` 注解即可
 - ✅ **灵活** - 支持字段忽略、类型转换、集合处理
-- ✅ **完整** - 支持双向拷贝、集合/Map/数组拷贝、嵌套对象
+- ✅ **完整** - 支持双向拷贝、集合/Map/数组拷贝、嵌套对象深拷贝
 - ✅ **多字段映射** - 支持多对一、一对多字段映射和表达式
 - ✅ **类型转换器** - 内置数字、日期、枚举等转换器，支持自定义转换器
 - ✅ **依赖注入** - 支持 Spring、CDI、JSR-330 等依赖注入框架
@@ -27,6 +29,7 @@ Fast Bean Copier 是一个高性能的 Java Bean 拷贝工具，使用 APT（注
 - ✅ **条件映射** - 支持基于条件决定是否映射字段
 - ✅ **默认值和常量** - 支持设置字段的默认值和常量值
 - ✅ **全局配置** - 支持包级别配置，减少重复配置
+- 🆕 **嵌套对象深拷贝**（v1.3.2）- 自动深拷贝不同类型的嵌套对象，支持无限层级和混合模式
 - 🆕 **统一集合定制**（v1.3.1）- 所有集合类型（List/Set/Map/Array）使用一致的 UnaryOperator 行为
 - 🆕 **配置文件支持**（v1.3.1）- 支持通过 Properties 文件进行全局配置
 - 🆕 **智能逆向转换**（v1.3.1）- 自动跳过不可逆的特殊字段映射
@@ -39,13 +42,13 @@ Fast Bean Copier 是一个高性能的 Java Bean 拷贝工具，使用 APT（注
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-annotations</artifactId>
-    <version>1.3.1</version>
+    <version>1.3.2</version>
 </dependency>
 
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-processor</artifactId>
-    <version>1.3.1</version>
+    <version>1.3.2</version>
     <scope>provided</scope>
 </dependency>
 ```

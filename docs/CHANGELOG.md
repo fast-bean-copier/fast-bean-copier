@@ -5,6 +5,56 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/),
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.3.2] - 2026-01-31
+
+### 新增
+
+#### 嵌套对象深拷贝支持
+- **自动深拷贝不同类型的嵌套对象**：支持 `Address` → `AddressDto` 等不同类型嵌套对象的自动转换
+  - 智能检测嵌套对象是否有对应的 Copier 类
+  - 有 Copier 时使用 Copier 进行拷贝（最优性能）
+  - 无 Copier 时使用字段拷贝（自动回退）
+- **无限层级嵌套支持**：支持任意深度的对象图（A→B→C→D...）
+  - 递归处理所有嵌套层级
+  - 每层独立选择最优拷贝策略
+- **混合模式支持**：在同一对象图中混合使用有 Copier 和无 Copier 的嵌套对象
+  - Level1 有 `@CopyTarget` → 使用 Copier
+  - Level2 无 `@CopyTarget` → 使用字段拷贝
+  - Level3 有 `@CopyTarget` → 在字段拷贝中仍使用 Copier
+- **正向和反向转换支持**：`toDto()` 和 `fromDto()` 都支持嵌套对象深拷贝
+  - 正向转换：调用 `TargetDtoCopier.toDto()`
+  - 反向转换：调用 `TargetDtoCopier.fromDto()`
+
+### 改进
+
+#### 类型兼容性增强
+- **TypeUtils.isTypeCompatible() 增强**：识别自定义对象类型为兼容
+  - 之前：不同类型的自定义对象被判定为不兼容，字段被跳过
+  - 现在：自定义对象类型被判定为兼容，触发深拷贝逻辑
+  - 保持对基本类型、包装类型、集合类型的原有判断逻辑
+
+#### 代码生成优化
+- **FieldCopyGenerator 增强**：新增嵌套对象处理逻辑
+  - `checkCopierExists()`：通过 `@CopyTarget` 注解检测 Copier 是否存在
+  - `generateNestedObjectCopyCode()`：生成优化的嵌套对象拷贝代码
+  - `generateFieldBasedCopy()`：递归生成字段拷贝代码，支持嵌套 Copier 检测
+  - `buildFieldMap()`：构建字段映射表，提高字段查找效率
+
+### 测试
+- 新增 440+ 测试用例（+4 个新测试）
+- 新增 `SimpleNestedObjectTest`：基本嵌套对象场景测试
+- 新增 `MultilevelNestedObjectTest`：多层嵌套混合模式测试
+- 新增 `TypeUtilsNestedObjectTest`：类型兼容性增强测试
+- 代码覆盖率：95%+
+
+### 兼容性
+- ✅ 完全向后兼容 v1.3.1
+- ✅ 无需修改现有代码
+- ✅ 现有嵌套对象（同类型）继续使用引用传递
+- ✅ 新的嵌套对象（不同类型）自动深拷贝
+
+---
+
 ## [1.3.1] - 2026-01-28
 
 ### 新增

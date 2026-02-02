@@ -6,6 +6,14 @@
 
 ## 基本问题
 
+### Q: v1.3.2 有哪些新增功能？
+**A**: v1.3.2 主要新增嵌套对象深拷贝支持：
+- **自动深拷贝不同类型的嵌套对象**：支持 `Address` → `AddressDto` 等不同类型嵌套对象的自动转换
+- **智能 Copier 检测**：自动检测嵌套对象是否有 Copier，有则使用 Copier（最优性能），无则使用字段拷贝（自动回退）
+- **无限层级嵌套**：支持任意深度的对象图（A→B→C→D...）
+- **混合模式支持**：在同一对象图中混合使用有 Copier 和无 Copier 的嵌套对象
+- **正向和反向转换**：toDto() 和 fromDto() 都支持嵌套对象深拷贝
+
 ### Q: v1.3.1 有哪些新增功能？
 **A**: v1.3.1 主要新增和改进：
 - **统一 UnaryOperator 行为**：所有集合类型（List/Set/Map/Array）的 customizer 现在都操作整个集合，提供一致且强大的定制能力
@@ -56,15 +64,60 @@
 **A**: 可以。在 `build.gradle` 中添加：
 ```gradle
 dependencies {
-    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.3.0'
-    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.3.0'
+    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.3.2'
+    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.3.2'
 }
 ```
 
 ## 功能问题
 
-### Q: 支持嵌套对象拷贝吗？
-**A**: 支持。同名字段会直接拷贝；当嵌套类型也使用 `@CopyTarget` 标注时，会自动递归深拷贝。
+### Q: 支持嵌套对象拷贝吗？（v1.3.2 增强）
+**A**: 完全支持。v1.3.2 新增了不同类型嵌套对象的自动深拷贝：
+- **同类型嵌套对象**：直接拷贝（引用传递）
+- **不同类型嵌套对象**：自动深拷贝（如 `Address` → `AddressDto`）
+- **有 Copier 的嵌套对象**：使用 Copier 进行拷贝（最优性能）
+- **无 Copier 的嵌套对象**：使用字段拷贝（自动回退）
+- **多层嵌套**：支持无限层级，每层独立选择最优策略
+
+示例：
+```java
+@CopyTarget(source = Employee.class)
+public class EmployeeDto {
+    private Long id;
+    private AddressDto address;  // 自动深拷贝
+}
+
+@CopyTarget(source = Address.class)
+public class AddressDto {
+    private String city;
+    private String street;
+}
+```
+
+### Q: 嵌套对象必须添加 @CopyTarget 注解吗？
+**A**: 不是必须的。v1.3.2 支持两种方式：
+- **有 @CopyTarget**：生成 Copier 类，性能最优，推荐用于频繁使用的嵌套对象
+- **无 @CopyTarget**：使用字段拷贝，适合简单的一次性嵌套对象
+
+两种方式可以混合使用，框架会自动选择最优策略。
+
+### Q: 支持多层嵌套吗？
+**A**: 支持。v1.3.2 支持任意深度的嵌套（A→B→C→D...），并且可以混合使用有 Copier 和无 Copier 的嵌套对象。例如：
+- Level1 有 @CopyTarget → 使用 Copier
+- Level2 无 @CopyTarget → 使用字段拷贝
+- Level3 有 @CopyTarget → 在字段拷贝中仍使用 Copier
+
+### Q: 嵌套对象的字段不完全匹配怎么办？
+**A**: 字段拷贝模式下，只拷贝同名且类型兼容的字段，其他字段保持默认值。如果需要自定义映射，建议为嵌套对象添加 @CopyTarget 注解并使用 @CopyField 配置。
+
+### Q: 循环引用怎么处理？
+**A**: 当前版本不支持循环引用（如 A 包含 B，B 又包含 A）。建议避免循环引用的设计，或使用 `@CopyTarget(ignore = {"fieldName"})` 忽略其中一个字段。
+
+### Q: 有 Copier 和无 Copier 的性能差异？
+**A**: 
+- **有 Copier**：最优性能，直接方法调用，编译期生成
+- **无 Copier（字段拷贝）**：性能略低但仍然很好，也是编译期生成，无反射开销
+- **建议**：频繁使用的嵌套对象添加 @CopyTarget，简单的一次性嵌套对象可以不添加
 
 ### Q: 集合/数组字段会自动深拷贝吗？
 **A**: 会。List/Set/Map/数组（含嵌套组合与多维数组）都会按元素深拷贝。
@@ -261,6 +314,72 @@ import com.github.jackieonway.copier.annotation.*;
 
 ### Q: NullValueStrategy 主要用于什么场景？
 **A**: 主要用于 updateDto/updateEntity 方法，决定当源字段为 null 时是否更新目标字段。
+
+## v1.3.2 新功能问题
+
+### Q: 如何使用嵌套对象深拷贝？
+**A**: 无需任何配置，自动生效。只需定义嵌套对象的 DTO 类：
+
+```java
+// 源实体
+public class Employee {
+    private Long id;
+    private Address address;
+}
+
+// 目标 DTO
+@CopyTarget(source = Employee.class)
+public class EmployeeDto {
+    private Long id;
+    private AddressDto address;  // 自动深拷贝
+}
+
+// 嵌套对象 DTO（可选添加 @CopyTarget）
+@CopyTarget(source = Address.class)  // 可选，添加后性能更优
+public class AddressDto {
+    private String city;
+}
+
+// 使用
+EmployeeDto dto = EmployeeDtoCopier.toDto(employee);
+```
+
+### Q: 什么时候应该为嵌套对象添加 @CopyTarget 注解？
+**A**: 建议根据使用频率决定：
+- **频繁使用的嵌套对象**：添加 @CopyTarget，生成 Copier 类，性能最优
+- **简单的一次性嵌套对象**：不添加注解，使用字段拷贝，减少代码量
+- **复杂的嵌套对象（多字段）**：添加 @CopyTarget，便于维护和复用
+
+### Q: 嵌套对象深拷贝支持反向转换吗？
+**A**: 完全支持。`fromDto()` 方法也会自动深拷贝嵌套对象：
+
+```java
+// 正向转换
+EmployeeDto dto = EmployeeDtoCopier.toDto(employee);
+
+// 反向转换（也支持嵌套对象深拷贝）
+Employee entity = EmployeeDtoCopier.fromDto(dto);
+```
+
+### Q: 如何处理嵌套对象的字段映射？
+**A**: 如果嵌套对象需要自定义字段映射，为嵌套对象添加 @CopyTarget 注解并使用 @CopyField：
+
+```java
+@CopyTarget(source = Address.class)
+public class AddressDto {
+    @CopyField(source = "cityName")  // 自定义映射
+    private String city;
+    
+    @CopyField(ignore = true)  // 忽略字段
+    private String internalCode;
+}
+```
+
+### Q: 嵌套对象深拷贝的性能如何？
+**A**: 
+- **有 Copier**：与手写代码性能相同，编译期生成，零运行时开销
+- **无 Copier（字段拷贝）**：性能略低但仍然很好，也是编译期生成，无反射
+- **建议**：性能敏感的场景为嵌套对象添加 @CopyTarget 注解
 
 ## v1.3.1 新功能问题
 

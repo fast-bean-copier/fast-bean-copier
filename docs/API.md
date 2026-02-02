@@ -1,5 +1,7 @@
 # Fast Bean Copier API 文档
 
+> v1.3.2 新增：嵌套对象深拷贝支持（自动深拷贝不同类型的嵌套对象、无限层级嵌套、混合模式支持）。
+>
 > v1.3.1 新增：统一所有集合类型的 UnaryOperator 行为（List/Set/Map/Array）、Properties 配置文件支持、逆向转换智能跳过。
 >
 > v1.3 新增：更新现有对象（updateDto/updateEntity）、映射前回调（beforeMapping）、条件映射（condition）、默认值和常量（defaultValue/constant）、全局配置（@CopyTargetConfig）、Null 值处理策略（NullValueStrategy）。
@@ -729,6 +731,178 @@ public static SourceType[] fromDtoArray(TargetType[] sources)
 ```java
 public static SourceType[] fromDtoArray(TargetType[] sources, UnaryOperator<SourceType[]> customizer)
 ```
+
+## 嵌套对象深拷贝（v1.3.2 新增）
+
+Fast Bean Copier 自动支持不同类型嵌套对象的深拷贝。当源对象和目标对象包含不同类型的嵌套对象时，框架会智能选择最优的拷贝策略。
+
+### 自动深拷贝
+
+无需任何配置，嵌套对象会自动深拷贝：
+
+```java
+// 源实体
+public class Employee {
+    private Long id;
+    private String name;
+    private Address address;  // 嵌套对象
+}
+
+public class Address {
+    private String city;
+    private String street;
+}
+
+// 目标 DTO
+@CopyTarget(source = Employee.class)
+public class EmployeeDto {
+    private Long id;
+    private String name;
+    private AddressDto address;  // 不同类型的嵌套对象
+}
+
+@CopyTarget(source = Address.class)
+public class AddressDto {
+    private String city;
+    private String street;
+}
+
+// 使用
+Employee employee = new Employee();
+employee.setId(1L);
+employee.setName("John");
+
+Address address = new Address();
+address.setCity("Beijing");
+address.setStreet("Main Street");
+employee.setAddress(address);
+
+// 自动深拷贝嵌套对象
+EmployeeDto dto = EmployeeDtoCopier.toDto(employee);
+// dto.getAddress() 是一个新的 AddressDto 对象
+```
+
+### 两种实现方式
+
+#### 方式 1：使用 Copier（推荐）
+
+当嵌套对象的 DTO 类有 `@CopyTarget` 注解时，使用对应的 Copier 进行拷贝：
+
+```java
+@CopyTarget(source = Address.class)
+public class AddressDto {
+    private String city;
+    private String street;
+}
+
+// 生成的代码使用 AddressDtoCopier
+if (source.getAddress() != null) {
+    target.setAddress(AddressDtoCopier.toDto(source.getAddress()));
+} else {
+    target.setAddress(null);
+}
+```
+
+**优点：**
+- 最优性能（直接方法调用）
+- 类型安全
+- 可复用 Copier 类
+- 支持所有 Copier 特性（回调、条件映射等）
+
+#### 方式 2：字段拷贝（自动回退）
+
+当嵌套对象的 DTO 类没有 `@CopyTarget` 注解时，自动使用字段拷贝：
+
+```java
+// 没有 @CopyTarget 注解
+public class SimpleAddressDto {
+    private String city;
+    private String street;
+}
+
+// 生成的代码使用字段拷贝
+if (source.getAddress() != null) {
+    SimpleAddressDto nestedAddress = new SimpleAddressDto();
+    nestedAddress.setCity(source.getAddress().getCity());
+    nestedAddress.setStreet(source.getAddress().getStreet());
+    target.setAddress(nestedAddress);
+} else {
+    target.setAddress(null);
+}
+```
+
+**优点：**
+- 无需添加注解
+- 适合简单的一次性嵌套对象
+- 仍然是编译期生成（无反射）
+- 自动处理递归嵌套
+
+### 多层嵌套支持
+
+支持任意深度的嵌套对象，并且可以混合使用两种方式：
+
+```java
+// Level 1: 有 @CopyTarget
+@CopyTarget(source = Company.class)
+public class CompanyDto {
+    private Long id;
+    private DepartmentDto department;  // Level 2
+}
+
+// Level 2: 无 @CopyTarget（使用字段拷贝）
+public class DepartmentDto {
+    private String name;
+    private ManagerDto manager;  // Level 3
+}
+
+// Level 3: 有 @CopyTarget（在字段拷贝中仍使用 Copier）
+@CopyTarget(source = Manager.class)
+public class ManagerDto {
+    private String name;
+    private AddressDto address;  // Level 4
+}
+
+// Level 4: 有 @CopyTarget
+@CopyTarget(source = Address.class)
+public class AddressDto {
+    private String city;
+    private String street;
+}
+
+// 使用
+Company company = createCompany();  // 创建完整的对象图
+CompanyDto dto = CompanyDtoCopier.toDto(company);
+// 所有层级都正确深拷贝
+```
+
+### Null 值处理
+
+嵌套对象为 null 时，目标对象也设置为 null：
+
+```java
+Employee employee = new Employee();
+employee.setId(1L);
+employee.setAddress(null);  // 嵌套对象为 null
+
+EmployeeDto dto = EmployeeDtoCopier.toDto(employee);
+// dto.getAddress() == null
+```
+
+### 性能建议
+
+| 场景 | 建议 |
+|------|------|
+| 频繁使用的嵌套对象 | 添加 `@CopyTarget` 注解，使用 Copier |
+| 简单的一次性嵌套对象 | 不添加注解，使用字段拷贝 |
+| 复杂的嵌套对象（多字段） | 添加 `@CopyTarget` 注解，使用 Copier |
+| 嵌套深度 | 建议不超过 5 层 |
+
+### 注意事项
+
+1. **不支持循环引用**：如果 A 包含 B，B 又包含 A，会导致无限递归
+2. **字段名必须匹配**：字段拷贝模式下，只拷贝同名字段
+3. **类型必须兼容**：字段类型必须兼容（基本类型、包装类型、自定义对象）
+4. **同类型引用传递**：如果嵌套对象类型相同（如 `Address` → `Address`），使用引用传递而非深拷贝
 
 ## 类型转换
 
