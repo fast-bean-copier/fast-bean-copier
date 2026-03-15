@@ -192,7 +192,9 @@ public final class CodeGenerator {
 
             // 2. 生成基础方法（toDto、fromDto 及其 customizer 重载）
             classBuilder.addMethod(basicMethodGenerator.generateToDto());
+            classBuilder.addMethod(basicMethodGenerator.generateToDtoWithProcessors());
             classBuilder.addMethod(basicMethodGenerator.generateFromDto());
+            classBuilder.addMethod(basicMethodGenerator.generateFromDtoWithProcessors());
             classBuilder.addMethod(basicMethodGenerator.generateToDtoWithCustomizer());
             classBuilder.addMethod(basicMethodGenerator.generateFromDtoWithCustomizer());
 
@@ -209,6 +211,16 @@ public final class CodeGenerator {
             classBuilder.addMethod(collectionMethodGenerator.generateFromDtoMap());
             classBuilder.addMethod(collectionMethodGenerator.generateToDtoArray());
             classBuilder.addMethod(collectionMethodGenerator.generateFromDtoArray());
+
+            // 3.1 生成带 processors 的集合方法（v1.4.0 新增）
+            classBuilder.addMethod(collectionMethodGenerator.generateToDtoListWithProcessors());
+            classBuilder.addMethod(collectionMethodGenerator.generateFromDtoListWithProcessors());
+            classBuilder.addMethod(collectionMethodGenerator.generateToDtoSetWithProcessors());
+            classBuilder.addMethod(collectionMethodGenerator.generateFromDtoSetWithProcessors());
+            classBuilder.addMethod(collectionMethodGenerator.generateToDtoMapWithProcessors());
+            classBuilder.addMethod(collectionMethodGenerator.generateFromDtoMapWithProcessors());
+            classBuilder.addMethod(collectionMethodGenerator.generateToDtoArrayWithProcessors());
+            classBuilder.addMethod(collectionMethodGenerator.generateFromDtoArrayWithProcessors());
 
             // 4. 生成带 customizer 的集合方法
             classBuilder.addMethod(collectionMethodGenerator.generateToDtoListWithCustomizer());

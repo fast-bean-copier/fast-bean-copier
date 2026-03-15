@@ -177,6 +177,384 @@ public class CollectionMethodGenerator {
         return methodBuilder.build();
     }
 
+    // ========== v1.4.0 新增：Set/Map/Array processors 重载方法 ==========
+
+    public MethodSpec generateToDtoSetWithProcessors() {
+        TypeName sourceTypeName = ClassName.get(sourceType);
+        TypeName targetTypeName = ClassName.get(targetType);
+        TypeName setOfSource = ParameterizedTypeName.get(ClassName.get(java.util.Set.class), sourceTypeName);
+        TypeName setOfTarget = ParameterizedTypeName.get(ClassName.get(java.util.Set.class), targetTypeName);
+        TypeName preProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), setOfSource);
+        TypeName postProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), setOfTarget);
+
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDtoSet")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(setOfTarget)
+                .addParameter(setOfSource, "sources")
+                .addParameter(preProcessorType, "preProcessor")
+                .addParameter(postProcessorType, "postProcessor");
+
+        if (useStaticMethods) {
+            methodBuilder.addModifiers(Modifier.STATIC);
+        }
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (preProcessor != null)")
+                .addStatement("sources = preProcessor.apply(sources)")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        if (useStaticMethods) {
+            methodBuilder.addStatement("$T result = toDtoSet(sources)", setOfTarget);
+        } else {
+            methodBuilder.addStatement("$T result = this.toDtoSet(sources)", setOfTarget);
+        }
+
+        methodBuilder.beginControlFlow("if (result != null && postProcessor != null)")
+                .addStatement("result = postProcessor.apply(result)")
+                .endControlFlow()
+                .addStatement("return result");
+
+        return methodBuilder.build();
+    }
+
+    public MethodSpec generateFromDtoSetWithProcessors() {
+        TypeName sourceTypeName = ClassName.get(sourceType);
+        TypeName targetTypeName = ClassName.get(targetType);
+        TypeName setOfSource = ParameterizedTypeName.get(ClassName.get(java.util.Set.class), sourceTypeName);
+        TypeName setOfTarget = ParameterizedTypeName.get(ClassName.get(java.util.Set.class), targetTypeName);
+        TypeName preProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), setOfTarget);
+        TypeName postProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), setOfSource);
+
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDtoSet")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(setOfSource)
+                .addParameter(setOfTarget, "sources")
+                .addParameter(preProcessorType, "preProcessor")
+                .addParameter(postProcessorType, "postProcessor");
+
+        if (useStaticMethods) {
+            methodBuilder.addModifiers(Modifier.STATIC);
+        }
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (preProcessor != null)")
+                .addStatement("sources = preProcessor.apply(sources)")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        if (useStaticMethods) {
+            methodBuilder.addStatement("$T result = fromDtoSet(sources)", setOfSource);
+        } else {
+            methodBuilder.addStatement("$T result = this.fromDtoSet(sources)", setOfSource);
+        }
+
+        methodBuilder.beginControlFlow("if (result != null && postProcessor != null)")
+                .addStatement("result = postProcessor.apply(result)")
+                .endControlFlow()
+                .addStatement("return result");
+
+        return methodBuilder.build();
+    }
+
+    public MethodSpec generateToDtoMapWithProcessors() {
+        TypeVariableName keyType = TypeVariableName.get("K");
+        TypeName sourceTypeName = ClassName.get(sourceType);
+        TypeName targetTypeName = ClassName.get(targetType);
+        TypeName mapOfSource = ParameterizedTypeName.get(ClassName.get(java.util.Map.class), keyType, sourceTypeName);
+        TypeName mapOfTarget = ParameterizedTypeName.get(ClassName.get(java.util.Map.class), keyType, targetTypeName);
+        TypeName preProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), mapOfSource);
+        TypeName postProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), mapOfTarget);
+
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDtoMap")
+                .addModifiers(Modifier.PUBLIC)
+                .addTypeVariable(keyType)
+                .returns(mapOfTarget)
+                .addParameter(mapOfSource, "sources")
+                .addParameter(preProcessorType, "preProcessor")
+                .addParameter(postProcessorType, "postProcessor");
+
+        if (useStaticMethods) {
+            methodBuilder.addModifiers(Modifier.STATIC);
+        }
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (preProcessor != null)")
+                .addStatement("sources = preProcessor.apply(sources)")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        if (useStaticMethods) {
+            methodBuilder.addStatement("$T result = toDtoMap(sources)", mapOfTarget);
+        } else {
+            methodBuilder.addStatement("$T result = this.toDtoMap(sources)", mapOfTarget);
+        }
+
+        methodBuilder.beginControlFlow("if (result != null && postProcessor != null)")
+                .addStatement("result = postProcessor.apply(result)")
+                .endControlFlow()
+                .addStatement("return result");
+
+        return methodBuilder.build();
+    }
+
+    public MethodSpec generateFromDtoMapWithProcessors() {
+        TypeVariableName keyType = TypeVariableName.get("K");
+        TypeName sourceTypeName = ClassName.get(sourceType);
+        TypeName targetTypeName = ClassName.get(targetType);
+        TypeName mapOfSource = ParameterizedTypeName.get(ClassName.get(java.util.Map.class), keyType, sourceTypeName);
+        TypeName mapOfTarget = ParameterizedTypeName.get(ClassName.get(java.util.Map.class), keyType, targetTypeName);
+        TypeName preProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), mapOfTarget);
+        TypeName postProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), mapOfSource);
+
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDtoMap")
+                .addModifiers(Modifier.PUBLIC)
+                .addTypeVariable(keyType)
+                .returns(mapOfSource)
+                .addParameter(mapOfTarget, "sources")
+                .addParameter(preProcessorType, "preProcessor")
+                .addParameter(postProcessorType, "postProcessor");
+
+        if (useStaticMethods) {
+            methodBuilder.addModifiers(Modifier.STATIC);
+        }
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (preProcessor != null)")
+                .addStatement("sources = preProcessor.apply(sources)")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        if (useStaticMethods) {
+            methodBuilder.addStatement("$T result = fromDtoMap(sources)", mapOfSource);
+        } else {
+            methodBuilder.addStatement("$T result = this.fromDtoMap(sources)", mapOfSource);
+        }
+
+        methodBuilder.beginControlFlow("if (result != null && postProcessor != null)")
+                .addStatement("result = postProcessor.apply(result)")
+                .endControlFlow()
+                .addStatement("return result");
+
+        return methodBuilder.build();
+    }
+
+    public MethodSpec generateToDtoArrayWithProcessors() {
+        TypeName sourceArrayType = ArrayTypeName.of(ClassName.get(sourceType));
+        TypeName targetArrayType = ArrayTypeName.of(ClassName.get(targetType));
+        TypeName preProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), sourceArrayType);
+        TypeName postProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), targetArrayType);
+
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDtoArray")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(targetArrayType)
+                .addParameter(sourceArrayType, "sources")
+                .addParameter(preProcessorType, "preProcessor")
+                .addParameter(postProcessorType, "postProcessor");
+
+        if (useStaticMethods) {
+            methodBuilder.addModifiers(Modifier.STATIC);
+        }
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (preProcessor != null)")
+                .addStatement("sources = preProcessor.apply(sources)")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        if (useStaticMethods) {
+            methodBuilder.addStatement("$T result = toDtoArray(sources)", targetArrayType);
+        } else {
+            methodBuilder.addStatement("$T result = this.toDtoArray(sources)", targetArrayType);
+        }
+
+        methodBuilder.beginControlFlow("if (result != null && postProcessor != null)")
+                .addStatement("result = postProcessor.apply(result)")
+                .endControlFlow()
+                .addStatement("return result");
+
+        return methodBuilder.build();
+    }
+
+    public MethodSpec generateFromDtoArrayWithProcessors() {
+        TypeName sourceArrayType = ArrayTypeName.of(ClassName.get(sourceType));
+        TypeName targetArrayType = ArrayTypeName.of(ClassName.get(targetType));
+        TypeName preProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), targetArrayType);
+        TypeName postProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), sourceArrayType);
+
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDtoArray")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(sourceArrayType)
+                .addParameter(targetArrayType, "sources")
+                .addParameter(preProcessorType, "preProcessor")
+                .addParameter(postProcessorType, "postProcessor");
+
+        if (useStaticMethods) {
+            methodBuilder.addModifiers(Modifier.STATIC);
+        }
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (preProcessor != null)")
+                .addStatement("sources = preProcessor.apply(sources)")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        if (useStaticMethods) {
+            methodBuilder.addStatement("$T result = fromDtoArray(sources)", sourceArrayType);
+        } else {
+            methodBuilder.addStatement("$T result = this.fromDtoArray(sources)", sourceArrayType);
+        }
+
+        methodBuilder.beginControlFlow("if (result != null && postProcessor != null)")
+                .addStatement("result = postProcessor.apply(result)")
+                .endControlFlow()
+                .addStatement("return result");
+
+        return methodBuilder.build();
+    }
+
+    public MethodSpec generateFromDtoListWithProcessors() {
+        TypeName sourceTypeName = ClassName.get(sourceType);
+        TypeName targetTypeName = ClassName.get(targetType);
+        TypeName listOfSource = ParameterizedTypeName.get(ClassName.get(java.util.List.class), sourceTypeName);
+        TypeName listOfTarget = ParameterizedTypeName.get(ClassName.get(java.util.List.class), targetTypeName);
+        TypeName preProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), listOfTarget);
+        TypeName postProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), listOfSource);
+
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDtoList")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(listOfSource)
+                .addParameter(listOfTarget, "sources")
+                .addParameter(preProcessorType, "preProcessor")
+                .addParameter(postProcessorType, "postProcessor");
+
+        if (useStaticMethods) {
+            methodBuilder.addModifiers(Modifier.STATIC);
+        }
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (preProcessor != null)")
+                .addStatement("sources = preProcessor.apply(sources)")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        if (useStaticMethods) {
+            methodBuilder.addStatement("$T result = fromDtoList(sources)", listOfSource);
+        } else {
+            methodBuilder.addStatement("$T result = this.fromDtoList(sources)", listOfSource);
+        }
+
+        methodBuilder.beginControlFlow("if (result != null && postProcessor != null)")
+                .addStatement("result = postProcessor.apply(result)")
+                .endControlFlow()
+                .addStatement("return result");
+
+        return methodBuilder.build();
+    }
+
+    public MethodSpec generateToDtoListWithProcessors() {
+        TypeName sourceTypeName = ClassName.get(sourceType);
+        TypeName targetTypeName = ClassName.get(targetType);
+        TypeName listOfSource = ParameterizedTypeName.get(ClassName.get(java.util.List.class), sourceTypeName);
+        TypeName listOfTarget = ParameterizedTypeName.get(ClassName.get(java.util.List.class), targetTypeName);
+        TypeName preProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), listOfSource);
+        TypeName postProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), listOfTarget);
+
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDtoList")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(listOfTarget)
+                .addParameter(listOfSource, "sources")
+                .addParameter(preProcessorType, "preProcessor")
+                .addParameter(postProcessorType, "postProcessor");
+
+        if (useStaticMethods) {
+            methodBuilder.addModifiers(Modifier.STATIC);
+        }
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (preProcessor != null)")
+                .addStatement("sources = preProcessor.apply(sources)")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (sources == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        if (useStaticMethods) {
+            methodBuilder.addStatement("$T result = toDtoList(sources)", listOfTarget);
+        } else {
+            methodBuilder.addStatement("$T result = this.toDtoList(sources)", listOfTarget);
+        }
+
+        methodBuilder.beginControlFlow("if (result != null && postProcessor != null)")
+                .addStatement("result = postProcessor.apply(result)")
+                .endControlFlow()
+                .addStatement("return result");
+
+        return methodBuilder.build();
+    }
+
     /**
      * 生成 fromDtoList 方法。
      *

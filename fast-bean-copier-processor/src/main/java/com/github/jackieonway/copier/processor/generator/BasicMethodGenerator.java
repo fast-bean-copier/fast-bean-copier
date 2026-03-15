@@ -181,6 +181,118 @@ public class BasicMethodGenerator {
     }
 
     /**
+     * 生成带前置和后置处理器的 fromDto 方法。
+     *
+     * @return 生成的方法规范
+     * @since 1.4.0
+     */
+    public MethodSpec generateFromDtoWithProcessors() {
+        TypeName sourceTypeName = ClassName.get(sourceType);
+        TypeName targetTypeName = ClassName.get(targetType);
+
+        TypeName preProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), targetTypeName);
+        TypeName postProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), sourceTypeName);
+
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDto")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(sourceTypeName)
+                .addParameter(targetTypeName, "source")
+                .addParameter(preProcessorType, "preProcessor")
+                .addParameter(postProcessorType, "postProcessor");
+
+        if (useStaticMethods) {
+            methodBuilder.addModifiers(Modifier.STATIC);
+        }
+
+        methodBuilder.beginControlFlow("if (source == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (preProcessor != null)")
+                .addStatement("source = preProcessor.apply(source)")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (source == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        methodBuilder.addStatement("$T target = new $T()",
+                ClassName.get(sourceType), ClassName.get(sourceType));
+
+        for (FieldMapping mapping : fieldMappings) {
+            fieldCopyGenerator.generateFieldCopyCode(methodBuilder, mapping, true);
+        }
+
+        methodBuilder.beginControlFlow("if (postProcessor != null)")
+                .addStatement("target = postProcessor.apply(target)")
+                .endControlFlow();
+
+        methodBuilder.addStatement("return target");
+
+        return methodBuilder.build();
+    }
+
+    /**
+     * 生成带前置和后置处理器的 toDto 方法。
+     *
+     * @return 生成的方法规范
+     * @since 1.4.0
+     */
+    public MethodSpec generateToDtoWithProcessors() {
+        TypeName sourceTypeName = ClassName.get(sourceType);
+        TypeName targetTypeName = ClassName.get(targetType);
+
+        TypeName preProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), sourceTypeName);
+        TypeName postProcessorType = ParameterizedTypeName.get(
+                ClassName.get(UnaryOperator.class), targetTypeName);
+
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDto")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(targetTypeName)
+                .addParameter(sourceTypeName, "source")
+                .addParameter(preProcessorType, "preProcessor")
+                .addParameter(postProcessorType, "postProcessor");
+
+        if (useStaticMethods) {
+            methodBuilder.addModifiers(Modifier.STATIC);
+        }
+
+        methodBuilder.beginControlFlow("if (source == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (preProcessor != null)")
+                .addStatement("source = preProcessor.apply(source)")
+                .endControlFlow();
+
+        methodBuilder.beginControlFlow("if (source == null)")
+                .addStatement("return null")
+                .endControlFlow();
+
+        methodBuilder.addStatement("$T target = new $T()",
+                ClassName.get(targetType), ClassName.get(targetType));
+
+        if (hasBeforeMapping()) {
+            methodBuilder.addStatement("target.$L(source)", beforeMapping);
+        }
+
+        for (FieldMapping mapping : fieldMappings) {
+            fieldCopyGenerator.generateFieldCopyCode(methodBuilder, mapping, false);
+        }
+
+        methodBuilder.beginControlFlow("if (postProcessor != null)")
+                .addStatement("target = postProcessor.apply(target)")
+                .endControlFlow();
+
+        methodBuilder.addStatement("return target");
+
+        return methodBuilder.build();
+    }
+
+    /**
      * 生成 fromDto 方法。
      *
      * <p>将目标对象拷贝回源对象（反向拷贝）。
@@ -231,6 +343,7 @@ public class BasicMethodGenerator {
         
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDto")
                 .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(Deprecated.class)
                 .returns(targetTypeName)
                 .addParameter(ClassName.get(sourceType), "source")
                 .addParameter(customizerType, "customizer");
@@ -244,16 +357,11 @@ public class BasicMethodGenerator {
                 .endControlFlow();
         
         if (useStaticMethods) {
-            methodBuilder.addStatement("$T result = toDto(source)", targetTypeName);
+            methodBuilder.addStatement("return toDto(source, null, customizer)");
         } else {
-            methodBuilder.addStatement("$T result = this.toDto(source)", targetTypeName);
+            methodBuilder.addStatement("return this.toDto(source, null, customizer)");
         }
-        
-        methodBuilder.beginControlFlow("if (customizer != null)")
-                .addStatement("result = customizer.apply(result)")
-                .endControlFlow()
-                .addStatement("return result");
-        
+
         return methodBuilder.build();
     }
 
@@ -270,6 +378,7 @@ public class BasicMethodGenerator {
         
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDto")
                 .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(Deprecated.class)
                 .returns(sourceTypeName)
                 .addParameter(ClassName.get(targetType), "source")
                 .addParameter(customizerType, "customizer");
@@ -283,16 +392,11 @@ public class BasicMethodGenerator {
                 .endControlFlow();
         
         if (useStaticMethods) {
-            methodBuilder.addStatement("$T result = fromDto(source)", sourceTypeName);
+            methodBuilder.addStatement("return fromDto(source, null, customizer)");
         } else {
-            methodBuilder.addStatement("$T result = this.fromDto(source)", sourceTypeName);
+            methodBuilder.addStatement("return this.fromDto(source, null, customizer)");
         }
-        
-        methodBuilder.beginControlFlow("if (customizer != null)")
-                .addStatement("result = customizer.apply(result)")
-                .endControlFlow()
-                .addStatement("return result");
-        
+
         return methodBuilder.build();
     }
 
