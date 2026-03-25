@@ -119,6 +119,8 @@ public @interface CopyField {
      */
     Class<? extends TypeConverter<?, ?>> converter() default TypeConverter.None.class;
 
+    boolean deepCopy() default true;
+
     /**
      * 转换器配置参数（格式字符串）。
      *

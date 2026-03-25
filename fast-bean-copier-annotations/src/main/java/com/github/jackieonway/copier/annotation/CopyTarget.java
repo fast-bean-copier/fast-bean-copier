@@ -175,5 +175,6 @@ public @interface CopyTarget {
      * @return 映射前处理方法名，默认为空表示不使用映射前回调
      * @since 1.3.0
      */
+    @Deprecated
     String beforeMapping() default "";
 }

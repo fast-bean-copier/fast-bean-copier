@@ -615,24 +615,17 @@ public class CollectionMethodGenerator {
                 .addParameter(listOfSource, "sources")
                 .addParameter(customizerType, "customizer");
 
+        methodBuilder.addAnnotation(Deprecated.class);
+
         if (useStaticMethods) {
             methodBuilder.addModifiers(Modifier.STATIC);
         }
 
-        methodBuilder.beginControlFlow("if (sources == null)")
-                .addStatement("return null")
-                .endControlFlow();
-
         if (useStaticMethods) {
-            methodBuilder.addStatement("$T result = toDtoList(sources)", listOfTarget);
+            methodBuilder.addStatement("return toDtoList(sources, null, customizer)");
         } else {
-            methodBuilder.addStatement("$T result = this.toDtoList(sources)", listOfTarget);
+            methodBuilder.addStatement("return this.toDtoList(sources, null, customizer)");
         }
-
-        methodBuilder.beginControlFlow("if (result != null && customizer != null)")
-                .addStatement("result = customizer.apply(result)")
-                .endControlFlow()
-                .addStatement("return result");
 
         return methodBuilder.build();
     }
@@ -657,24 +650,17 @@ public class CollectionMethodGenerator {
                 .addParameter(listOfTarget, "sources")
                 .addParameter(customizerType, "customizer");
 
+        methodBuilder.addAnnotation(Deprecated.class);
+
         if (useStaticMethods) {
             methodBuilder.addModifiers(Modifier.STATIC);
         }
 
-        methodBuilder.beginControlFlow("if (sources == null)")
-                .addStatement("return null")
-                .endControlFlow();
-
         if (useStaticMethods) {
-            methodBuilder.addStatement("$T result = fromDtoList(sources)", listOfSource);
+            methodBuilder.addStatement("return fromDtoList(sources, null, customizer)");
         } else {
-            methodBuilder.addStatement("$T result = this.fromDtoList(sources)", listOfSource);
+            methodBuilder.addStatement("return this.fromDtoList(sources, null, customizer)");
         }
-
-        methodBuilder.beginControlFlow("if (result != null && customizer != null)")
-                .addStatement("result = customizer.apply(result)")
-                .endControlFlow()
-                .addStatement("return result");
 
         return methodBuilder.build();
     }
@@ -782,24 +768,17 @@ public class CollectionMethodGenerator {
                 .addParameter(setOfSource, "sources")
                 .addParameter(customizerType, "customizer");
 
+        methodBuilder.addAnnotation(Deprecated.class);
+
         if (useStaticMethods) {
             methodBuilder.addModifiers(Modifier.STATIC);
         }
 
-        methodBuilder.beginControlFlow("if (sources == null)")
-                .addStatement("return null")
-                .endControlFlow();
-
         if (useStaticMethods) {
-            methodBuilder.addStatement("$T result = toDtoSet(sources)", setOfTarget);
+            methodBuilder.addStatement("return toDtoSet(sources, null, customizer)");
         } else {
-            methodBuilder.addStatement("$T result = this.toDtoSet(sources)", setOfTarget);
+            methodBuilder.addStatement("return this.toDtoSet(sources, null, customizer)");
         }
-
-        methodBuilder.beginControlFlow("if (result != null && customizer != null)")
-                .addStatement("result = customizer.apply(result)")
-                .endControlFlow()
-                .addStatement("return result");
 
         return methodBuilder.build();
     }
@@ -824,24 +803,17 @@ public class CollectionMethodGenerator {
                 .addParameter(setOfTarget, "sources")
                 .addParameter(customizerType, "customizer");
 
+        methodBuilder.addAnnotation(Deprecated.class);
+
         if (useStaticMethods) {
             methodBuilder.addModifiers(Modifier.STATIC);
         }
 
-        methodBuilder.beginControlFlow("if (sources == null)")
-                .addStatement("return null")
-                .endControlFlow();
-
         if (useStaticMethods) {
-            methodBuilder.addStatement("$T result = fromDtoSet(sources)", setOfSource);
+            methodBuilder.addStatement("return fromDtoSet(sources, null, customizer)");
         } else {
-            methodBuilder.addStatement("$T result = this.fromDtoSet(sources)", setOfSource);
+            methodBuilder.addStatement("return this.fromDtoSet(sources, null, customizer)");
         }
-
-        methodBuilder.beginControlFlow("if (result != null && customizer != null)")
-                .addStatement("result = customizer.apply(result)")
-                .endControlFlow()
-                .addStatement("return result");
 
         return methodBuilder.build();
     }
@@ -1056,24 +1028,17 @@ public class CollectionMethodGenerator {
                 .addParameter(mapOfSource, "sources")
                 .addParameter(customizerType, "customizer");
 
+        methodBuilder.addAnnotation(Deprecated.class);
+
         if (useStaticMethods) {
             methodBuilder.addModifiers(Modifier.STATIC);
         }
 
-        methodBuilder.beginControlFlow("if (sources == null)")
-                .addStatement("return null")
-                .endControlFlow();
-
         if (useStaticMethods) {
-            methodBuilder.addStatement("$T result = toDtoMap(sources)", mapOfTarget);
+            methodBuilder.addStatement("return toDtoMap(sources, null, customizer)");
         } else {
-            methodBuilder.addStatement("$T result = this.toDtoMap(sources)", mapOfTarget);
+            methodBuilder.addStatement("return this.toDtoMap(sources, null, customizer)");
         }
-
-        methodBuilder.beginControlFlow("if (result != null && customizer != null)")
-                .addStatement("result = customizer.apply(result)")
-                .endControlFlow()
-                .addStatement("return result");
 
         return methodBuilder.build();
     }
@@ -1100,24 +1065,17 @@ public class CollectionMethodGenerator {
                 .addParameter(mapOfTarget, "sources")
                 .addParameter(customizerType, "customizer");
 
+        methodBuilder.addAnnotation(Deprecated.class);
+
         if (useStaticMethods) {
             methodBuilder.addModifiers(Modifier.STATIC);
         }
 
-        methodBuilder.beginControlFlow("if (sources == null)")
-                .addStatement("return null")
-                .endControlFlow();
-
         if (useStaticMethods) {
-            methodBuilder.addStatement("$T result = fromDtoMap(sources)", mapOfSource);
+            methodBuilder.addStatement("return fromDtoMap(sources, null, customizer)");
         } else {
-            methodBuilder.addStatement("$T result = this.fromDtoMap(sources)", mapOfSource);
+            methodBuilder.addStatement("return this.fromDtoMap(sources, null, customizer)");
         }
-
-        methodBuilder.beginControlFlow("if (result != null && customizer != null)")
-                .addStatement("result = customizer.apply(result)")
-                .endControlFlow()
-                .addStatement("return result");
 
         return methodBuilder.build();
     }
@@ -1142,24 +1100,17 @@ public class CollectionMethodGenerator {
                 .addParameter(sourceArrayType, "sources")
                 .addParameter(customizerType, "customizer");
 
+        methodBuilder.addAnnotation(Deprecated.class);
+
         if (useStaticMethods) {
             methodBuilder.addModifiers(Modifier.STATIC);
         }
 
-        methodBuilder.beginControlFlow("if (sources == null)")
-                .addStatement("return null")
-                .endControlFlow();
-
         if (useStaticMethods) {
-            methodBuilder.addStatement("$T result = toDtoArray(sources)", targetArrayType);
+            methodBuilder.addStatement("return toDtoArray(sources, null, customizer)");
         } else {
-            methodBuilder.addStatement("$T result = this.toDtoArray(sources)", targetArrayType);
+            methodBuilder.addStatement("return this.toDtoArray(sources, null, customizer)");
         }
-
-        methodBuilder.beginControlFlow("if (result != null && customizer != null)")
-                .addStatement("result = customizer.apply(result)")
-                .endControlFlow()
-                .addStatement("return result");
 
         return methodBuilder.build();
     }
@@ -1182,24 +1133,17 @@ public class CollectionMethodGenerator {
                 .addParameter(targetArrayType, "sources")
                 .addParameter(customizerType, "customizer");
 
+        methodBuilder.addAnnotation(Deprecated.class);
+
         if (useStaticMethods) {
             methodBuilder.addModifiers(Modifier.STATIC);
         }
 
-        methodBuilder.beginControlFlow("if (sources == null)")
-                .addStatement("return null")
-                .endControlFlow();
-
         if (useStaticMethods) {
-            methodBuilder.addStatement("$T result = fromDtoArray(sources)", sourceArrayType);
+            methodBuilder.addStatement("return fromDtoArray(sources, null, customizer)");
         } else {
-            methodBuilder.addStatement("$T result = this.fromDtoArray(sources)", sourceArrayType);
+            methodBuilder.addStatement("return this.fromDtoArray(sources, null, customizer)");
         }
-
-        methodBuilder.beginControlFlow("if (result != null && customizer != null)")
-                .addStatement("result = customizer.apply(result)")
-                .endControlFlow()
-                .addStatement("return result");
 
         return methodBuilder.build();
     }
