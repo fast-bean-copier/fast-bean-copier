@@ -148,6 +148,15 @@ public class FieldMapping {
      */
     private String reverseSkipReason;
 
+    // ========== v1.4 新增字段 ==========
+
+    /**
+     * 深拷贝控制标记。
+     *
+     * @since 1.4.0
+     */
+    private boolean deepCopy = true;
+
     /**
      * 构造方法。
      *
@@ -542,6 +551,28 @@ public class FieldMapping {
      */
     public void setReverseSkipReason(String reverseSkipReason) {
         this.reverseSkipReason = reverseSkipReason;
+    }
+
+    // ========== v1.4 新增方法 ==========
+
+    /**
+     * 判断是否启用深拷贝。
+     *
+     * @return 如果启用深拷贝返回 true
+     * @since 1.4.0
+     */
+    public boolean isDeepCopy() {
+        return deepCopy;
+    }
+
+    /**
+     * 设置深拷贝控制标记。
+     *
+     * @param deepCopy 是否启用深拷贝
+     * @since 1.4.0
+     */
+    public void setDeepCopy(boolean deepCopy) {
+        this.deepCopy = deepCopy;
     }
 
     /**

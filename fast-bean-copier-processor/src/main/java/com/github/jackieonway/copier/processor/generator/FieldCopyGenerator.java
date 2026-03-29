@@ -381,28 +381,51 @@ public class FieldCopyGenerator {
             return;
         }
 
+        // v1.4: 检查深拷贝控制标记
+        boolean enableDeepCopy = mapping.isDeepCopy();
+
         // 集合类型深拷贝
         if (TypeUtils.isList(sourceFieldType) && TypeUtils.isList(targetFieldType)) {
-            deepCopyGenerator.generateListDeepCopyCode(methodBuilder, getterName, setterName, 
-                    sourceFieldType, targetFieldType, mapping, reverse, useStaticMethods);
+            if (enableDeepCopy) {
+                deepCopyGenerator.generateListDeepCopyCode(methodBuilder, getterName, setterName, 
+                        sourceFieldType, targetFieldType, mapping, reverse, useStaticMethods);
+            } else {
+                // 浅拷贝：直接赋值引用
+                methodBuilder.addStatement("target.$L(source.$L())", setterName, getterName);
+            }
             return;
         }
 
         if (TypeUtils.isSet(sourceFieldType) && TypeUtils.isSet(targetFieldType)) {
-            deepCopyGenerator.generateSetDeepCopyCode(methodBuilder, getterName, setterName, 
-                    sourceFieldType, targetFieldType, mapping, reverse, useStaticMethods);
+            if (enableDeepCopy) {
+                deepCopyGenerator.generateSetDeepCopyCode(methodBuilder, getterName, setterName, 
+                        sourceFieldType, targetFieldType, mapping, reverse, useStaticMethods);
+            } else {
+                // 浅拷贝：直接赋值引用
+                methodBuilder.addStatement("target.$L(source.$L())", setterName, getterName);
+            }
             return;
         }
 
         if (TypeUtils.isArrayType(sourceFieldType) && TypeUtils.isArrayType(targetFieldType)) {
-            deepCopyGenerator.generateArrayDeepCopyCode(methodBuilder, getterName, setterName, 
-                    sourceFieldType, targetFieldType, mapping, reverse, useStaticMethods);
+            if (enableDeepCopy) {
+                deepCopyGenerator.generateArrayDeepCopyCode(methodBuilder, getterName, setterName, 
+                        sourceFieldType, targetFieldType, mapping, reverse, useStaticMethods);
+            } else {
+                // 浅拷贝：直接赋值引用
+                methodBuilder.addStatement("target.$L(source.$L())", setterName, getterName);
+            }
             return;
         }
 
         if (TypeUtils.isMap(sourceFieldType) && TypeUtils.isMap(targetFieldType)) {
-            deepCopyGenerator.generateMapDeepCopyCode(methodBuilder, getterName, setterName, 
-                    sourceFieldType, targetFieldType, mapping, reverse, useStaticMethods);
+            if (enableDeepCopy) {
+                deepCopyGenerator.generateMapDeepCopyCode(methodBuilder, getterName, setterName, 
+                        sourceFieldType, targetFieldType, mapping, reverse, useStaticMethods);
+            } else {
+                // 浅拷贝：直接赋值引用
+                methodBuilder.addStatement("target.$L(source.$L())", setterName, getterName);
+            }
             return;
         }
 
@@ -414,9 +437,15 @@ public class FieldCopyGenerator {
                 return;
             }
             
-            // 不同类型：尝试使用 Copier，如果没有则使用字段拷贝
-            generateNestedObjectCopyCode(methodBuilder, mapping, reverse, 
-                    sourceFieldType, targetFieldType, getterName, setterName);
+            // v1.4: 检查深拷贝控制标记
+            if (enableDeepCopy) {
+                // 不同类型：尝试使用 Copier，如果没有则使用字段拷贝
+                generateNestedObjectCopyCode(methodBuilder, mapping, reverse, 
+                        sourceFieldType, targetFieldType, getterName, setterName);
+            } else {
+                // 浅拷贝：直接赋值引用
+                methodBuilder.addStatement("target.$L(source.$L())", setterName, getterName);
+            }
             return;
         }
 

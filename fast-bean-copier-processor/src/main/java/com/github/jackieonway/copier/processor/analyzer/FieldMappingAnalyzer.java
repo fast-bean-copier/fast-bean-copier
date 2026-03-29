@@ -166,6 +166,9 @@ public class FieldMappingAnalyzer {
         String defaultValue = extractor.extractDefaultValue(annotation);
         String constant = extractor.extractConstant(annotation);
 
+        // 提取 v1.4 新增属性
+        boolean deepCopy = extractor.extractDeepCopy(annotation);
+
         // 验证互斥关系
         if (!validateMutualExclusion(defaultValue, constant, targetField)) {
             return null;
@@ -206,6 +209,8 @@ public class FieldMappingAnalyzer {
             if (defaultValue != null && !defaultValue.isEmpty()) {
                 mapping.setDefaultValue(defaultValue);
             }
+            // 设置 v1.4 新增属性
+            mapping.setDeepCopy(deepCopy);
         }
 
         return mapping;

@@ -498,6 +498,20 @@ public class AnnotationExtractor {
     }
 
     /**
+     * 从 @CopyField 注解中提取深拷贝控制标记。
+     *
+     * @param annotation CopyField 注解
+     * @return 深拷贝控制标记，默认为 true
+     * @since 1.4.0
+     */
+    public boolean extractDeepCopy(CopyField annotation) {
+        if (annotation == null) {
+            return true; // 默认启用深拷贝
+        }
+        return annotation.deepCopy();
+    }
+
+    /**
      * 包级别配置数据类。
      *
      * @since 1.3.0
