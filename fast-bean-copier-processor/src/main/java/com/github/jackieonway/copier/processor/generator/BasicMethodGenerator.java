@@ -481,10 +481,16 @@ public class BasicMethodGenerator {
      */
     private void generateUpdateFieldCopyCode(MethodSpec.Builder methodBuilder, 
                                               FieldMapping mapping, boolean reverse) {
+        // v1.3.1: 检查是否在逆向转换中跳过
+        if (reverse && mapping.isSkipInReverseMapping()) {
+            // 跳过不可逆的映射
+            return;
+        }
+
         String sourceFieldName = reverse ? mapping.getTargetFieldName() : mapping.getSourceFieldName();
         String targetFieldName = reverse ? mapping.getSourceFieldName() : mapping.getTargetFieldName();
 
-        if (sourceFieldName == null) {
+        if (sourceFieldName == null || targetFieldName == null) {
             // 常量映射等没有源字段的情况
             if (mapping.isConstantMapping() && !reverse) {
                 fieldCopyGenerator.generateFieldCopyCode(methodBuilder, mapping, reverse);

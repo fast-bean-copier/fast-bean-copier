@@ -131,15 +131,15 @@ fast-bean-copier/
 
 ## 测试覆盖
 
-- **测试用例**：471+（涵盖所有功能）
+- **测试用例**：461 个（涵盖所有功能）
 - **示例模块指令覆盖率**：95%+（Jacoco）
 - **处理器模块覆盖率**：80%+（Jacoco）
 - **所有测试通过** ✅
 
 ### v1.4.0 测试类
 
-- `V140ProcessorIntegrationTest` - 双处理器功能测试（10 个测试用例）
-- `V140BeforeMappingCompatibilityTest` - beforeMapping 兼容性测试（5 个测试用例）
+- `V140ProcessorIntegrationTest` - 双处理器功能测试（8 个测试用例）
+- `V140BeforeMappingCompatibilityTest` - beforeMapping 兼容性测试（3 个测试用例）
 - `V140DeepCopyControlTest` - 深拷贝控制功能测试（10 个测试用例）
 
 ### v1.3.2 测试类
@@ -426,7 +426,7 @@ mvn jacoco:report
 - 深拷贝控制：@CopyField.deepCopy 属性
 - beforeMapping 和 customizer 方法标记为 @Deprecated
 - 所有集合方法支持双处理器
-- 471+ 测试用例，覆盖率 95%+
+- 461 测试用例，覆盖率 95%+
 
 ### 1.3.2（2026-02-03）
 - 嵌套对象深拷贝支持
@@ -481,7 +481,7 @@ mvn jacoco:report
 - **测试代码行数**：~7000 行
 - **文档行数**：~8000 行
 - **总代码行数**：~27000 行
-- **测试用例数**：471+ 个
+- **测试用例数**：461 个
 - **文档文件数**：8 个
 
 ## 贡献指南

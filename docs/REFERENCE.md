@@ -1306,7 +1306,7 @@ public class OrderDto {
 - 深拷贝控制：@CopyField.deepCopy 属性
 - beforeMapping 和 customizer 方法标记为 @Deprecated
 - 所有集合方法支持双处理器
-- 471+ 测试用例，覆盖率 95%+
+- 461 测试用例，覆盖率 95%+
 
 ### 1.3.2（2026-02-03）
 - 嵌套对象深拷贝支持

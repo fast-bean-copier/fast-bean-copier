@@ -282,9 +282,13 @@ public class FieldMappingAnalyzer {
 
         // 检查字段类型兼容性
         if (!TypeUtils.isTypeCompatible(sourceFieldType, targetFieldType)) {
-            context.warning("字段 '" + targetFieldName + "' 的类型不兼容：" +
-                    sourceFieldType + " -> " + targetFieldType, targetField);
-            return null;
+            // v1.3.2: 对于嵌套对象，即使类型不同也可能兼容（通过 Copier 或字段拷贝）
+            // 只有当两个都不是自定义对象时才报错
+            if (!(TypeUtils.needsDeepCopy(sourceFieldType) && TypeUtils.needsDeepCopy(targetFieldType))) {
+                context.error("字段 '" + targetFieldName + "' 的类型不兼容：源类型 '" + 
+                        sourceFieldType + "' 与目标类型 '" + targetFieldType + "' 不匹配", targetField);
+                return null;
+            }
         }
 
         return new FieldMapping(sourceField, targetField, sourceFieldType, targetFieldType);
