@@ -1,5 +1,9 @@
 # Fast Bean Copier 快速入门指南
 
+> v1.4.0 新特性：函数式处理增强（preProcessor + postProcessor 双处理器）、深拷贝控制（@CopyField.deepCopy 属性）。
+>
+> v1.3.2 新特性：嵌套对象深拷贝支持（自动深拷贝不同类型的嵌套对象、无限层级嵌套、混合模式支持）。
+>
 > v1.3.1 新特性：Map/Array 批量转换的 UnaryOperator 重载、Properties 配置文件支持、逆向转换智能跳过。
 >
 > v1.3 新特性：更新现有对象（updateDto/updateEntity）、映射前回调、条件映射、默认值和常量、全局配置（@CopyTargetConfig）。
@@ -18,13 +22,13 @@
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-annotations</artifactId>
-    <version>1.3.1</version>
+    <version>1.4.0</version>
 </dependency>
 
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-processor</artifactId>
-    <version>1.3.1</version>
+    <version>1.4.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -97,6 +101,57 @@ User user = UserDtoCopier.fromDto(userDto);
 ```java
 List<UserDto> dtos = UserDtoCopier.toDtoList(users);
 Set<UserDto> dtoSet = UserDtoCopier.toDtoSet(users);
+```
+
+## v1.4.0 新功能
+
+### 函数式处理增强
+
+```java
+// 预处理和后处理
+UserDto dto = UserDtoCopier.toDto(
+    user,
+    source -> {
+        // preProcessor: 拷贝前对 source 预处理
+        source.setName(source.getName().trim());
+        return source;
+    },
+    target -> {
+        // postProcessor: 拷贝后对 target 后处理
+        target.setDisplayName(target.getName().toUpperCase());
+        return target;
+    }
+);
+
+// 集合转换
+List<UserDto> dtos = UserDtoCopier.toDtoList(
+    users,
+    source -> { /* 预处理每个 source */ return source; },
+    target -> { /* 后处理每个 target */ return target; }
+);
+```
+
+### 深拷贝控制
+
+```java
+@CopyTarget(source = Employee.class)
+public class EmployeeDto {
+    // 深拷贝（默认）：创建新的 AddressDto 对象
+    @CopyField(deepCopy = true)
+    private AddressDto address;
+    
+    // 浅拷贝：直接引用传递
+    @CopyField(deepCopy = false)
+    private DepartmentDto department;
+    
+    // 集合深拷贝（默认）
+    @CopyField(deepCopy = true)
+    private List<ProjectDto> projects;
+    
+    // 集合浅拷贝：拷贝集合但元素直接引用
+    @CopyField(deepCopy = false)
+    private List<TagDto> tags;
+}
 ```
 
 ## v1.2 新功能

@@ -5,6 +5,81 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-03-29
+
+### Added
+
+#### Functional Processing Enhancement: preProcessor + postProcessor Dual Processors
+- **Dual Processor API**: Unified `preProcessor + postProcessor` functional interface
+  - `toDto(source, preProcessor, postProcessor)`: Pre-process source before copy, post-process target after copy
+  - `fromDto(source, preProcessor, postProcessor)`: Pre-process DTO before copy, post-process Entity after copy
+  - Execution order: `preProcessor` → field copy → `postProcessor`
+- **Collection Methods Dual Processor Support**: All collection methods support dual processors
+  - `toDtoList(sources, preProcessor, postProcessor)`
+  - `toDtoSet(sources, preProcessor, postProcessor)`
+  - `toDtoMap(sources, preProcessor, postProcessor)`
+  - `toDtoArray(sources, preProcessor, postProcessor)`
+  - Corresponding `fromDto*` methods also support dual processors
+- **Processor Scope**: Consistent with v1.3.1, applies processors to entire collection result
+
+#### Deep Copy Control: @CopyField.deepCopy Attribute
+- **Field-level Deep Copy Control**: Control deep copy behavior via `@CopyField(deepCopy = true/false)`
+  - `deepCopy = true` (default): Deep copy nested objects/collection elements (create new objects)
+  - `deepCopy = false`: Shallow copy (direct reference passing)
+- **Supported Types**:
+  - Nested objects: Control whether to call Copier or field copy
+  - Collections (List/Set/Map): Control whether collection elements are deep copied
+  - Arrays: Control whether array elements are deep copied
+- **Use Cases**:
+  - Performance optimization: Use shallow copy for fields that don't need deep copy
+  - Shared references: Multiple objects share the same nested object instance
+  - Immutable objects: Use shallow copy for immutable objects
+
+### Deprecated
+
+#### beforeMapping Method Deprecation
+- **@CopyTarget.beforeMapping()** marked as `@Deprecated`
+  - Recommended to use `preProcessor` instead
+  - Retained during transition period, still works normally
+- **Execution Order Compatibility**: When both `preProcessor` and `beforeMapping` exist
+  - Execution order: `preProcessor` → `beforeMapping` → field copy
+  - Ensures backward compatibility
+
+#### customizer Method Deprecation
+- **toDto(source, customizer)** and **fromDto(source, customizer)** marked as `@Deprecated`
+  - Recommended to use `toDto(source, null, postProcessor)` instead
+  - Internally delegates to new method implementation, behavior remains consistent
+- **Collection Method customizer** also marked as `@Deprecated`
+  - Delegates to `(..., null, customizer)` implementation
+
+### Improved
+
+#### Code Generation Optimization
+- **FieldCopyGenerator Enhancement**: Support `deepCopy` control
+  - Reads `mapping.isDeepCopy()` configuration
+  - Generates direct assignment code when `deepCopy=false`
+  - Maintains original deep copy logic when `deepCopy=true`
+- **BasicMethodGenerator Enhancement**: Generate dual processor methods
+  - Generates methods with `preProcessor` and `postProcessor` parameters
+  - Old methods delegate to new methods
+- **CollectionMethodGenerator Enhancement**: Generate collection dual processor methods
+  - All collection types uniformly support dual processors
+  - Old methods delegate to new methods
+
+### Testing
+- Added 471+ test cases (+10 new tests)
+- Added `V140ProcessorIntegrationTest`: Dual processor functionality tests
+- Added `V140BeforeMappingCompatibilityTest`: beforeMapping compatibility tests
+- Added `V140DeepCopyControlTest`: Deep copy control functionality tests
+- Code coverage: 95%+
+
+### Compatibility
+- **Backward Compatible**: All v1.3.x code can upgrade without modification
+- **Deprecated Methods Retained**: `beforeMapping` and `customizer` methods still usable
+- **Default Behavior Unchanged**: `deepCopy` defaults to `true`, maintains original deep copy behavior
+
+---
+
 ## [1.3.1] - 2026-01-28
 
 ### Added

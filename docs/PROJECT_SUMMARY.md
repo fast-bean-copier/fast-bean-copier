@@ -4,13 +4,13 @@
 
 **Fast Bean Copier** 是一个高性能的 Java Bean 拷贝工具，使用 APT（注解处理工具）在编译期自动生成拷贝代码，实现零运行时开销。
 
-**项目状态**：✅ 已完成，生产就绪（v1.3.1 新增 Map/Array 批量转换 UnaryOperator 重载、Properties 配置文件支持、逆向转换智能跳过）
+**项目状态**：✅ 已完成，生产就绪（v1.4.0 新增函数式处理增强和深拷贝控制）
 
 ## 项目信息
 
 - **项目名称**：Fast Bean Copier
-- **版本**：1.3.1
-- **发布日期**：2026-01-28
+- **版本**：1.4.0
+- **发布日期**：2026-03-29
 - **Java 版本**：Java 8+
 - **构建工具**：Maven
 - **许可证**：Apache License 2.0
@@ -90,6 +90,15 @@ fast-bean-copier/
 21. **FieldMappingAnalyzer** - 字段映射分析器，分析字段映射关系
 22. **生成器组件** - ClassStructureGenerator、BasicMethodGenerator、CollectionMethodGenerator、FieldCopyGenerator、DeepCopyGenerator
 
+### ✅ v1.3.0 功能
+
+23. **更新现有对象** - updateDto/updateEntity 方法，支持更新已存在的对象
+24. **映射前回调** - beforeMapping 属性，在映射前执行验证、初始化等自定义逻辑
+25. **条件映射** - condition 属性，基于条件决定是否映射字段
+26. **默认值和常量** - defaultValue/constant 属性，设置字段的默认值和常量值
+27. **全局配置** - @CopyTargetConfig 注解，包级别配置减少重复配置
+28. **Null 值处理策略** - NullValueStrategy 枚举，IGNORE 或 REPLACE 策略
+
 ### ✅ v1.3.1 功能
 
 29. **Map 批量转换 UnaryOperator 重载** - toDtoMap/fromDtoMap 支持函数式后处理
@@ -97,6 +106,18 @@ fast-bean-copier/
 31. **Properties 配置文件支持** - 通过 fast-bean-copier.properties 进行全局配置
 32. **配置优先级合并** - 类级别 > 包级别 > 配置文件 > 默认值
 33. **逆向转换智能跳过** - 自动跳过不可逆的特殊字段映射（typeConverter、expression、qualifiedByName、constant）
+
+### ✅ v1.4.0 功能
+
+34. **函数式处理增强** - preProcessor + postProcessor 双处理器 API
+35. **双处理器方法** - toDto/fromDto 支持预处理和后处理
+36. **集合双处理器** - 所有集合方法支持双处理器
+37. **深拷贝控制** - @CopyField.deepCopy 属性，字段级控制深拷贝行为
+38. **嵌套对象深拷贝控制** - 控制嵌套对象是否深拷贝
+39. **集合深拷贝控制** - 控制集合元素是否深拷贝
+40. **数组深拷贝控制** - 控制数组元素是否深拷贝
+41. **beforeMapping 废弃** - 标记为 @Deprecated，建议使用 preProcessor
+42. **customizer 废弃** - 标记为 @Deprecated，建议使用 postProcessor
 
 ## 技术栈
 
@@ -110,10 +131,24 @@ fast-bean-copier/
 
 ## 测试覆盖
 
-- **测试用例**：396+（涵盖所有功能）
-- **示例模块指令覆盖率**：93%+（Jacoco）
+- **测试用例**：471+（涵盖所有功能）
+- **示例模块指令覆盖率**：95%+（Jacoco）
 - **处理器模块覆盖率**：80%+（Jacoco）
 - **所有测试通过** ✅
+
+### v1.4.0 测试类
+
+- `V140ProcessorIntegrationTest` - 双处理器功能测试（10 个测试用例）
+- `V140BeforeMappingCompatibilityTest` - beforeMapping 兼容性测试（5 个测试用例）
+- `V140DeepCopyControlTest` - 深拷贝控制功能测试（10 个测试用例）
+
+### v1.3.2 测试类
+
+- `ReverseSkipFieldTest` - 逆向转换跳过字段测试（7 个测试用例）
+- `PropertiesConfigLoaderTest` - 配置文件读取测试（19 个测试用例）
+- `ConfigMergerTest` - 配置优先级合并测试（20 个测试用例）
+- `V131UnaryOperatorIntegrationTest` - UnaryOperator 集成测试（14 个测试用例）
+- `PropertiesConfigIntegrationTest` - Properties 配置集成测试（6 个测试用例）
 
 ### v1.3.1 测试类
 
@@ -276,6 +311,38 @@ fast.bean.copier.componentModel=SPRING
 fast.bean.copier.nullValueStrategy=IGNORE
 ```
 
+### 函数式处理（v1.4）
+
+```java
+// 预处理和后处理
+UserDto dto = UserDtoCopier.toDto(
+    user,
+    source -> {
+        source.setName(source.getName().trim());
+        return source;
+    },
+    target -> {
+        target.setDisplayName(target.getName().toUpperCase());
+        return target;
+    }
+);
+```
+
+### 深拷贝控制（v1.4）
+
+```java
+@CopyTarget(source = Order.class)
+public class OrderDto {
+    // 深拷贝：完全独立的副本
+    @CopyField(deepCopy = true)
+    private CustomerDto customer;
+    
+    // 浅拷贝：共享引用，性能优化
+    @CopyField(deepCopy = false)
+    private StatusDto status;
+}
+```
+
 ### 条件映射和默认值（v1.3）
 
 ```java
@@ -354,6 +421,19 @@ mvn jacoco:report
 
 ## 版本历史
 
+### 1.4.0（2026-03-29）
+- 函数式处理增强：preProcessor + postProcessor 双处理器 API
+- 深拷贝控制：@CopyField.deepCopy 属性
+- beforeMapping 和 customizer 方法标记为 @Deprecated
+- 所有集合方法支持双处理器
+- 471+ 测试用例，覆盖率 95%+
+
+### 1.3.2（2026-02-03）
+- 嵌套对象深拷贝支持
+- 自动深拷贝不同类型的嵌套对象
+- 无限层级嵌套和混合模式支持
+- 440+ 测试用例
+
 ### 1.3.1（2026-01-28）
 - Map/Array 批量转换的 UnaryOperator 重载
 - Properties 配置文件支持
@@ -397,11 +477,11 @@ mvn jacoco:report
 
 ## 项目统计
 
-- **源代码行数**：~11000 行
-- **测试代码行数**：~6000 行
-- **文档行数**：~7000 行
-- **总代码行数**：~24000 行
-- **测试用例数**：396+ 个
+- **源代码行数**：~12000 行
+- **测试代码行数**：~7000 行
+- **文档行数**：~8000 行
+- **总代码行数**：~27000 行
+- **测试用例数**：471+ 个
 - **文档文件数**：8 个
 
 ## 贡献指南

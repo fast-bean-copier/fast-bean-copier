@@ -2,6 +2,8 @@
 
 Fast Bean Copier 是一个高性能的 Java Bean 拷贝工具，使用 APT（注解处理工具）在编译期自动生成拷贝代码，实现零运行时开销。
 
+> **v1.4.0 新特性**：函数式处理增强（preProcessor + postProcessor 双处理器）、深拷贝控制（@CopyField.deepCopy 属性）。
+>
 > **v1.3.2 新特性**：嵌套对象深拷贝支持（自动深拷贝不同类型的嵌套对象、无限层级嵌套、混合模式支持）。
 >
 > **v1.3.1 新特性**：统一所有集合类型的 UnaryOperator 行为（List/Set/Map/Array）、Properties 配置文件支持、逆向转换特殊字段自动跳过。
@@ -29,6 +31,8 @@ Fast Bean Copier 是一个高性能的 Java Bean 拷贝工具，使用 APT（注
 - ✅ **条件映射** - 支持基于条件决定是否映射字段
 - ✅ **默认值和常量** - 支持设置字段的默认值和常量值
 - ✅ **全局配置** - 支持包级别配置，减少重复配置
+- 🆕 **函数式处理增强**（v1.4.0）- preProcessor + postProcessor 双处理器 API，统一函数式处理
+- 🆕 **深拷贝控制**（v1.4.0）- @CopyField.deepCopy 属性，字段级控制深拷贝行为
 - 🆕 **嵌套对象深拷贝**（v1.3.2）- 自动深拷贝不同类型的嵌套对象，支持无限层级和混合模式
 - 🆕 **统一集合定制**（v1.3.1）- 所有集合类型（List/Set/Map/Array）使用一致的 UnaryOperator 行为
 - 🆕 **配置文件支持**（v1.3.1）- 支持通过 Properties 文件进行全局配置
@@ -42,13 +46,13 @@ Fast Bean Copier 是一个高性能的 Java Bean 拷贝工具，使用 APT（注
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-annotations</artifactId>
-    <version>1.3.2</version>
+    <version>1.4.0</version>
 </dependency>
 
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-processor</artifactId>
-    <version>1.3.2</version>
+    <version>1.4.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -82,6 +86,57 @@ User converted = UserDtoCopier.fromDto(userDto);
 
 // 集合拷贝
 List<UserDto> userDtos = UserDtoCopier.toDtoList(users);
+```
+
+## v1.4.0 新功能
+
+### 函数式处理增强
+
+```java
+// 预处理和后处理
+UserDto dto = UserDtoCopier.toDto(
+    user,
+    source -> {
+        // preProcessor: 拷贝前对 source 预处理
+        source.setName(source.getName().trim());
+        return source;
+    },
+    target -> {
+        // postProcessor: 拷贝后对 target 后处理
+        target.setDisplayName(target.getName().toUpperCase());
+        return target;
+    }
+);
+
+// 集合转换
+List<UserDto> dtos = UserDtoCopier.toDtoList(
+    users,
+    source -> { /* 预处理每个 source */ return source; },
+    target -> { /* 后处理每个 target */ return target; }
+);
+```
+
+### 深拷贝控制
+
+```java
+@CopyTarget(source = Employee.class)
+public class EmployeeDto {
+    // 深拷贝（默认）：创建新的 AddressDto 对象
+    @CopyField(deepCopy = true)
+    private AddressDto address;
+    
+    // 浅拷贝：直接引用传递，性能优化
+    @CopyField(deepCopy = false)
+    private DepartmentDto department;
+    
+    // 集合深拷贝（默认）：拷贝集合并深拷贝每个元素
+    @CopyField(deepCopy = true)
+    private List<ProjectDto> projects;
+    
+    // 集合浅拷贝：拷贝集合但元素直接引用
+    @CopyField(deepCopy = false)
+    private List<TagDto> tags;
+}
 ```
 
 ## v1.2 新功能

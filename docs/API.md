@@ -1,5 +1,7 @@
 # Fast Bean Copier API 文档
 
+> v1.4.0 新增：函数式处理增强（preProcessor/postProcessor 双处理器）、深拷贝控制（@CopyField.deepCopy）、beforeMapping 废弃。
+>
 > v1.3.2 新增：嵌套对象深拷贝支持（自动深拷贝不同类型的嵌套对象、无限层级嵌套、混合模式支持）。
 >
 > v1.3.1 新增：统一所有集合类型的 UnaryOperator 行为（List/Set/Map/Array）、Properties 配置文件支持、逆向转换智能跳过。
@@ -151,6 +153,11 @@ public @interface CopyField {
      * 常量值，直接设置，不依赖源字段（v1.3）
      */
     String constant() default "";
+    
+    /**
+     * 深拷贝控制，决定嵌套对象/集合是否深拷贝（v1.4）
+     */
+    boolean deepCopy() default true;
 }
 ```
 
@@ -167,6 +174,7 @@ public @interface CopyField {
 | `condition` | `String` | 否 | 条件表达式（v1.3） |
 | `defaultValue` | `String` | 否 | 默认值（v1.3） |
 | `constant` | `String` | 否 | 常量值（v1.3） |
+| `deepCopy` | `boolean` | 否 | 深拷贝控制（v1.4） |
 
 #### 示例
 
@@ -200,6 +208,13 @@ private String name;
 // 常量值（v1.3）
 @CopyField(constant = "SYSTEM")
 private String createdBy;
+
+// 深拷贝控制（v1.4）
+@CopyField(deepCopy = false)  // 浅拷贝，直接引用
+private Address address;
+
+@CopyField(deepCopy = true)   // 深拷贝（默认行为）
+private List<String> tags;
 ```
 
 ### ComponentModel 枚举（v1.2 新增）
@@ -422,6 +437,51 @@ UserDto dto = UserDtoCopier.toDto(user, result -> {
 });
 ```
 
+#### toDto(source, preProcessor, postProcessor)（v1.4 新增）
+
+将源对象转换为目标 DTO 对象，支持拷贝前和拷贝后的双重处理。
+
+**签名**：
+```java
+public static TargetType toDto(SourceType source, 
+                                UnaryOperator<SourceType> preProcessor, 
+                                UnaryOperator<TargetType> postProcessor)
+```
+
+**参数**：
+- `source` - 源对象
+- `preProcessor` - 拷贝前处理器，对源对象进行预处理
+- `postProcessor` - 拷贝后处理器，对结果对象进行后处理
+
+**返回值**：
+- 经过双重处理的目标 DTO 对象
+
+**执行顺序**：
+1. 执行 `preProcessor`（如果不为 null）
+2. 执行字段拷贝
+3. 执行 `postProcessor`（如果不为 null）
+
+**示例**：
+```java
+// 拷贝前规范化源数据，拷贝后添加额外信息
+UserDto dto = UserDtoCopier.toDto(user, 
+    source -> {
+        // 预处理：规范化邮箱
+        source.setEmail(source.getEmail().toLowerCase());
+        return source;
+    },
+    result -> {
+        // 后处理：添加显示名称
+        result.setDisplayName(result.getName().toUpperCase());
+        return result;
+    }
+);
+```
+
+**注意**：
+- `toDto(source, customizer)` 方法已标记为 `@Deprecated`，建议使用 `toDto(source, null, postProcessor)` 替代
+- 旧方法仍可使用，内部委托到新方法实现
+
 #### fromDto(source)
 
 将目标 DTO 对象转换回源对象（反向拷贝）。
@@ -451,6 +511,48 @@ User user = UserDtoCopier.fromDto(userDto);
 ```java
 public static SourceType fromDto(TargetType source, UnaryOperator<SourceType> customizer)
 ```
+
+#### fromDto(source, preProcessor, postProcessor)（v1.4 新增）
+
+将目标 DTO 对象转换回源对象，支持拷贝前和拷贝后的双重处理。
+
+**签名**：
+```java
+public static SourceType fromDto(TargetType source, 
+                                  UnaryOperator<TargetType> preProcessor, 
+                                  UnaryOperator<SourceType> postProcessor)
+```
+
+**参数**：
+- `source` - 目标 DTO 对象
+- `preProcessor` - 拷贝前处理器，对 DTO 对象进行预处理
+- `postProcessor` - 拷贝后处理器，对结果对象进行后处理
+
+**返回值**：
+- 经过双重处理的源对象
+
+**示例**：
+```java
+User user = UserDtoCopier.fromDto(userDto, 
+    dto -> {
+        // 预处理：验证 DTO
+        if (dto.getEmail() == null) {
+            throw new IllegalArgumentException("Email is required");
+        }
+        return dto;
+    },
+    result -> {
+        // 后处理：设置默认值
+        if (result.getStatus() == null) {
+            result.setStatus("ACTIVE");
+        }
+        return result;
+    }
+);
+```
+
+**注意**：
+- `fromDto(source, customizer)` 方法已标记为 `@Deprecated`，建议使用 `fromDto(source, null, postProcessor)` 替代
 
 #### updateDto(target, source)（v1.3 新增）
 

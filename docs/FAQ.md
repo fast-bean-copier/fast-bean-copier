@@ -4,7 +4,153 @@
 
 本项目采用 Apache License 2.0 许可证。
 
+## 版本特性
+
+### Q: v1.4.0 有哪些新增功能？
+**A**: v1.4.0 主要新增函数式处理增强和深拷贝控制：
+- **函数式处理增强**：统一的 preProcessor + postProcessor 双处理器 API
+  - `toDto(source, preProcessor, postProcessor)`：拷贝前对 source 预处理，拷贝后对 target 后处理
+  - `fromDto(source, preProcessor, postProcessor)`：拷贝前对 DTO 预处理，拷贝后对 Entity 后处理
+  - 所有集合方法（List/Set/Map/Array）都支持双处理器
+- **深拷贝控制**：通过 `@CopyField(deepCopy = true/false)` 控制深拷贝行为
+  - `deepCopy = true`（默认）：嵌套对象/集合元素深拷贝
+  - `deepCopy = false`：浅拷贝（直接引用传递）
+- **废弃方法**：`beforeMapping` 和 `customizer` 方法标记为 `@Deprecated`，建议使用新的双处理器 API
+
 ## 基本问题
+
+### Q: Fast Bean Copier 是什么？
+**A**: Fast Bean Copier 是一个基于注解处理器的 Java Bean 拷贝工具，在编译期自动生成类型安全、高性能的 Bean 映射代码。
+
+### Q: 与 MapStruct 有什么区别？
+**A**: 
+- Fast Bean Copier 更简洁，只需一个 `@CopyTarget` 注解
+- Fast Bean Copier 自动生成 List/Set/Map/数组 映射方法
+- Fast Bean Copier 自动处理基本类型与包装类型转换
+- MapStruct 功能更强大，支持更多高级特性
+
+### Q: 支持哪些 Java 版本？
+**A**: Java 8 及以上版本。
+
+### Q: 可以在 Gradle 项目中使用吗？
+**A**: 可以。在 `build.gradle` 中添加：
+```gradle
+dependencies {
+    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.4.0'
+    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.4.0'
+}
+```
+
+## v1.4.0 新功能问题
+
+### Q: 如何使用 preProcessor 和 postProcessor？
+**A**: v1.4.0 提供了统一的双处理器 API：
+
+```java
+// 单对象转换
+UserDto dto = UserDtoCopier.toDto(
+    user,
+    source -> {
+        // preProcessor: 拷贝前对 source 预处理
+        source.setName(source.getName().trim());
+        return source;
+    },
+    target -> {
+        // postProcessor: 拷贝后对 target 后处理
+        target.setDisplayName(target.getName().toUpperCase());
+        return target;
+    }
+);
+
+// 集合转换
+List<UserDto> dtos = UserDtoCopier.toDtoList(
+    users,
+    source -> { /* 预处理每个 source */ return source; },
+    target -> { /* 后处理每个 target */ return target; }
+);
+```
+
+### Q: preProcessor 和 postProcessor 的执行顺序是什么？
+**A**: 执行顺序为：`preProcessor` → 字段拷贝 → `postProcessor`
+
+如果同时存在 `beforeMapping`（已废弃），执行顺序为：`preProcessor` → `beforeMapping` → 字段拷贝 → `postProcessor`
+
+### Q: 如何使用 deepCopy 控制深拷贝行为？
+**A**: 通过 `@CopyField(deepCopy = true/false)` 控制：
+
+```java
+@CopyTarget(source = Employee.class)
+public class EmployeeDto {
+    // 深拷贝（默认）：创建新的 AddressDto 对象
+    @CopyField(deepCopy = true)
+    private AddressDto address;
+    
+    // 浅拷贝：直接引用传递
+    @CopyField(deepCopy = false)
+    private DepartmentDto department;
+    
+    // 集合深拷贝（默认）：拷贝集合并深拷贝每个元素
+    @CopyField(deepCopy = true)
+    private List<ProjectDto> projects;
+    
+    // 集合浅拷贝：拷贝集合但元素直接引用
+    @CopyField(deepCopy = false)
+    private List<TagDto> tags;
+}
+```
+
+### Q: deepCopy 的默认值是什么？
+**A**: 默认值为 `true`，保持与之前版本一致的深拷贝行为。如果需要浅拷贝，显式设置 `deepCopy = false`。
+
+### Q: 什么时候应该使用 deepCopy = false？
+**A**: 以下场景适合使用浅拷贝：
+- **性能优化**：对不需要深拷贝的字段使用浅拷贝，减少对象创建开销
+- **共享引用**：多个对象需要共享同一个嵌套对象实例
+- **不可变对象**：对不可变对象（如枚举、常量）使用浅拷贝
+- **大对象**：对大型嵌套对象使用浅拷贝，避免内存占用
+
+### Q: 旧的 customizer 方法还能用吗？
+**A**: 可以，但已标记为 `@Deprecated`。建议迁移到新的双处理器 API：
+
+```java
+// 旧方法（已废弃）
+UserDto dto = UserDtoCopier.toDto(user, result -> {
+    result.setDisplayName(result.getName().toUpperCase());
+    return result;
+});
+
+// 新方法（推荐）
+UserDto dto = UserDtoCopier.toDto(user, null, result -> {
+    result.setDisplayName(result.getName().toUpperCase());
+    return result;
+});
+```
+
+### Q: beforeMapping 还能用吗？
+**A**: 可以，但已标记为 `@Deprecated`。建议使用 `preProcessor` 替代：
+
+```java
+// 旧方法（已废弃）
+@CopyTarget(source = User.class, beforeMapping = "validate")
+public class UserDto {
+    default void validate(User source) {
+        if (source.getName() == null) {
+            throw new IllegalArgumentException("Name cannot be null");
+        }
+    }
+}
+
+// 新方法（推荐）
+UserDto dto = UserDtoCopier.toDto(user, 
+    source -> {
+        if (source.getName() == null) {
+            throw new IllegalArgumentException("Name cannot be null");
+        }
+        return source;
+    },
+    null
+);
+```
 
 ### Q: v1.3.2 有哪些新增功能？
 **A**: v1.3.2 主要新增嵌套对象深拷贝支持：
@@ -46,28 +192,6 @@
 - **表达式映射**：支持 Java 表达式进行复杂转换
 - **依赖注入**：支持 Spring、CDI、JSR-330 框架集成
 - **函数式定制**：支持 `UnaryOperator` 后处理
-
-### Q: Fast Bean Copier 是什么？
-**A**: Fast Bean Copier 是一个基于注解处理器的 Java Bean 拷贝工具，在编译期自动生成类型安全、高性能的 Bean 映射代码。
-
-### Q: 与 MapStruct 有什么区别？
-**A**: 
-- Fast Bean Copier 更简洁，只需一个 `@CopyTarget` 注解
-- Fast Bean Copier 自动生成 List/Set/Map/数组 映射方法
-- Fast Bean Copier 自动处理基本类型与包装类型转换
-- MapStruct 功能更强大，支持更多高级特性
-
-### Q: 支持哪些 Java 版本？
-**A**: Java 8 及以上版本。
-
-### Q: 可以在 Gradle 项目中使用吗？
-**A**: 可以。在 `build.gradle` 中添加：
-```gradle
-dependencies {
-    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.3.2'
-    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.3.2'
-}
-```
 
 ## 功能问题
 

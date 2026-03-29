@@ -5,6 +5,81 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/),
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.4.0] - 2026-03-29
+
+### 新增
+
+#### 函数式处理增强：preProcessor + postProcessor 双处理器
+- **双处理器 API**：统一的 `preProcessor + postProcessor` 函数式接口
+  - `toDto(source, preProcessor, postProcessor)`：拷贝前对 source 预处理，拷贝后对 target 后处理
+  - `fromDto(source, preProcessor, postProcessor)`：拷贝前对 DTO 预处理，拷贝后对 Entity 后处理
+  - 执行顺序：`preProcessor` → 字段拷贝 → `postProcessor`
+- **集合方法双处理器支持**：所有集合方法支持双处理器
+  - `toDtoList(sources, preProcessor, postProcessor)`
+  - `toDtoSet(sources, preProcessor, postProcessor)`
+  - `toDtoMap(sources, preProcessor, postProcessor)`
+  - `toDtoArray(sources, preProcessor, postProcessor)`
+  - 对应的 `fromDto*` 方法同样支持
+- **处理器作用域**：与 v1.3.1 保持一致，对整个集合结果应用处理器
+
+#### 深拷贝控制：@CopyField.deepCopy 属性
+- **字段级深拷贝控制**：通过 `@CopyField(deepCopy = true/false)` 控制深拷贝行为
+  - `deepCopy = true`（默认）：嵌套对象/集合元素深拷贝（创建新对象）
+  - `deepCopy = false`：浅拷贝（直接引用传递）
+- **支持类型**：
+  - 嵌套对象：控制是否调用 Copier 或字段拷贝
+  - 集合（List/Set/Map）：控制集合元素是否深拷贝
+  - 数组：控制数组元素是否深拷贝
+- **使用场景**：
+  - 性能优化：对不需要深拷贝的字段使用浅拷贝
+  - 共享引用：多个对象共享同一个嵌套对象实例
+  - 不可变对象：对不可变对象使用浅拷贝
+
+### 废弃
+
+#### beforeMapping 方法废弃
+- **@CopyTarget.beforeMapping()** 标记为 `@Deprecated`
+  - 建议使用 `preProcessor` 替代
+  - 过渡期保留，仍可正常使用
+- **执行顺序兼容**：当 `preProcessor` 和 `beforeMapping` 同时存在时
+  - 执行顺序：`preProcessor` → `beforeMapping` → 字段拷贝
+  - 确保向后兼容
+
+#### customizer 方法废弃
+- **toDto(source, customizer)** 和 **fromDto(source, customizer)** 标记为 `@Deprecated`
+  - 建议使用 `toDto(source, null, postProcessor)` 替代
+  - 内部委托到新方法实现，行为保持一致
+- **集合方法 customizer** 同样标记为 `@Deprecated`
+  - 委托到 `(..., null, customizer)` 实现
+
+### 改进
+
+#### 代码生成优化
+- **FieldCopyGenerator 增强**：支持 `deepCopy` 控制
+  - 读取 `mapping.isDeepCopy()` 配置
+  - `deepCopy=false` 时生成直接赋值代码
+  - `deepCopy=true` 时保持原有深拷贝逻辑
+- **BasicMethodGenerator 增强**：生成双处理器方法
+  - 生成 `preProcessor` 和 `postProcessor` 参数的方法
+  - 旧方法委托到新方法实现
+- **CollectionMethodGenerator 增强**：生成集合双处理器方法
+  - 所有集合类型统一支持双处理器
+  - 旧方法委托到新方法实现
+
+### 测试
+- 新增 471+ 测试用例（+10 个新测试）
+- 新增 `V140ProcessorIntegrationTest`：双处理器功能测试
+- 新增 `V140BeforeMappingCompatibilityTest`：beforeMapping 兼容性测试
+- 新增 `V140DeepCopyControlTest`：深拷贝控制功能测试
+- 代码覆盖率：95%+
+
+### 兼容性
+- **向后兼容**：所有 v1.3.x 代码无需修改即可升级
+- **废弃方法保留**：`beforeMapping` 和 `customizer` 方法仍可使用
+- **默认行为不变**：`deepCopy` 默认为 `true`，保持原有深拷贝行为
+
+---
+
 ## [1.3.2] - 2026-02-03
 
 ### 新增

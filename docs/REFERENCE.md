@@ -1,4 +1,4 @@
-# Fast Bean Copier 1.3.1 参考文档
+# Fast Bean Copier 1.4.0 参考文档
 
 ## 前言
 
@@ -26,6 +26,8 @@ Fast Bean Copier 是一个 Java 注解处理器，用于生成类型安全的 Be
 - **条件映射和默认值** - v1.3 新增条件映射、默认值、常量等高级特性
 - **批量转换定制** - v1.3.1 新增 Map/Array 批量转换的 UnaryOperator 重载，支持函数式后处理
 - **全局配置** - v1.3.1 新增 Properties 配置文件支持，统一管理项目配置
+- **函数式处理增强** - v1.4.0 新增 preProcessor + postProcessor 双处理器 API，统一函数式处理
+- **深拷贝控制** - v1.4.0 新增 @CopyField.deepCopy 属性，字段级控制深拷贝行为
 
 ## 2. 设置
 
@@ -35,13 +37,13 @@ Fast Bean Copier 是一个 Java 注解处理器，用于生成类型安全的 Be
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-annotations</artifactId>
-    <version>1.3.1</version>
+    <version>1.4.0</version>
 </dependency>
 
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-processor</artifactId>
-    <version>1.3.1</version>
+    <version>1.4.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -50,8 +52,8 @@ Fast Bean Copier 是一个 Java 注解处理器，用于生成类型安全的 Be
 
 ```gradle
 dependencies {
-    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.3.1'
-    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.3.1'
+    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.4.0'
+    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.4.0'
 }
 ```
 
@@ -834,7 +836,219 @@ public static User fromDto(UserDto source) {
 | `qualifiedByName` | 具名方法是自定义转换 | "具名方法映射 '{字段名}' 不可逆，在 fromDto() 中跳过" |
 | `constant` | 常量值不依赖源字段 | "常量映射 '{字段名}' 不可逆，在 fromDto() 中跳过" |
 
-## 19. 数据类型转换
+## 19. 函数式处理增强（v1.4）
+
+### 19.1. preProcessor + postProcessor 双处理器
+
+v1.4.0 引入了统一的双处理器 API，提供更灵活的函数式处理能力：
+
+```java
+// 单对象转换
+UserDto dto = UserDtoCopier.toDto(
+    user,
+    source -> {
+        // preProcessor: 拷贝前对 source 预处理
+        source.setName(source.getName().trim());
+        return source;
+    },
+    target -> {
+        // postProcessor: 拷贝后对 target 后处理
+        target.setDisplayName(target.getName().toUpperCase());
+        return target;
+    }
+);
+
+// 反向转换
+User entity = UserDtoCopier.fromDto(
+    dto,
+    source -> { /* 预处理 DTO */ return source; },
+    target -> { /* 后处理 Entity */ return target; }
+);
+```
+
+### 19.2. 集合方法双处理器支持
+
+所有集合方法都支持双处理器：
+
+```java
+// List 转换
+List<UserDto> dtos = UserDtoCopier.toDtoList(
+    users,
+    source -> { /* 预处理每个 source */ return source; },
+    target -> { /* 后处理每个 target */ return target; }
+);
+
+// Set 转换
+Set<UserDto> dtoSet = UserDtoCopier.toDtoSet(
+    userSet,
+    source -> { /* 预处理 */ return source; },
+    target -> { /* 后处理 */ return target; }
+);
+
+// Map 转换
+Map<String, UserDto> dtoMap = UserDtoCopier.toDtoMap(
+    userMap,
+    source -> { /* 预处理 */ return source; },
+    target -> { /* 后处理 */ return target; }
+);
+
+// Array 转换
+UserDto[] dtoArray = UserDtoCopier.toDtoArray(
+    userArray,
+    source -> { /* 预处理 */ return source; },
+    target -> { /* 后处理 */ return target; }
+);
+```
+
+### 19.3. 执行顺序
+
+处理器的执行顺序为：
+
+```
+preProcessor → beforeMapping (如果存在) → 字段拷贝 → postProcessor
+```
+
+### 19.4. Null 安全
+
+- 当 `source` 为 null 时，不调用任何处理器，直接返回 null
+- 当 `preProcessor` 为 null 时，跳过预处理
+- 当 `postProcessor` 为 null 时，跳过后处理
+
+### 19.5. 废弃方法迁移
+
+旧的 `customizer` 方法已标记为 `@Deprecated`，建议迁移到新 API：
+
+```java
+// 旧方法（已废弃）
+UserDto dto = UserDtoCopier.toDto(user, result -> {
+    result.setDisplayName(result.getName().toUpperCase());
+    return result;
+});
+
+// 新方法（推荐）
+UserDto dto = UserDtoCopier.toDto(user, null, result -> {
+    result.setDisplayName(result.getName().toUpperCase());
+    return result;
+});
+```
+
+## 20. 深拷贝控制（v1.4）
+
+### 20.1. @CopyField.deepCopy 属性
+
+v1.4.0 新增 `deepCopy` 属性，用于字段级控制深拷贝行为：
+
+```java
+@CopyTarget(source = Employee.class)
+public class EmployeeDto {
+    // 深拷贝（默认）：创建新的 AddressDto 对象
+    @CopyField(deepCopy = true)
+    private AddressDto address;
+    
+    // 浅拷贝：直接引用传递
+    @CopyField(deepCopy = false)
+    private DepartmentDto department;
+}
+```
+
+### 20.2. 嵌套对象深拷贝控制
+
+```java
+@CopyTarget(source = Order.class)
+public class OrderDto {
+    // 深拷贝：调用 CustomerDtoCopier.toDto() 创建新对象
+    @CopyField(deepCopy = true)
+    private CustomerDto customer;
+    
+    // 浅拷贝：直接赋值引用
+    @CopyField(deepCopy = false)
+    private StatusDto status;
+}
+```
+
+生成的代码：
+
+```java
+public static OrderDto toDto(Order source) {
+    if (source == null) return null;
+    OrderDto target = new OrderDto();
+    
+    // 深拷贝
+    target.setCustomer(source.getCustomer() != null 
+        ? CustomerDtoCopier.toDto(source.getCustomer()) 
+        : null);
+    
+    // 浅拷贝
+    target.setStatus(source.getStatus());
+    
+    return target;
+}
+```
+
+### 20.3. 集合深拷贝控制
+
+```java
+@CopyTarget(source = Project.class)
+public class ProjectDto {
+    // 集合深拷贝（默认）：拷贝集合并深拷贝每个元素
+    @CopyField(deepCopy = true)
+    private List<TaskDto> tasks;
+    
+    // 集合浅拷贝：拷贝集合但元素直接引用
+    @CopyField(deepCopy = false)
+    private List<TagDto> tags;
+}
+```
+
+生成的代码：
+
+```java
+// 深拷贝：拷贝集合并深拷贝元素
+if (source.getTasks() != null) {
+    List<TaskDto> taskList = new ArrayList<>(source.getTasks().size());
+    for (Task item : source.getTasks()) {
+        taskList.add(item != null ? TaskDtoCopier.toDto(item) : null);
+    }
+    target.setTasks(taskList);
+}
+
+// 浅拷贝：拷贝集合但元素直接引用
+if (source.getTags() != null) {
+    target.setTags(new ArrayList<>(source.getTags()));
+}
+```
+
+### 20.4. 数组深拷贝控制
+
+```java
+@CopyTarget(source = Document.class)
+public class DocumentDto {
+    // 数组深拷贝（默认）
+    @CopyField(deepCopy = true)
+    private AttachmentDto[] attachments;
+    
+    // 数组浅拷贝
+    @CopyField(deepCopy = false)
+    private String[] tags;
+}
+```
+
+### 20.5. 使用场景
+
+| 场景 | deepCopy 设置 | 说明 |
+|------|--------------|------|
+| 性能优化 | `false` | 对不需要深拷贝的字段使用浅拷贝 |
+| 共享引用 | `false` | 多个对象共享同一个嵌套对象实例 |
+| 不可变对象 | `false` | 对不可变对象（如枚举）使用浅拷贝 |
+| 大对象 | `false` | 避免大型嵌套对象的内存占用 |
+| 独立副本 | `true` | 需要完全独立的对象副本 |
+| 修改安全 | `true` | 修改副本不影响原对象 |
+
+### 20.6. 默认行为
+
+`deepCopy` 的默认值为 `true`，保持与之前版本一致的深拷贝行为。如果需要浅拷贝，显式设置 `deepCopy = false`。
+
+## 21. 数据类型转换
 
 ### 19.1. 基本类型 ↔ 包装类型
 
@@ -851,13 +1065,13 @@ Fast Bean Copier 自动支持基本类型与包装类型之间的转换：
 | `boolean` | `Boolean` | 自动装箱 |
 | `Boolean` | `boolean` | null → false |
 
-### 16.2. 同名字段自动拷贝
+### 21.2. 同名字段自动拷贝
 
 对于同名字段，Fast Bean Copier 会自动拷贝。
 
-## 17. 集合映射
+## 22. 集合映射
 
-### 17.1. List/Set 映射
+### 22.1. List/Set 映射
 
 ```java
 List<UserDto> dtos = UserDtoCopier.toDtoList(users);
@@ -867,37 +1081,37 @@ List<User> users = UserDtoCopier.fromDtoList(dtos);
 Set<User> userSet = UserDtoCopier.fromDtoSet(dtoSet);
 ```
 
-### 17.2. Map 映射
+### 22.2. Map 映射
 
 ```java
 Map<String, UserDto> dtoMap = UserDtoCopier.toDtoMap(userMap);
 Map<String, User> userMap = UserDtoCopier.fromDtoMap(dtoMap);
 ```
 
-### 17.3. 数组映射
+### 22.3. 数组映射
 
 ```java
 UserDto[] dtoArr = UserDtoCopier.toDtoArray(userArr);
 User[] userArr = UserDtoCopier.fromDtoArray(dtoArr);
 ```
 
-### 17.4. 深拷贝
+### 22.4. 深拷贝
 
 List/Set/Map/数组字段会自动深拷贝，包括嵌套集合和多维数组。
 
-### 17.5. Raw/通配符处理
+### 22.5. Raw/通配符处理
 
 Raw 类型或无界通配符集合会降级为浅拷贝并给出编译期警告。
 
-## 18. Null 值处理
+## 23. Null 值处理
 
-### 18.1. 对象级别
+### 23.1. 对象级别
 
 ```java
 UserDto dto = UserDtoCopier.toDto(null);  // 返回 null
 ```
 
-### 18.2. 字段级别
+### 23.2. 字段级别
 
 null 值会被保留：
 
@@ -908,9 +1122,9 @@ UserDto dto = UserDtoCopier.toDto(user);
 // dto.name 也为 null
 ```
 
-## 19. 生成的代码示例
+## 24. 生成的代码示例
 
-### 19.1. DEFAULT 模式
+### 24.1. DEFAULT 模式
 
 ```java
 public final class UserDtoCopier {
@@ -941,7 +1155,7 @@ public final class UserDtoCopier {
 }
 ```
 
-### 19.2. SPRING 模式
+### 24.2. SPRING 模式
 
 ```java
 @Component
@@ -967,9 +1181,9 @@ public final class UserDtoCopier {
 }
 ```
 
-## 20. 常见用例
+## 25. 常见用例
 
-### 20.1. API 响应 DTO
+### 25.1. API 响应 DTO
 
 ```java
 @CopyTarget(source = User.class, ignore = {"password"})
@@ -980,14 +1194,14 @@ public class UserResponse {
 }
 ```
 
-### 20.2. 批量转换
+### 25.2. 批量转换
 
 ```java
 List<User> users = userRepository.findAll();
 List<UserDto> userDtos = UserDtoCopier.toDtoList(users);
 ```
 
-### 20.3. 复杂字段映射
+### 25.3. 复杂字段映射
 
 ```java
 @CopyTarget(source = Order.class, uses = OrderConverter.class)
@@ -1004,7 +1218,7 @@ public class OrderDto {
 }
 ```
 
-### 20.4. 更新现有对象（v1.3）
+### 25.4. 更新现有对象（v1.3）
 
 ```java
 // 部分更新场景
@@ -1012,34 +1226,66 @@ UserDto existingDto = userService.getUser(id);
 UserDtoCopier.updateDto(existingDto, partialUser);
 ```
 
-## 21. 故障排除
+### 25.5. 函数式处理（v1.4）
 
-### 21.1. 生成的代码未出现
+```java
+// 预处理和后处理
+UserDto dto = UserDtoCopier.toDto(
+    user,
+    source -> {
+        source.setName(source.getName().trim());
+        return source;
+    },
+    target -> {
+        target.setDisplayName(target.getName().toUpperCase());
+        return target;
+    }
+);
+```
+
+### 25.6. 深拷贝控制（v1.4）
+
+```java
+@CopyTarget(source = Order.class)
+public class OrderDto {
+    // 深拷贝：完全独立的副本
+    @CopyField(deepCopy = true)
+    private CustomerDto customer;
+    
+    // 浅拷贝：共享引用，性能优化
+    @CopyField(deepCopy = false)
+    private StatusDto status;
+}
+```
+
+## 26. 故障排除
+
+### 26.1. 生成的代码未出现
 
 1. 确保使用了 `@CopyTarget` 注解
 2. 确保有 getter/setter 方法
 3. 运行 `mvn clean compile`
 
-### 21.2. 字段未被拷贝
+### 26.2. 字段未被拷贝
 
 1. 检查字段名是否相同
 2. 检查是否有 getter/setter
 3. 检查是否在 `ignore` 中
 
-### 21.3. 表达式编译错误
+### 26.3. 表达式编译错误
 
 1. 检查表达式语法
 2. 使用 `source` 变量引用源对象
 3. 添加 null 检查
 
-## 22. 性能考虑
+## 27. 性能考虑
 
 - 编译期代码生成，无运行时反射
 - 直接调用 getter/setter
 - TypeConverter 复用（静态实例或单例）
 - 集合容量预分配
 
-## 23. 最佳实践
+## 28. 最佳实践
 
 1. 为每个 DTO 定义一个 `@CopyTarget`
 2. 使用 `ignore` 排除敏感字段
@@ -1050,8 +1296,23 @@ UserDtoCopier.updateDto(existingDto, partialUser);
 7. 使用 `updateDto/updateEntity` 进行部分更新（v1.3）
 8. 使用 `UnaryOperator` 重载进行批量转换定制（v1.3.1）
 9. 使用 Properties 配置文件统一管理配置（v1.3.1）
+10. 使用 `preProcessor` 和 `postProcessor` 进行函数式处理（v1.4.0）
+11. 使用 `deepCopy` 属性优化性能和控制拷贝行为（v1.4.0）
 
-## 24. 版本历史
+## 29. 版本历史
+
+### 1.4.0（2026-03-29）
+- 函数式处理增强：preProcessor + postProcessor 双处理器 API
+- 深拷贝控制：@CopyField.deepCopy 属性
+- beforeMapping 和 customizer 方法标记为 @Deprecated
+- 所有集合方法支持双处理器
+- 471+ 测试用例，覆盖率 95%+
+
+### 1.3.2（2026-02-03）
+- 嵌套对象深拷贝支持
+- 自动深拷贝不同类型的嵌套对象
+- 无限层级嵌套和混合模式支持
+- 440+ 测试用例
 
 ### 1.3.1（2026-01-28）
 - Map/Array 批量转换的 UnaryOperator 重载
@@ -1089,11 +1350,11 @@ UserDtoCopier.updateDto(existingDto, partialUser);
 ### 1.0.0（2025-12-13）
 - 初始版本
 
-## 25. 许可证
+## 30. 许可证
 
 Fast Bean Copier 采用 Apache License 2.0 许可证。
 
-## 26. 获取帮助
+## 31. 获取帮助
 
 - 查看本参考文档
 - 在 [GitHub Issues](https://github.com/fast-bean-copier/fast-bean-copier/issues) 中搜索或提问
