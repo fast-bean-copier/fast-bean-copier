@@ -99,13 +99,6 @@ public class ProcessorContext {
      */
     private NullValueStrategy nullValueStrategy = NullValueStrategy.IGNORE;
 
-    /**
-     * 映射前处理方法名。
-     *
-     * @since 1.3.0
-     */
-    private String beforeMapping = "";
-
     // ========== 分析结果 ==========
 
     /**
@@ -354,36 +347,6 @@ public class ProcessorContext {
         return NullValueStrategy.IGNORE;
     }
 
-    /**
-     * 获取映射前处理方法名。
-     *
-     * @return 映射前处理方法名，如果未设置返回空字符串
-     * @since 1.3.0
-     */
-    public String getBeforeMapping() {
-        return beforeMapping;
-    }
-
-    /**
-     * 设置映射前处理方法名。
-     *
-     * @param beforeMapping 映射前处理方法名
-     * @since 1.3.0
-     */
-    public void setBeforeMapping(String beforeMapping) {
-        this.beforeMapping = beforeMapping != null ? beforeMapping : "";
-    }
-
-    /**
-     * 判断是否有映射前处理方法。
-     *
-     * @return 如果有映射前处理方法返回 true
-     * @since 1.3.0
-     */
-    public boolean hasBeforeMapping() {
-        return beforeMapping != null && !beforeMapping.trim().isEmpty();
-    }
-
     // ========== 分析结果访问方法 ==========
 
     /**
@@ -513,7 +476,6 @@ public class ProcessorContext {
         this.fieldMappings = new ArrayList<>();
         this.packageConfig = null;
         this.nullValueStrategy = NullValueStrategy.IGNORE;
-        this.beforeMapping = "";
     }
 
     /**

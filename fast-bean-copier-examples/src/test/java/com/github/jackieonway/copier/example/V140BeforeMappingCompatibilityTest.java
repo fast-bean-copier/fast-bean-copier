@@ -12,18 +12,13 @@ import java.util.function.UnaryOperator;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+/**
+ * v1.4.0 preProcessor 功能测试（原 beforeMapping 已在 v1.5.0 移除）。
+ *
+ * @author jackieonway
+ * @since 1.4.0
+ */
 public class V140BeforeMappingCompatibilityTest {
-
-    @Test
-    public void testBeforeMapping_only() {
-        BeforeMappingUser source = new BeforeMappingUser("name1");
-
-        BeforeMappingUserDto result = BeforeMappingUserDtoCopier.toDto(source);
-
-        assertNotNull(result);
-        assertEquals("name1", result.getCapturedName());
-        assertEquals("name1", result.getName());
-    }
 
     @Test
     public void testPreProcessor_only() {
@@ -41,7 +36,23 @@ public class V140BeforeMappingCompatibilityTest {
     }
 
     @Test
-    public void testPreProcessor_thenBeforeMapping() {
+    public void testPreProcessor_capturesName() {
+        BeforeMappingUser source = new BeforeMappingUser("name1");
+
+        // 使用 preProcessor 替代原 beforeMapping="captureName" 功能
+        UnaryOperator<BeforeMappingUser> preProcessor = u -> {
+            // preProcessor 可在映射前修改源对象
+            return u;
+        };
+
+        BeforeMappingUserDto result = BeforeMappingUserDtoCopier.toDto(source, preProcessor, null);
+
+        assertNotNull(result);
+        assertEquals("name1", result.getName());
+    }
+
+    @Test
+    public void testPreProcessor_modifiesSource() {
         BeforeMappingUser source = new BeforeMappingUser("name1");
 
         UnaryOperator<BeforeMappingUser> preProcessor = u -> {
@@ -52,7 +63,6 @@ public class V140BeforeMappingCompatibilityTest {
         BeforeMappingUserDto result = BeforeMappingUserDtoCopier.toDto(source, preProcessor, null);
 
         assertNotNull(result);
-        assertEquals("name2", result.getCapturedName());
         assertEquals("name2", result.getName());
     }
 }

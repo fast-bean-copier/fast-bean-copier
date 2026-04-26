@@ -127,8 +127,6 @@ public class BeanCopierProcessor extends AbstractProcessor {
         Set<String> ignoreFields = extractor.extractIgnoreFields(annotation);
         List<TypeMirror> usesClasses = extractor.extractUsesClasses(annotation);
         ComponentModel componentModel = extractor.extractComponentModel(annotation);
-        String beforeMapping = extractor.extractBeforeMapping(annotation);
-        
         // 提取包级别配置（v1.3 新增）
         PackageElement packageElement = context.getElementUtils().getPackageOf(targetType);
         AnnotationExtractor.PackageConfig packageConfig = extractor.extractPackageConfig(packageElement);
@@ -146,7 +144,7 @@ public class BeanCopierProcessor extends AbstractProcessor {
         
         // 生成 Copier 类
         generateCopierClass(sourceType, targetType, fieldMappings, usesClasses, 
-                effectiveComponentModel, effectiveNullValueStrategy, beforeMapping);
+                effectiveComponentModel, effectiveNullValueStrategy);
     }
 
     /**
@@ -158,21 +156,18 @@ public class BeanCopierProcessor extends AbstractProcessor {
      * @param usesClasses          uses 类列表
      * @param componentModel       组件模型
      * @param nullValueStrategy    null 值处理策略
-     * @param beforeMapping        映射前处理方法名
      */
     private void generateCopierClass(TypeElement sourceType, TypeElement targetType,
                                       List<FieldMapping> fieldMappings,
                                       List<TypeMirror> usesClasses,
                                       ComponentModel componentModel,
-                                      NullValueStrategy nullValueStrategy,
-                                      String beforeMapping) {
+                                      NullValueStrategy nullValueStrategy) {
         CodeGenerator codeGenerator = new CodeGenerator(
                 context.getProcessingEnv(), sourceType, targetType);
         codeGenerator.setFieldMappings(fieldMappings);
         codeGenerator.setUsesClasses(usesClasses);
         codeGenerator.setComponentModel(componentModel);
         codeGenerator.setNullValueStrategy(nullValueStrategy);
-        codeGenerator.setBeforeMapping(beforeMapping);
         codeGenerator.generateCopierClass();
     }
 }

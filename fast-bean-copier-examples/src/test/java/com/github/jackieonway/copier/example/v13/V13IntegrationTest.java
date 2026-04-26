@@ -139,27 +139,6 @@ public class V13IntegrationTest {
         assertEquals("SYSTEM", target.getCreatedBy());
     }
 
-    // ========== 映射前回调测试 ==========
-
-    /**
-     * 测试映射前回调完整流程。
-     */
-    @Test
-    public void testBeforeMappingFlow() {
-        TestSource source = new TestSource();
-        source.setName("  test  ");
-        
-        TestTarget target = new TestTarget();
-        
-        // 映射前回调：去除空格
-        target.beforeMapping(source);
-        
-        // 执行映射
-        target.setName(source.getName());
-        
-        assertEquals("test", target.getName());
-    }
-
     // ========== 全局配置测试 ==========
 
     /**
@@ -217,10 +196,5 @@ public class V13IntegrationTest {
         public String getCreatedBy() { return createdBy; }
         public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
 
-        public void beforeMapping(TestSource source) {
-            if (source.getName() != null) {
-                source.setName(source.getName().trim());
-            }
-        }
     }
 }

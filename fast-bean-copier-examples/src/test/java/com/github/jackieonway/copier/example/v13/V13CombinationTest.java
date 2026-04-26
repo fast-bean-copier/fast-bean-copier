@@ -149,23 +149,23 @@ public class V13CombinationTest {
         assertEquals("原始街道", target.getAddress().getStreet()); // 保持原值
     }
 
-    // ========== 映射前回调 + 条件映射组合 ==========
+    // ========== 前置处理 + 条件映射组合 ==========
 
     /**
-     * 测试映射前回调与条件映射组合。
+     * 测试前置处理与条件映射组合（原 beforeMapping 已在 v1.5.0 移除，改用 preProcessor 模式）。
      */
     @Test
-    public void testBeforeMappingWithCondition() {
+    public void testPreProcessorWithCondition() {
         TestSource source = new TestSource();
         source.setName("  test  ");
         source.setActive(true);
         
-        TestTarget target = new TestTarget();
-        
-        // 映射前回调：去除空格
+        // 前置处理：去除空格（模拟 preProcessor 行为）
         if (source.getName() != null) {
             source.setName(source.getName().trim());
         }
+        
+        TestTarget target = new TestTarget();
         
         // 条件映射
         if (source.isActive()) {

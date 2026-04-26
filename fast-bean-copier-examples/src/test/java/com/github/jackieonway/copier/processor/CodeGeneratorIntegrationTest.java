@@ -84,42 +84,42 @@ public class CodeGeneratorIntegrationTest {
         assertNull("fromDtoArray(null) should return null", UserDtoCopier.fromDtoArray(null));
     }
 
-    // ========== Customizer 方法测试 ==========
+    // ========== Processors 方法测试 ==========
 
     @Test
-    public void testToDtoWithCustomizerNullInput() {
-        assertNull("toDto(null, customizer) should return null",
-                UserDtoCopier.toDto(null, dto -> dto));
+    public void testToDtoWithProcessorsNullInput() {
+        assertNull("toDto(null, pre, post) should return null",
+                UserDtoCopier.toDto(null, null, null));
     }
 
     @Test
-    public void testFromDtoWithCustomizerNullInput() {
-        assertNull("fromDto(null, customizer) should return null",
-                UserDtoCopier.fromDto(null, entity -> entity));
+    public void testFromDtoWithProcessorsNullInput() {
+        assertNull("fromDto(null, pre, post) should return null",
+                UserDtoCopier.fromDto(null, null, null));
     }
 
     @Test
-    public void testToDtoListWithCustomizerNullInput() {
-        assertNull("toDtoList(null, customizer) should return null",
-                UserDtoCopier.toDtoList(null, dto -> dto));
+    public void testToDtoListWithProcessorsNullInput() {
+        assertNull("toDtoList(null, pre, post) should return null",
+                UserDtoCopier.toDtoList(null, null, null));
     }
 
     @Test
-    public void testFromDtoListWithCustomizerNullInput() {
-        assertNull("fromDtoList(null, customizer) should return null",
-                UserDtoCopier.fromDtoList(null, entity -> entity));
+    public void testFromDtoListWithProcessorsNullInput() {
+        assertNull("fromDtoList(null, pre, post) should return null",
+                UserDtoCopier.fromDtoList(null, null, null));
     }
 
     @Test
-    public void testToDtoSetWithCustomizerNullInput() {
-        assertNull("toDtoSet(null, customizer) should return null",
-                UserDtoCopier.toDtoSet(null, dto -> dto));
+    public void testToDtoSetWithProcessorsNullInput() {
+        assertNull("toDtoSet(null, pre, post) should return null",
+                UserDtoCopier.toDtoSet(null, null, null));
     }
 
     @Test
-    public void testFromDtoSetWithCustomizerNullInput() {
-        assertNull("fromDtoSet(null, customizer) should return null",
-                UserDtoCopier.fromDtoSet(null, entity -> entity));
+    public void testFromDtoSetWithProcessorsNullInput() {
+        assertNull("fromDtoSet(null, pre, post) should return null",
+                UserDtoCopier.fromDtoSet(null, null, null));
     }
 
     // ========== 功能性测试 ==========
@@ -155,18 +155,18 @@ public class CodeGeneratorIntegrationTest {
     }
 
     @Test
-    public void testToDtoWithCustomizer() {
+    public void testToDtoWithPostProcessor() {
         User user = new User();
         user.setId(3L);
         user.setName("Original");
 
-        UserDto dto = UserDtoCopier.toDto(user, d -> {
+        UserDto dto = UserDtoCopier.toDto(user, null, d -> {
             d.setName("Modified");
             return d;
         });
 
         assertNotNull("Converted DTO should not be null", dto);
-        assertEquals("Name should be modified by customizer", "Modified", dto.getName());
+        assertEquals("Name should be modified by postProcessor", "Modified", dto.getName());
     }
 
     @Test

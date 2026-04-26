@@ -48,9 +48,6 @@ public class BasicMethodGenerator {
     /** null 值处理策略 */
     private NullValueStrategy nullValueStrategy = NullValueStrategy.IGNORE;
 
-    /** 映射前处理方法名 */
-    private String beforeMapping = "";
-
     /**
      * 构造方法。
      *
@@ -118,26 +115,6 @@ public class BasicMethodGenerator {
     }
 
     /**
-     * 设置映射前处理方法名。
-     *
-     * @param beforeMapping 映射前处理方法名
-     * @since 1.3.0
-     */
-    public void setBeforeMapping(String beforeMapping) {
-        this.beforeMapping = beforeMapping != null ? beforeMapping : "";
-    }
-
-    /**
-     * 判断是否有映射前处理方法。
-     *
-     * @return 如果有映射前处理方法返回 true
-     * @since 1.3.0
-     */
-    private boolean hasBeforeMapping() {
-        return beforeMapping != null && !beforeMapping.trim().isEmpty();
-    }
-
-    /**
      * 生成 toDto 方法。
      *
      * <p>将源对象拷贝到目标对象。
@@ -163,11 +140,6 @@ public class BasicMethodGenerator {
         // 创建目标对象
         methodBuilder.addStatement("$T target = new $T()", 
                 ClassName.get(targetType), ClassName.get(targetType));
-        
-        // 生成映射前回调调用（v1.3 新增）
-        if (hasBeforeMapping()) {
-            methodBuilder.addStatement("target.$L(source)", beforeMapping);
-        }
         
         // 生成字段拷贝代码
         for (FieldMapping mapping : fieldMappings) {
@@ -275,10 +247,6 @@ public class BasicMethodGenerator {
         methodBuilder.addStatement("$T target = new $T()",
                 ClassName.get(targetType), ClassName.get(targetType));
 
-        if (hasBeforeMapping()) {
-            methodBuilder.addStatement("target.$L(source)", beforeMapping);
-        }
-
         for (FieldMapping mapping : fieldMappings) {
             fieldCopyGenerator.generateFieldCopyCode(methodBuilder, mapping, false);
         }
@@ -330,75 +298,6 @@ public class BasicMethodGenerator {
         return methodBuilder.build();
     }
 
-    /**
-     * 生成带 customizer 的 toDto 方法。
-     *
-     * @return 生成的方法规范
-     * @since 1.2.0
-     */
-    public MethodSpec generateToDtoWithCustomizer() {
-        TypeName targetTypeName = ClassName.get(targetType);
-        TypeName customizerType = ParameterizedTypeName.get(
-                ClassName.get(UnaryOperator.class), targetTypeName);
-        
-        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDto")
-                .addModifiers(Modifier.PUBLIC)
-                .addAnnotation(Deprecated.class)
-                .returns(targetTypeName)
-                .addParameter(ClassName.get(sourceType), "source")
-                .addParameter(customizerType, "customizer");
-        
-        if (useStaticMethods) {
-            methodBuilder.addModifiers(Modifier.STATIC);
-        }
-        
-        methodBuilder.beginControlFlow("if (source == null)")
-                .addStatement("return null")
-                .endControlFlow();
-        
-        if (useStaticMethods) {
-            methodBuilder.addStatement("return toDto(source, null, customizer)");
-        } else {
-            methodBuilder.addStatement("return this.toDto(source, null, customizer)");
-        }
-
-        return methodBuilder.build();
-    }
-
-    /**
-     * 生成带 customizer 的 fromDto 方法。
-     *
-     * @return 生成的方法规范
-     * @since 1.2.0
-     */
-    public MethodSpec generateFromDtoWithCustomizer() {
-        TypeName sourceTypeName = ClassName.get(sourceType);
-        TypeName customizerType = ParameterizedTypeName.get(
-                ClassName.get(UnaryOperator.class), sourceTypeName);
-        
-        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDto")
-                .addModifiers(Modifier.PUBLIC)
-                .addAnnotation(Deprecated.class)
-                .returns(sourceTypeName)
-                .addParameter(ClassName.get(targetType), "source")
-                .addParameter(customizerType, "customizer");
-        
-        if (useStaticMethods) {
-            methodBuilder.addModifiers(Modifier.STATIC);
-        }
-        
-        methodBuilder.beginControlFlow("if (source == null)")
-                .addStatement("return null")
-                .endControlFlow();
-        
-        if (useStaticMethods) {
-            methodBuilder.addStatement("return fromDto(source, null, customizer)");
-        } else {
-            methodBuilder.addStatement("return this.fromDto(source, null, customizer)");
-        }
-
-        return methodBuilder.build();
-    }
 
     // ========== v1.3 新增方法 ==========
 

@@ -109,20 +109,20 @@ public class CollectionMethodGeneratorTest {
     }
 
     @Test
-    public void generateToDtoListWithCustomizer_methodExists() {
+    public void generateToDtoListWithProcessors_methodExists() {
         try {
-            generator.getClass().getMethod("generateToDtoListWithCustomizer");
+            generator.getClass().getMethod("generateToDtoListWithProcessors");
         } catch (NoSuchMethodException e) {
-            fail("generateToDtoListWithCustomizer 方法应该存在");
+            fail("generateToDtoListWithProcessors 方法应该存在");
         }
     }
 
     @Test
-    public void generateFromDtoListWithCustomizer_methodExists() {
+    public void generateFromDtoListWithProcessors_methodExists() {
         try {
-            generator.getClass().getMethod("generateFromDtoListWithCustomizer");
+            generator.getClass().getMethod("generateFromDtoListWithProcessors");
         } catch (NoSuchMethodException e) {
-            fail("generateFromDtoListWithCustomizer 方法应该存在");
+            fail("generateFromDtoListWithProcessors 方法应该存在");
         }
     }
 
@@ -147,20 +147,20 @@ public class CollectionMethodGeneratorTest {
     }
 
     @Test
-    public void generateToDtoSetWithCustomizer_methodExists() {
+    public void generateToDtoSetWithProcessors_methodExists() {
         try {
-            generator.getClass().getMethod("generateToDtoSetWithCustomizer");
+            generator.getClass().getMethod("generateToDtoSetWithProcessors");
         } catch (NoSuchMethodException e) {
-            fail("generateToDtoSetWithCustomizer 方法应该存在");
+            fail("generateToDtoSetWithProcessors 方法应该存在");
         }
     }
 
     @Test
-    public void generateFromDtoSetWithCustomizer_methodExists() {
+    public void generateFromDtoSetWithProcessors_methodExists() {
         try {
-            generator.getClass().getMethod("generateFromDtoSetWithCustomizer");
+            generator.getClass().getMethod("generateFromDtoSetWithProcessors");
         } catch (NoSuchMethodException e) {
-            fail("generateFromDtoSetWithCustomizer 方法应该存在");
+            fail("generateFromDtoSetWithProcessors 方法应该存在");
         }
     }
 

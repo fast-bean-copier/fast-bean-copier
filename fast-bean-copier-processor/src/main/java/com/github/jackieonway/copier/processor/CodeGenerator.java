@@ -59,9 +59,6 @@ public final class CodeGenerator {
     /** null 值处理策略 */
     private NullValueStrategy nullValueStrategy = NullValueStrategy.IGNORE;
 
-    /** 映射前处理方法名 */
-    private String beforeMapping = "";
-
     /** 需要的转换器类名集合 */
     private Set<String> requiredConverters = new HashSet<>();
 
@@ -136,17 +133,6 @@ public final class CodeGenerator {
     }
 
     /**
-     * 设置映射前处理方法名。
-     *
-     * @param beforeMapping 映射前处理方法名
-     * @since 1.3.0
-     */
-    public void setBeforeMapping(String beforeMapping) {
-        this.beforeMapping = beforeMapping != null ? beforeMapping : "";
-        this.context.setBeforeMapping(this.beforeMapping);
-    }
-
-    /**
      * 收集需要的转换器类。
      */
     private void collectRequiredConverters() {
@@ -195,8 +181,6 @@ public final class CodeGenerator {
             classBuilder.addMethod(basicMethodGenerator.generateToDtoWithProcessors());
             classBuilder.addMethod(basicMethodGenerator.generateFromDto());
             classBuilder.addMethod(basicMethodGenerator.generateFromDtoWithProcessors());
-            classBuilder.addMethod(basicMethodGenerator.generateToDtoWithCustomizer());
-            classBuilder.addMethod(basicMethodGenerator.generateFromDtoWithCustomizer());
 
             // 2.1 生成更新方法（v1.3 新增）
             classBuilder.addMethod(basicMethodGenerator.generateUpdateDto());
@@ -222,17 +206,6 @@ public final class CodeGenerator {
             classBuilder.addMethod(collectionMethodGenerator.generateToDtoArrayWithProcessors());
             classBuilder.addMethod(collectionMethodGenerator.generateFromDtoArrayWithProcessors());
 
-            // 4. 生成带 customizer 的集合方法
-            classBuilder.addMethod(collectionMethodGenerator.generateToDtoListWithCustomizer());
-            classBuilder.addMethod(collectionMethodGenerator.generateFromDtoListWithCustomizer());
-            classBuilder.addMethod(collectionMethodGenerator.generateToDtoSetWithCustomizer());
-            classBuilder.addMethod(collectionMethodGenerator.generateFromDtoSetWithCustomizer());
-
-            // 4.1 生成带 customizer 的 Map/Array 方法（v1.3.1 新增）
-            classBuilder.addMethod(collectionMethodGenerator.generateToDtoMapWithCustomizer());
-            classBuilder.addMethod(collectionMethodGenerator.generateFromDtoMapWithCustomizer());
-            classBuilder.addMethod(collectionMethodGenerator.generateToDtoArrayWithCustomizer());
-            classBuilder.addMethod(collectionMethodGenerator.generateFromDtoArrayWithCustomizer());
 
             // 生成 Java 文件并写入
             JavaFile javaFile = JavaFile.builder(packageName, classBuilder.build()).build();
@@ -255,7 +228,6 @@ public final class CodeGenerator {
         basicMethodGenerator.setUseStaticMethods(useStatic);
         basicMethodGenerator.setUsesClasses(usesClasses);
         basicMethodGenerator.setNullValueStrategy(nullValueStrategy);
-        basicMethodGenerator.setBeforeMapping(beforeMapping);
 
         // 配置 CollectionMethodGenerator
         collectionMethodGenerator.setSourceType(sourceType);

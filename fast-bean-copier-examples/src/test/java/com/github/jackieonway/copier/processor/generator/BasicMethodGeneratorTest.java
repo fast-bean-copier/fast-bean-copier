@@ -131,20 +131,20 @@ public class BasicMethodGeneratorTest {
     }
 
     @Test
-    public void generateToDtoWithCustomizer_methodExists() {
+    public void generateToDtoWithProcessors_methodExists() {
         try {
-            generator.getClass().getMethod("generateToDtoWithCustomizer");
+            generator.getClass().getMethod("generateToDtoWithProcessors");
         } catch (NoSuchMethodException e) {
-            fail("generateToDtoWithCustomizer 方法应该存在");
+            fail("generateToDtoWithProcessors 方法应该存在");
         }
     }
 
     @Test
-    public void generateFromDtoWithCustomizer_methodExists() {
+    public void generateFromDtoWithProcessors_methodExists() {
         try {
-            generator.getClass().getMethod("generateFromDtoWithCustomizer");
+            generator.getClass().getMethod("generateFromDtoWithProcessors");
         } catch (NoSuchMethodException e) {
-            fail("generateFromDtoWithCustomizer 方法应该存在");
+            fail("generateFromDtoWithProcessors 方法应该存在");
         }
     }
 }

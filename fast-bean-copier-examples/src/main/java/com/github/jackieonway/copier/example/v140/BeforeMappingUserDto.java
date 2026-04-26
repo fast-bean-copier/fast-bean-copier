@@ -2,7 +2,7 @@ package com.github.jackieonway.copier.example.v140;
 
 import com.github.jackieonway.copier.annotation.CopyTarget;
 
-@CopyTarget(source = BeforeMappingUser.class, beforeMapping = "captureName")
+@CopyTarget(source = BeforeMappingUser.class)
 public class BeforeMappingUserDto {
     private String name;
     private String capturedName;

@@ -83,12 +83,12 @@ public class BeanCopierProcessorIntegrationTest {
     }
 
     @Test
-    public void testCustomizer() {
+    public void testPostProcessor() {
         User user = new User();
         user.setId(1L);
         user.setName("Original Name");
 
-        UserDto dto = UserDtoCopier.toDto(user, d -> {
+        UserDto dto = UserDtoCopier.toDto(user, null, d -> {
             d.setName("Modified Name");
             return d;
         });
