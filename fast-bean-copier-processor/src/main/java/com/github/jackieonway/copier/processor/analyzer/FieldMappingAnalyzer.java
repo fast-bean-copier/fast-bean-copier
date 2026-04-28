@@ -211,6 +211,11 @@ public class FieldMappingAnalyzer {
             }
             // 设置 v1.4 新增属性
             mapping.setDeepCopy(deepCopy);
+            // 设置 v1.5 新增属性
+            String mapKey = extractor.extractMapKey(annotation);
+            if (mapKey != null && !mapKey.isEmpty()) {
+                mapping.setMapKey(mapKey);
+            }
         }
 
         return mapping;

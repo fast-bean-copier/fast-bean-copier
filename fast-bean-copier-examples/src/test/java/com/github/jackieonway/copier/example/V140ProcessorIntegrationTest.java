@@ -163,16 +163,16 @@ public class V140ProcessorIntegrationTest {
     }
 
     @Test
-    public void testToDtoList_withCustomizer_stillWorks() {
+    public void testToDtoList_withPostProcessor_stillWorks() {
         List<Account> sources = new ArrayList<>();
         sources.add(new Account(1L, "u1", "p1", "u1@test.com"));
 
-        UnaryOperator<List<AccountDto>> customizer = list -> {
+        UnaryOperator<List<AccountDto>> postProcessor = list -> {
             list.get(0).setUsername("u1_custom");
             return list;
         };
 
-        List<AccountDto> result = AccountDtoCopier.toDtoList(sources, customizer);
+        List<AccountDto> result = AccountDtoCopier.toDtoList(sources, null, postProcessor);
 
         assertNotNull(result);
         assertEquals(1, result.size());

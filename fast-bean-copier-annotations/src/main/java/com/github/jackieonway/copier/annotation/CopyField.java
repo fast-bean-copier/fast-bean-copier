@@ -122,6 +122,29 @@ public @interface CopyField {
     boolean deepCopy() default true;
 
     /**
+     * 自定义 Map key，仅在 Bean ↔ Map 转换时生效。
+     *
+     * <p>当使用 {@link CopyToMap} 或 {@link CopyFromMap} 进行转换时，
+     * 此属性指定该字段对应的 Map key 名称。
+     *
+     * <p>优先级高于 {@link CopyToMap#keyStrategy()} 和 {@link CopyFromMap#keyStrategy()}。
+     * 默认为空字符串，表示不指定自定义 key，使用 keyStrategy 策略确定 key。
+     *
+     * <p>使用示例：
+     * <pre>
+     * &#64;CopyToMap
+     * public class UserDto {
+     *     &#64;CopyField(mapKey = "user_name")
+     *     private String name;  // Map 中的 key 为 "user_name"
+     * }
+     * </pre>
+     *
+     * @return 自定义 Map key，默认为空字符串
+     * @since 1.5.0
+     */
+    String mapKey() default "";
+
+    /**
      * 转换器配置参数（格式字符串）。
      *
      * <p>传递给 {@link TypeConverter#convert(Object, String)} 方法的第二个参数。

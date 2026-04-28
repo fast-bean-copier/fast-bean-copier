@@ -50,7 +50,7 @@ public class V131UnaryOperatorIntegrationTest {
                         .collect(Collectors.toList());
 
         // Execute conversion
-        List<SimpleProductDto> result = SimpleProductDtoCopier.toDtoList(sources, customizer);
+        List<SimpleProductDto> result = SimpleProductDtoCopier.toDtoList(sources, null, customizer);
 
         // Verify result
         assertNotNull(result);
@@ -75,7 +75,7 @@ public class V131UnaryOperatorIntegrationTest {
         };
 
         // Execute conversion
-        List<SimpleProductDto> result = SimpleProductDtoCopier.toDtoList(sources, customizer);
+        List<SimpleProductDto> result = SimpleProductDtoCopier.toDtoList(sources, null, customizer);
 
         // Verify result
         assertNotNull(result);
@@ -99,7 +99,7 @@ public class V131UnaryOperatorIntegrationTest {
                 list.stream().limit(2).collect(Collectors.toList());
 
         // Execute conversion
-        List<SimpleProductDto> result = SimpleProductDtoCopier.toDtoList(sources, customizer);
+        List<SimpleProductDto> result = SimpleProductDtoCopier.toDtoList(sources, null, customizer);
 
         // Verify result
         assertNotNull(result);
@@ -119,7 +119,7 @@ public class V131UnaryOperatorIntegrationTest {
         UnaryOperator<List<SimpleProductDto>> customizer = Collections::unmodifiableList;
 
         // Execute conversion
-        List<SimpleProductDto> result = SimpleProductDtoCopier.toDtoList(sources, customizer);
+        List<SimpleProductDto> result = SimpleProductDtoCopier.toDtoList(sources, null, customizer);
 
         // Verify result
         assertNotNull(result);
@@ -154,7 +154,7 @@ public class V131UnaryOperatorIntegrationTest {
                         .collect(Collectors.toList());
 
         // Execute conversion
-        List<SimpleProduct> result = SimpleProductDtoCopier.fromDtoList(sources, customizer);
+        List<SimpleProduct> result = SimpleProductDtoCopier.fromDtoList(sources, null, customizer);
 
         // Verify result
         assertNotNull(result);
@@ -179,7 +179,7 @@ public class V131UnaryOperatorIntegrationTest {
                         .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
 
         // Execute conversion
-        java.util.Set<SimpleProductDto> result = SimpleProductDtoCopier.toDtoSet(sources, customizer);
+        java.util.Set<SimpleProductDto> result = SimpleProductDtoCopier.toDtoSet(sources, null, customizer);
 
         // Verify result
         assertNotNull(result);
@@ -198,7 +198,7 @@ public class V131UnaryOperatorIntegrationTest {
         UnaryOperator<java.util.Set<SimpleProductDto>> customizer = Collections::unmodifiableSet;
 
         // Execute conversion
-        java.util.Set<SimpleProductDto> result = SimpleProductDtoCopier.toDtoSet(sources, customizer);
+        java.util.Set<SimpleProductDto> result = SimpleProductDtoCopier.toDtoSet(sources, null, customizer);
 
         // Verify result
         assertNotNull(result);
@@ -235,7 +235,7 @@ public class V131UnaryOperatorIntegrationTest {
                         .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
 
         // Execute conversion
-        java.util.Set<SimpleProduct> result = SimpleProductDtoCopier.fromDtoSet(sources, customizer);
+        java.util.Set<SimpleProduct> result = SimpleProductDtoCopier.fromDtoSet(sources, null, customizer);
 
         // Verify result
         assertNotNull(result);
@@ -266,7 +266,7 @@ public class V131UnaryOperatorIntegrationTest {
         };
 
         // Execute conversion
-        Map<String, SimpleProductDto> result = SimpleProductDtoCopier.toDtoMap(sources, customizer);
+        Map<String, SimpleProductDto> result = SimpleProductDtoCopier.toDtoMap(sources, null, customizer);
 
         // Verify result
         assertNotNull(result);
@@ -287,7 +287,7 @@ public class V131UnaryOperatorIntegrationTest {
         UnaryOperator<Map<String, SimpleProductDto>> customizer = Collections::unmodifiableMap;
 
         // Execute conversion
-        Map<String, SimpleProductDto> result = SimpleProductDtoCopier.toDtoMap(sources, customizer);
+        Map<String, SimpleProductDto> result = SimpleProductDtoCopier.toDtoMap(sources, null, customizer);
 
         // Verify result
         assertNotNull(result);
@@ -309,7 +309,7 @@ public class V131UnaryOperatorIntegrationTest {
         sources.put("p1", new SimpleProduct(1L, "Product 1", 100.0));
 
         // Execute conversion with null customizer
-        Map<String, SimpleProductDto> result = SimpleProductDtoCopier.toDtoMap(sources, null);
+        Map<String, SimpleProductDto> result = SimpleProductDtoCopier.toDtoMap(sources, null, null);
 
         // Verify result
         assertNotNull(result);
@@ -320,7 +320,7 @@ public class V131UnaryOperatorIntegrationTest {
     @Test
     public void testToDtoMap_withNullSources() {
         // Execute conversion with null sources
-        Map<String, SimpleProductDto> result = SimpleProductDtoCopier.toDtoMap(null, map -> map);
+        Map<String, SimpleProductDto> result = SimpleProductDtoCopier.toDtoMap(null, null, map -> map);
 
         // Verify result
         assertNull(result);
@@ -355,7 +355,7 @@ public class V131UnaryOperatorIntegrationTest {
         };
 
         // Execute conversion
-        Map<String, SimpleProduct> result = SimpleProductDtoCopier.fromDtoMap(sources, customizer);
+        Map<String, SimpleProduct> result = SimpleProductDtoCopier.fromDtoMap(sources, null, customizer);
 
         // Verify result
         assertNotNull(result);
@@ -383,7 +383,7 @@ public class V131UnaryOperatorIntegrationTest {
         };
 
         // Execute conversion
-        SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(sources, customizer);
+        SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(sources, null, customizer);
 
         // Verify result
         assertNotNull(result);
@@ -408,7 +408,7 @@ public class V131UnaryOperatorIntegrationTest {
         };
 
         // Execute conversion
-        SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(sources, customizer);
+        SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(sources, null, customizer);
 
         // Verify result
         assertNotNull(result);
@@ -433,7 +433,7 @@ public class V131UnaryOperatorIntegrationTest {
         };
 
         // Execute conversion
-        SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(sources, customizer);
+        SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(sources, null, customizer);
 
         // Verify result
         assertNotNull(result);
@@ -450,7 +450,7 @@ public class V131UnaryOperatorIntegrationTest {
         };
 
         // Execute conversion with null customizer
-        SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(sources, null);
+        SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(sources, null, null);
 
         // Verify result
         assertNotNull(result);
@@ -461,7 +461,7 @@ public class V131UnaryOperatorIntegrationTest {
     @Test
     public void testToDtoArray_withNullSources() {
         // Execute conversion with null sources
-        SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(null, array -> array);
+        SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(null, null, array -> array);
 
         // Verify result
         assertNull(result);
@@ -490,7 +490,7 @@ public class V131UnaryOperatorIntegrationTest {
         };
 
         // Execute conversion
-        SimpleProduct[] result = SimpleProductDtoCopier.fromDtoArray(sources, customizer);
+        SimpleProduct[] result = SimpleProductDtoCopier.fromDtoArray(sources, null, customizer);
 
         // Verify result
         assertNotNull(result);
@@ -518,7 +518,7 @@ public class V131UnaryOperatorIntegrationTest {
         };
 
         // Execute conversion
-        SimpleProduct[] result = SimpleProductDtoCopier.fromDtoArray(sources, customizer);
+        SimpleProduct[] result = SimpleProductDtoCopier.fromDtoArray(sources, null, customizer);
 
         // Verify result
         assertNotNull(result);

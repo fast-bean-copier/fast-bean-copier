@@ -44,6 +44,13 @@ public class CopyFieldConfig {
     private final String converterClassName;
 
     /**
+     * mapKey（仅 Bean ↔ Map 转换时生效）。
+     *
+     * @since 1.5.0
+     */
+    private final String mapKey;
+
+    /**
      * 构造方法。
      *
      * @param sourceNames       源字段名数组
@@ -55,12 +62,31 @@ public class CopyFieldConfig {
      */
     public CopyFieldConfig(String[] sourceNames, String target, String expression,
                            String qualifiedByName, String format, String converterClassName) {
+        this(sourceNames, target, expression, qualifiedByName, format, converterClassName, "");
+    }
+
+    /**
+     * 构造方法（含 mapKey）。
+     *
+     * @param sourceNames       源字段名数组
+     * @param target            目标字段名
+     * @param expression        表达式字符串
+     * @param qualifiedByName   具名转换方法名
+     * @param format            格式字符串
+     * @param converterClassName 转换器类名
+     * @param mapKey            自定义 Map key
+     * @since 1.5.0
+     */
+    public CopyFieldConfig(String[] sourceNames, String target, String expression,
+                           String qualifiedByName, String format, String converterClassName,
+                           String mapKey) {
         this.sourceNames = sourceNames != null ? sourceNames : new String[0];
         this.target = target;
         this.expression = expression;
         this.qualifiedByName = qualifiedByName;
         this.format = format;
         this.converterClassName = converterClassName;
+        this.mapKey = mapKey != null ? mapKey : "";
     }
 
     /**
@@ -187,6 +213,26 @@ public class CopyFieldConfig {
      */
     public String getFirstSourceName() {
         return hasSourceNames() ? sourceNames[0] : null;
+    }
+
+    /**
+     * 获取自定义 Map key。
+     *
+     * @return 自定义 Map key，默认为空字符串
+     * @since 1.5.0
+     */
+    public String getMapKey() {
+        return mapKey;
+    }
+
+    /**
+     * 判断是否有自定义 Map key。
+     *
+     * @return 如果有自定义 Map key 返回 true
+     * @since 1.5.0
+     */
+    public boolean hasMapKey() {
+        return mapKey != null && !mapKey.trim().isEmpty();
     }
 
     @Override

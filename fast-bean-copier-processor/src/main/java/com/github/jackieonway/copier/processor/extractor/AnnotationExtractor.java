@@ -177,6 +177,7 @@ public class AnnotationExtractor {
         String qualifiedByName = annotation.qualifiedByName();
         String format = annotation.format();
         String converterClassName = extractConverterClassName(annotation);
+        String mapKey = annotation.mapKey();
 
         return new CopyFieldConfig(
                 sourceNames,
@@ -184,7 +185,8 @@ public class AnnotationExtractor {
                 expression,
                 qualifiedByName,
                 format,
-                converterClassName
+                converterClassName,
+                mapKey
         );
     }
 
@@ -441,6 +443,21 @@ public class AnnotationExtractor {
             return true; // 默认启用深拷贝
         }
         return annotation.deepCopy();
+    }
+
+    /**
+     * 从 @CopyField 注解中提取自定义 Map key。
+     *
+     * @param annotation CopyField 注解
+     * @return 自定义 Map key，如果未指定返回空字符串
+     * @since 1.5.0
+     */
+    public String extractMapKey(CopyField annotation) {
+        if (annotation == null) {
+            return "";
+        }
+        String mapKey = annotation.mapKey();
+        return mapKey != null ? mapKey : "";
     }
 
     /**
