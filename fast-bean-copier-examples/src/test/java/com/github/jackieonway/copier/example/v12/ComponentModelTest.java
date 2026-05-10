@@ -45,7 +45,7 @@ public class ComponentModelTest {
         
         // 这些调用证明方法是静态的
         PersonDto dto1 = PersonDtoCopier.toDto(person);
-        PersonDto dto2 = PersonDtoCopier.toDto(person, result -> {
+        PersonDto dto2 = PersonDtoCopier.toDto(person, null, result -> {
             result.setFullName(result.getFullName().toUpperCase());
             return result;
         });
