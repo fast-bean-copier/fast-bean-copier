@@ -4,13 +4,13 @@
 
 **Fast Bean Copier** 是一个高性能的 Java Bean 拷贝工具，使用 APT（注解处理工具）在编译期自动生成拷贝代码，实现零运行时开销。
 
-**项目状态**：✅ 已完成，生产就绪（v1.4.0 新增函数式处理增强和深拷贝控制）
+**项目状态**：✅ 已完成，生产就绪（v1.5.0 Bean ↔ Map 转换、API 清理）
 
 ## 项目信息
 
 - **项目名称**：Fast Bean Copier
-- **版本**：1.4.0
-- **发布日期**：2026-03-29
+- **版本**：1.5.0
+- **发布日期**：2026-04-26
 - **Java 版本**：Java 8+
 - **构建工具**：Maven
 - **许可证**：Apache License 2.0
@@ -116,8 +116,19 @@ fast-bean-copier/
 38. **嵌套对象深拷贝控制** - 控制嵌套对象是否深拷贝
 39. **集合深拷贝控制** - 控制集合元素是否深拷贝
 40. **数组深拷贝控制** - 控制数组元素是否深拷贝
-41. **beforeMapping 废弃** - 标记为 @Deprecated，建议使用 preProcessor
-42. **customizer 废弃** - 标记为 @Deprecated，建议使用 postProcessor
+41. **beforeMapping 废弃** - v1.4.0 标记 @Deprecated，v1.5.0 已移除
+42. **customizer 废弃** - v1.4.0 标记 @Deprecated，v1.5.0 已移除
+
+### ✅ v1.5.0 功能
+
+43. **@CopyToMap 注解** - Bean → Map 转换，生成 `{Class}MapCopier` 类
+44. **@CopyFromMap 注解** - Map → Bean 转换，生成 fromMap/fromMapList/fromMapSet 方法
+45. **MapKeyStrategy 枚举** - FIELD_NAME / CAMEL_CASE / SNAKE_CASE / CUSTOM 四种 key 命名策略
+46. **@CopyField.mapKey 属性** - 字段级自定义 Map key，优先级高于 keyStrategy
+47. **双向 Map 转换** - 同一类可同时标注 @CopyToMap + @CopyFromMap，生成双向方法
+48. **与 @CopyTarget 共存** - 独立生成 BeanCopier 和 MapCopier，互不影响
+49. **移除 beforeMapping** - 完全移除 v1.4.0 废弃的 beforeMapping 属性
+50. **移除单参数 customizer** - 完全移除 v1.4.0 废弃的单参数 customizer 重载
 
 ## 技术栈
 
@@ -131,10 +142,18 @@ fast-bean-copier/
 
 ## 测试覆盖
 
-- **测试用例**：461 个（涵盖所有功能）
+- **测试用例**：481 个（涵盖所有功能）
 - **示例模块指令覆盖率**：95%+（Jacoco）
 - **处理器模块覆盖率**：80%+（Jacoco）
 - **所有测试通过** ✅
+
+### v1.5.0 测试类
+
+- `V150ToMapTest` - Bean → Map 转换测试（12 个测试用例）
+- `V150FromMapTest` - Map → Bean 转换测试（15 个测试用例）
+- `V150MapAndBeanCopierCoexistenceTest` - MapCopier 与 BeanCopier 共存测试（7 个测试用例）
+- `V150MapComponentModelTest` - MapCopier 依赖注入模式测试（6 个测试用例）
+- `V150ApiCleanupRegressionTest` - API 清理回归测试（15 个测试用例）
 
 ### v1.4.0 测试类
 
@@ -311,6 +330,27 @@ fast.bean.copier.componentModel=SPRING
 fast.bean.copier.nullValueStrategy=IGNORE
 ```
 
+### Bean ↔ Map 转换（v1.5）
+
+```java
+// Bean → Map
+@CopyToMap(keyStrategy = MapKeyStrategy.SNAKE_CASE)
+public class UserDto {
+    private Long id;
+    private String firstName;          // key: "first_name"
+    @CopyField(mapKey = "email_addr")
+    private String email;              // key: "email_addr"（字段级优先）
+}
+
+Map<String, Object> map = UserDtoMapCopier.toMap(userDto);
+List<Map<String, Object>> mapList = UserDtoMapCopier.toMapList(userDtos);
+
+// Map → Bean
+@CopyFromMap
+public class UserDto { ... }
+UserDto dto = UserDtoMapCopier.fromMap(map);
+```
+
 ### 函数式处理（v1.4）
 
 ```java
@@ -421,6 +461,13 @@ mvn jacoco:report
 
 ## 版本历史
 
+### 1.5.0（2026-04-26）
+- Bean ↔ Map 转换：@CopyToMap/@CopyFromMap 注解
+- MapKeyStrategy 枚举：FIELD_NAME / CAMEL_CASE / SNAKE_CASE / CUSTOM
+- @CopyField.mapKey 属性：字段级自定义 Map key
+- API 清理：完全移除 beforeMapping 和单参数 customizer 重载
+- 新增 55+ v1.5.0 专项测试，总覆盖率 95%+
+
 ### 1.4.0（2026-03-29）
 - 函数式处理增强：preProcessor + postProcessor 双处理器 API
 - 深拷贝控制：@CopyField.deepCopy 属性
@@ -477,11 +524,11 @@ mvn jacoco:report
 
 ## 项目统计
 
-- **源代码行数**：~12000 行
-- **测试代码行数**：~7000 行
-- **文档行数**：~8000 行
-- **总代码行数**：~27000 行
-- **测试用例数**：461 个
+- **源代码行数**：~14000 行
+- **测试代码行数**：~8000 行
+- **文档行数**：~9000 行
+- **总代码行数**：~31000 行
+- **测试用例数**：481 个
 - **文档文件数**：8 个
 
 ## 贡献指南

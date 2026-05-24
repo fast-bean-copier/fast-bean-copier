@@ -6,16 +6,52 @@
 
 ## 版本特性
 
-### Q: v1.4.0 有哪些新增功能？
-**A**: v1.4.0 主要新增函数式处理增强和深拷贝控制：
-- **函数式处理增强**：统一的 preProcessor + postProcessor 双处理器 API
-  - `toDto(source, preProcessor, postProcessor)`：拷贝前对 source 预处理，拷贝后对 target 后处理
-  - `fromDto(source, preProcessor, postProcessor)`：拷贝前对 DTO 预处理，拷贝后对 Entity 后处理
-  - 所有集合方法（List/Set/Map/Array）都支持双处理器
-- **深拷贝控制**：通过 `@CopyField(deepCopy = true/false)` 控制深拷贝行为
-  - `deepCopy = true`（默认）：嵌套对象/集合元素深拷贝
-  - `deepCopy = false`：浅拷贝（直接引用传递）
-- **废弃方法**：`beforeMapping` 和 `customizer` 方法标记为 `@Deprecated`，建议使用新的双处理器 API
+### Q: v1.5.0 有哪些新增功能？
+**A**: v1.5.0 主要新增 Bean ↔ Map 转换支持，并清理了废弃 API：
+- **@CopyToMap**：Bean → Map 转换，生成 `{Class}MapCopier` 的 toMap/toMapList/toMapSet 方法
+- **@CopyFromMap**：Map → Bean 转换，生成 fromMap/fromMapList/fromMapSet 方法
+- **MapKeyStrategy**：FIELD_NAME / CAMEL_CASE / SNAKE_CASE / CUSTOM 四种 key 命名策略
+- **@CopyField.mapKey**：字段级自定义 Map key，优先级高于 keyStrategy
+- **移除 beforeMapping**：使用 `preProcessor` 替代
+- **移除单参数 customizer**：使用 `toDto(source, null, postProcessor)` 替代
+
+### Q: v1.5.0 如何使用 Bean ↔ Map 转换？
+**A**:
+```java
+// Bean → Map
+@CopyToMap(keyStrategy = MapKeyStrategy.SNAKE_CASE)
+public class UserDto {
+    private Long id;
+    private String firstName;          // key: "first_name"
+    @CopyField(mapKey = "email_addr")
+    private String email;              // key: "email_addr"（字段级优先）
+}
+Map<String, Object> map = UserDtoMapCopier.toMap(userDto);
+
+// Map → Bean
+@CopyFromMap
+public class UserDto { ... }
+UserDto dto = UserDtoMapCopier.fromMap(map);
+```
+
+### Q: v1.5.0 移除了哪些 API？如何迁移？
+**A**: 移除了 v1.4.0 标记为废弃的两类 API：
+
+**1. beforeMapping 属性**（使用 preProcessor 替代）：
+```java
+UserDto dto = UserDtoCopier.toDto(user,
+    source -> { /* 验证逻辑 */ return source; },
+    null
+);
+```
+
+**2. 单参数 customizer 重载**（使用 postProcessor 替代）：
+```java
+UserDto dto = UserDtoCopier.toDto(user, null, result -> {
+    result.setDisplayName(result.getName().toUpperCase());
+    return result;
+});
+```
 
 ## 基本问题
 
@@ -36,8 +72,8 @@
 **A**: 可以。在 `build.gradle` 中添加：
 ```gradle
 dependencies {
-    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.4.0'
-    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.4.0'
+    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.5.0'
+    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.5.0'
 }
 ```
 
@@ -71,9 +107,7 @@ List<UserDto> dtos = UserDtoCopier.toDtoList(
 ```
 
 ### Q: preProcessor 和 postProcessor 的执行顺序是什么？
-**A**: 执行顺序为：`preProcessor` → 字段拷贝 → `postProcessor`
-
-如果同时存在 `beforeMapping`（已废弃），执行顺序为：`preProcessor` → `beforeMapping` → 字段拷贝 → `postProcessor`
+**A**: 执行顺序为：`preProcessor` → 字段拷贝 → `postProcessor`（Bean ↔ Bean 与 Bean ↔ Map 均适用）
 
 ### Q: 如何使用 deepCopy 控制深拷贝行为？
 **A**: 通过 `@CopyField(deepCopy = true/false)` 控制：
@@ -110,16 +144,13 @@ public class EmployeeDto {
 - **大对象**：对大型嵌套对象使用浅拷贝，避免内存占用
 
 ### Q: 旧的 customizer 方法还能用吗？
-**A**: 可以，但已标记为 `@Deprecated`。建议迁移到新的双处理器 API：
+**A**: **不能**。v1.5.0 已完全移除单参数 `customizer` 重载，请使用双处理器 API：
 
 ```java
-// 旧方法（已废弃）
-UserDto dto = UserDtoCopier.toDto(user, result -> {
-    result.setDisplayName(result.getName().toUpperCase());
-    return result;
-});
+// 旧方法（v1.5.0 已移除）
+UserDto dto = UserDtoCopier.toDto(user, result -> { ... return result; });
 
-// 新方法（推荐）
+// 新方法
 UserDto dto = UserDtoCopier.toDto(user, null, result -> {
     result.setDisplayName(result.getName().toUpperCase());
     return result;
@@ -127,21 +158,15 @@ UserDto dto = UserDtoCopier.toDto(user, null, result -> {
 ```
 
 ### Q: beforeMapping 还能用吗？
-**A**: 可以，但已标记为 `@Deprecated`。建议使用 `preProcessor` 替代：
+**A**: **不能**。v1.5.0 已完全移除 `@CopyTarget.beforeMapping()` 属性，请使用 `preProcessor` 替代：
 
 ```java
-// 旧方法（已废弃）
+// 旧方法（v1.5.0 已移除）
 @CopyTarget(source = User.class, beforeMapping = "validate")
-public class UserDto {
-    default void validate(User source) {
-        if (source.getName() == null) {
-            throw new IllegalArgumentException("Name cannot be null");
-        }
-    }
-}
+public class UserDto { ... }
 
-// 新方法（推荐）
-UserDto dto = UserDtoCopier.toDto(user, 
+// 新方法
+UserDto dto = UserDtoCopier.toDto(user,
     source -> {
         if (source.getName() == null) {
             throw new IllegalArgumentException("Name cannot be null");
@@ -256,7 +281,9 @@ public class AddressDto {
 **A**: v1.2 开始支持。使用 `EnumStringConverter` 可以实现 Enum ↔ String/Integer 转换。
 
 ### Q: 支持 Map 转换吗？
-**A**: 支持。Key 通常直接拷贝，Value 会按深拷贝规则处理。
+**A**: 分两种场景：
+- **Bean ↔ Map 转换（v1.5.0）**：使用 `@CopyToMap` / `@CopyFromMap`，生成 `MapCopier` 的 `toMap` / `fromMap` 方法，详见上文「v1.5.0 如何使用 Bean ↔ Map 转换」
+- **Bean 中的 Map 字段**：`Map<K,V>` 类型字段在 Bean ↔ Bean 拷贝时，Key 通常直接拷贝，Value 按深拷贝规则处理
 
 ### Q: 支持 Builder 模式吗？
 **A**: 当前版本不支持。Copier 类使用 setter 方法进行赋值。
@@ -326,12 +353,15 @@ public class UserService {
 - `ComponentModel.JSR330`：JSR-330 标准
 
 ### Q: 如何使用函数式定制？
-**A**: 使用带 `UnaryOperator` 参数的重载方法：
+**A**: 使用 `preProcessor` + `postProcessor` 双处理器 API（v1.4+，v1.5.0 为唯一方式）：
 ```java
-UserDto dto = UserDtoCopier.toDto(user, result -> {
-    result.setDisplayName(result.getName().toUpperCase());
-    return result;
-});
+UserDto dto = UserDtoCopier.toDto(user,
+    source -> { /* 拷贝前处理 source */ return source; },
+    result -> {
+        result.setDisplayName(result.getName().toUpperCase());
+        return result;
+    }
+);
 ```
 
 ### Q: TypeConverter 在不同模式下如何注入？
@@ -360,23 +390,24 @@ UserDtoCopier.updateEntity(existingUser, userDto);
 - `updateDto`：更新已存在的目标对象，不创建新对象
 
 ### Q: 如何使用映射前回调？
-**A**: 使用 `beforeMapping` 属性指定回调方法：
+**A**: v1.5.0 已移除 `beforeMapping` 属性，请使用 `preProcessor` 在拷贝前处理源对象：
 ```java
-@CopyTarget(source = User.class, beforeMapping = "validateAndPrepare")
-public class UserDto {
-    default void validateAndPrepare(User source) {
+UserDto dto = UserDtoCopier.toDto(user,
+    source -> {
         if (source.getName() == null) {
             throw new IllegalArgumentException("Name cannot be null");
         }
-    }
-}
+        return source;
+    },
+    null
+);
 ```
 
-### Q: beforeMapping 方法有什么要求？
-**A**: 
-- 必须是目标类中的默认方法（default method）
-- 参数类型为源类类型
-- 返回类型为 void
+### Q: MapCopier 能与 BeanCopier 同时使用吗？
+**A**: 可以。在同一类上同时标注 `@CopyTarget`、`@CopyToMap`、`@CopyFromMap`，会分别生成 `UserDtoCopier` 与 `UserDtoMapCopier`，互不干扰。
+
+### Q: Map key 的命名优先级是什么？
+**A**: `@CopyField(mapKey)` > `@CopyToMap(keyStrategy)` / `@CopyFromMap(keyStrategy)` > 字段名。例如 `keyStrategy = SNAKE_CASE` 时字段 `firstName` 的 key 为 `"first_name"`；若该字段设置了 `@CopyField(mapKey = "fn")`，则 key 为 `"fn"`。
 
 ### Q: 如何使用条件映射？
 **A**: 使用 `@CopyField` 的 `condition` 属性：

@@ -5,6 +5,62 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-04-26
+
+### Added
+
+#### Bean ↔ Map Conversion Support
+- **@CopyToMap Annotation**: Marks a class for Bean → Map conversion, generates `{Class}MapCopier` class
+  - `toMap(T source)` - Basic conversion method
+  - `toMap(T source, preProcessor, postProcessor)` - Functional method with processors
+  - `toMapList(List<T> sources)` / `toMapList(sources, pre, post)` - Batch List conversion
+  - `toMapSet(Set<T> sources)` / `toMapSet(sources, pre, post)` - Batch Set conversion
+- **@CopyFromMap Annotation**: Marks a class for Map → Bean conversion
+  - `fromMap(Map<String, Object> source)` - Basic conversion method
+  - `fromMap(source, preProcessor, postProcessor)` - Functional method with processors
+  - `fromMapList` / `fromMapSet` batch methods
+- **MapKeyStrategy Enum**: Map key naming strategy
+  - `FIELD_NAME` (default): Use field name as key
+  - `CAMEL_CASE`: camelCase naming
+  - `SNAKE_CASE`: snake_case naming (e.g., `firstName` → `first_name`)
+  - `CUSTOM`: Custom key via `@CopyField(mapKey)` per field
+- **@CopyField.mapKey Attribute**: Field-level custom Map key, takes priority over keyStrategy
+- **Bidirectional Conversion**: A class can be annotated with both `@CopyToMap` + `@CopyFromMap` to generate bidirectional methods
+- **Coexistence with @CopyTarget**: Independently generates BeanCopier and MapCopier without interference
+
+### Removed
+
+#### API Cleanup (Removed Deprecated APIs)
+- **Removed @CopyTarget.beforeMapping()** attribute (deprecated in v1.4.0)
+  - Use `preProcessor` parameter instead
+- **Removed single-parameter customizer overloads** (deprecated in v1.4.0)
+  - `toDto(source, customizer)` → use `toDto(source, null, postProcessor)`
+  - `fromDto(source, customizer)` → use `fromDto(source, null, postProcessor)`
+  - Collection methods: `toDtoList(sources, customizer)` → `toDtoList(sources, null, postProcessor)`
+
+### Improved
+
+- **CopyFieldConfig**: Added `mapKey` field support
+- **FieldMapping**: Added `mapKey` field with getter/setter
+- **AnnotationExtractor**: Added `extractMapKey()` method
+- **MapCopierProcessor / MapCodeGenerator**: Independent Bean ↔ Map code generation, isolated from Bean ↔ Bean
+
+### Testing
+- Added 55+ v1.5.0-specific test cases
+- Added `V150ToMapTest`: Bean → Map conversion tests
+- Added `V150FromMapTest`: Map → Bean conversion tests
+- Added `V150MapAndBeanCopierCoexistenceTest`: MapCopier and BeanCopier coexistence tests
+- Added `V150MapComponentModelTest`: MapCopier component model tests
+- Added `V150ApiCleanupRegressionTest`: API cleanup regression tests
+- Code coverage: 95%+
+
+### Compatibility
+- **Breaking Change**: `beforeMapping` attribute and single-parameter `customizer` overloads are fully removed
+- **Migration Required**: Update code using removed APIs before upgrading from v1.4.x
+- **New Features**: All Bean ↔ Map conversion features are opt-in
+
+---
+
 ## [1.4.0] - 2026-03-29
 
 ### Added
@@ -481,6 +537,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.5.0]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.5.0
+[1.4.0]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.4.0
 [1.3.0]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.3.0
 [1.2.1]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.2.1
 [1.2.0]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.2.0

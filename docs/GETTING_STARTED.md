@@ -1,16 +1,6 @@
 # Fast Bean Copier 快速入门指南
 
-> v1.4.0 新特性：函数式处理增强（preProcessor + postProcessor 双处理器）、深拷贝控制（@CopyField.deepCopy 属性）。
->
-> v1.3.2 新特性：嵌套对象深拷贝支持（自动深拷贝不同类型的嵌套对象、无限层级嵌套、混合模式支持）。
->
-> v1.3.1 新特性：Map/Array 批量转换的 UnaryOperator 重载、Properties 配置文件支持、逆向转换智能跳过。
->
-> v1.3 新特性：更新现有对象（updateDto/updateEntity）、映射前回调、条件映射、默认值和常量、全局配置（@CopyTargetConfig）。
->
-> v1.2.1 重构：处理器架构重构，代码可维护性显著提升。
->
-> v1.2 新特性：多字段映射（多对一、一对多）、TypeConverter 类型转换器、依赖注入支持、函数式定制拷贝。
+> **v1.5.0 新特性**：Bean ↔ Map 转换支持（@CopyToMap/@CopyFromMap 注解、MapKeyStrategy 枚举、@CopyField.mapKey 属性）；API 清理（移除 beforeMapping 和单参数 customizer 废弃 API）。
 
 ## 5 分钟快速开始
 
@@ -22,13 +12,13 @@
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-annotations</artifactId>
-    <version>1.4.0</version>
+    <version>1.5.0</version>
 </dependency>
 
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-processor</artifactId>
-    <version>1.4.0</version>
+    <version>1.5.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -103,9 +93,80 @@ List<UserDto> dtos = UserDtoCopier.toDtoList(users);
 Set<UserDto> dtoSet = UserDtoCopier.toDtoSet(users);
 ```
 
-## v1.4.0 新功能
+## v1.5.0 新功能
 
-### 函数式处理增强
+### Bean → Map 转换
+
+```java
+@CopyToMap(keyStrategy = MapKeyStrategy.SNAKE_CASE)
+public class UserDto {
+    private Long id;
+    private String firstName;          // key: "first_name"
+    @CopyField(mapKey = "email_addr")
+    private String email;              // key: "email_addr"（字段级优先）
+}
+
+Map<String, Object> map = UserDtoMapCopier.toMap(userDto);
+List<Map<String, Object>> mapList = UserDtoMapCopier.toMapList(userDtos);
+Set<Map<String, Object>> mapSet = UserDtoMapCopier.toMapSet(userDtoSet);
+```
+
+### Map → Bean 转换
+
+```java
+@CopyFromMap
+public class UserDto {
+    private Long id;
+    private String name;
+}
+
+UserDto dto = UserDtoMapCopier.fromMap(map);
+List<UserDto> dtos = UserDtoMapCopier.fromMapList(mapList);
+```
+
+### 函数式处理器（Bean ↔ Map）
+
+```java
+// Bean → Map 带处理器
+Map<String, Object> map = UserDtoMapCopier.toMap(
+    userDto,
+    src -> { src.setName(src.getName().trim()); return src; },
+    result -> { result.put("_ts", System.currentTimeMillis()); return result; }
+);
+
+// Map → Bean 带处理器
+UserDto dto = UserDtoMapCopier.fromMap(
+    map,
+    src -> { src.remove("_ts"); return src; },
+    result -> { result.setDisplayName(result.getName().toUpperCase()); return result; }
+);
+```
+
+### 与 @CopyTarget 共存
+
+```java
+@CopyTarget(source = User.class)  // 生成 UserDtoCopier
+@CopyToMap                         // 生成 UserDtoMapCopier（toMap）
+@CopyFromMap                       // 生成 UserDtoMapCopier（fromMap）
+public class UserDto { ... }
+```
+
+### 从 v1.4.x 迁移到 v1.5.0
+
+v1.5.0 移除了 v1.4.0 中已废弃的 API，升级前请完成以下替换：
+
+| 旧用法（v1.5.0 已移除） | 新用法 |
+|------------------------|--------|
+| `@CopyTarget(beforeMapping = "validate")` | `toDto(source, preProcessor, null)` |
+| `toDto(source, customizer)` | `toDto(source, null, postProcessor)` |
+| `fromDto(source, customizer)` | `fromDto(source, null, postProcessor)` |
+| `toDtoList(sources, customizer)` | `toDtoList(sources, null, postProcessor)` |
+
+Bean ↔ Map 转换为纯新增能力，现有 Bean ↔ Bean 代码在迁移废弃 API 后无需其他修改。
+
+## v1.4.0 功能
+
+### 函数式处理增强（preProcessor + postProcessor）
 
 ```java
 // 预处理和后处理
@@ -152,244 +213,6 @@ public class EmployeeDto {
     @CopyField(deepCopy = false)
     private List<TagDto> tags;
 }
-```
-
-## v1.2 新功能
-
-### 多对一映射
-
-```java
-@CopyTarget(source = Person.class)
-public class PersonDto {
-    @CopyField(source = {"firstName", "lastName"}, 
-               expression = "java(source.getFirstName() + \" \" + source.getLastName())")
-    private String fullName;
-}
-```
-
-### 一对多映射
-
-```java
-@CopyTarget(source = FullNameSource.class)
-public class NameDto {
-    @CopyField(source = "fullName", 
-               expression = "java(source.getFullName().split(\" \")[0])")
-    private String firstName;
-}
-```
-
-### 数字格式化
-
-```java
-@CopyField(converter = NumberFormatter.class, format = "#,##0.00元")
-private String priceText;
-```
-
-### 日期格式化
-
-```java
-@CopyField(converter = DateFormatter.class, format = "yyyy-MM-dd HH:mm:ss")
-private String createTimeText;
-```
-
-### 自定义转换器
-
-```java
-@CopyTarget(source = Person.class, uses = PersonConverter.class)
-public class PersonDto {
-    @CopyField(qualifiedByName = "formatAge")
-    private String ageText;
-}
-```
-
-### Spring 集成
-
-```java
-@CopyTarget(source = User.class, componentModel = ComponentModel.SPRING)
-public class UserDto { }
-
-@Service
-public class UserService {
-    @Autowired
-    private UserDtoCopier userDtoCopier;
-}
-```
-
-### 函数式定制（v1.3.1 统一行为）
-
-> **v1.3.1 重要变更**：所有集合类型的 customizer 现在都操作整个集合，提供一致且强大的定制能力。
-
-```java
-// 单对象定制
-UserDto dto = UserDtoCopier.toDto(user, result -> {
-    result.setDisplayName(result.getName().toUpperCase());
-    return result;
-});
-
-// List 定制 - 过滤和排序（v1.3.1 统一行为）
-List<UserDto> result = UserDtoCopier.toDtoList(users, list -> 
-    list.stream()
-        .filter(dto -> dto.getPrice() >= 100)
-        .sorted(Comparator.comparing(UserDto::getName))
-        .collect(Collectors.toList())
-);
-
-// Set 定制 - 不可变集合（v1.3.1 统一行为）
-Set<UserDto> immutableSet = UserDtoCopier.toDtoSet(userSet, 
-    Collections::unmodifiableSet);
-```
-
-## v1.3.1 新功能
-
-### 统一 UnaryOperator 行为
-
-v1.3.1 统一了所有集合类型的 UnaryOperator 行为：
-
-- List: `UnaryOperator<List<T>>` - 操作整个列表
-- Set: `UnaryOperator<Set<T>>` - 操作整个集合
-- Map: `UnaryOperator<Map<K, T>>` - 操作整个 Map
-- Array: `UnaryOperator<T[]>` - 操作整个数组
-
-### Map 批量转换的 UnaryOperator 重载
-
-```java
-// 过滤 Map 条目
-Map<String, UserDto> filteredMap = UserDtoCopier.toDtoMap(userMap, result -> {
-    result.entrySet().removeIf(entry -> entry.getValue().getId() == null);
-    return result;
-});
-
-// 转换为不可变 Map
-Map<String, UserDto> immutableMap = UserDtoCopier.toDtoMap(userMap, 
-    Collections::unmodifiableMap);
-```
-
-### Array 批量转换的 UnaryOperator 重载
-
-```java
-// 过滤数组元素
-UserDto[] filteredArray = UserDtoCopier.toDtoArray(users, result -> 
-    Arrays.stream(result)
-        .filter(dto -> dto.getId() != null)
-        .toArray(UserDto[]::new));
-
-// 排序数组
-UserDto[] sortedArray = UserDtoCopier.toDtoArray(users, result -> {
-    Arrays.sort(result, Comparator.comparing(UserDto::getName));
-    return result;
-});
-```
-
-### Properties 配置文件支持
-
-```properties
-# 在 src/main/resources/fast-bean-copier.properties 中配置
-fast.bean.copier.componentModel=SPRING
-fast.bean.copier.nullValueStrategy=IGNORE
-```
-
-配置优先级：类级别 > 包级别 > 配置文件 > 默认值
-
-```java
-// 类级别配置优先级最高
-@CopyTarget(source = User.class, componentModel = ComponentModel.DEFAULT)
-public class UserDto { }
-
-// 未配置时使用配置文件中的设置
-@CopyTarget(source = Product.class)
-public class ProductDto { }  // 使用配置文件中的 SPRING 模式
-```
-
-### 逆向转换智能跳过
-
-```java
-@CopyTarget(source = User.class)
-public class UserDto {
-    // 使用类型转换器的字段在逆向转换时自动跳过
-    @CopyField(converter = DateFormatter.class, format = "yyyy-MM-dd")
-    private String createTimeText;
-    
-    // 使用表达式的字段在逆向转换时自动跳过
-    @CopyField(source = {"firstName", "lastName"}, 
-               expression = "java(source.getFirstName() + \" \" + source.getLastName())")
-    private String fullName;
-}
-
-// 生成的 fromDto 方法会自动跳过这些字段并添加注释
-// 注释格式：// 类型转换器映射 'createTimeText' 不可逆，在 fromDto() 中跳过
-```
-
-## v1.3 新功能
-
-### 更新现有对象
-
-```java
-// 更新已存在的 DTO 对象
-UserDto existingDto = new UserDto();
-existingDto.setName("原始名称");
-UserDtoCopier.updateDto(existingDto, user);
-
-// 更新已存在的实体对象
-User existingUser = new User();
-UserDtoCopier.updateEntity(existingUser, userDto);
-```
-
-### 映射前回调
-
-```java
-@CopyTarget(source = User.class, beforeMapping = "validateAndPrepare")
-public class UserDto {
-    private String name;
-    
-    default void validateAndPrepare(User source) {
-        if (source.getName() == null) {
-            throw new IllegalArgumentException("Name cannot be null");
-        }
-    }
-}
-```
-
-### 条件映射
-
-```java
-@CopyTarget(source = User.class)
-public class UserDto {
-    // 仅当源字段不为 null 时才映射
-    @CopyField(condition = "java(source.getName() != null)")
-    private String name;
-    
-    // 仅当年龄大于 18 时才映射
-    @CopyField(condition = "java(source.getAge() > 18)")
-    private Integer age;
-}
-```
-
-### 默认值和常量
-
-```java
-@CopyTarget(source = User.class)
-public class UserDto {
-    // 当源字段为 null 时使用默认值
-    @CopyField(defaultValue = "未知")
-    private String name;
-    
-    // 设置常量值，不依赖源字段
-    @CopyField(constant = "SYSTEM")
-    private String createdBy;
-}
-```
-
-### 全局配置
-
-```java
-// package-info.java
-@CopyTargetConfig(
-    componentModel = ComponentModel.SPRING,
-    nullValueStrategy = NullValueStrategy.IGNORE
-)
-package com.example.dto;
-
-import com.github.jackieonway.copier.annotation.*;
 ```
 
 ## 下一步

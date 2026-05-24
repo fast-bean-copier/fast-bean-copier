@@ -5,6 +5,62 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/),
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.5.0] - 2026-04-26
+
+### 新增
+
+#### Bean ↔ Map 转换支持
+- **@CopyToMap 注解**：标记类支持 Bean → Map 转换，生成 `{Class}MapCopier` 类
+  - `toMap(T source)` - 基础转换方法
+  - `toMap(T source, preProcessor, postProcessor)` - 函数式方法
+  - `toMapList(List<T> sources)` / `toMapList(sources, pre, post)` - 批量 List 转换
+  - `toMapSet(Set<T> sources)` / `toMapSet(sources, pre, post)` - 批量 Set 转换
+- **@CopyFromMap 注解**：标记类支持 Map → Bean 转换
+  - `fromMap(Map<String, Object> source)` - 基础转换方法
+  - `fromMap(source, preProcessor, postProcessor)` - 函数式方法
+  - `fromMapList` / `fromMapSet` 批量方法
+- **MapKeyStrategy 枚举**：Map key 命名策略
+  - `FIELD_NAME`（默认）：使用字段名
+  - `CAMEL_CASE`：驼峰命名
+  - `SNAKE_CASE`：下划线命名（如 `firstName` → `first_name`）
+  - `CUSTOM`：配合 `@CopyField(mapKey)` 自定义
+- **@CopyField.mapKey 属性**：字段级自定义 Map key，优先级高于 keyStrategy
+- **双向转换**：同一类可同时标注 `@CopyToMap` + `@CopyFromMap`，生成双向方法
+- **与 @CopyTarget 共存**：独立生成 BeanCopier 和 MapCopier，互不影响
+
+### 移除
+
+#### API 清理（移除废弃 API）
+- **移除 @CopyTarget.beforeMapping()** 属性（v1.4.0 已废弃）
+  - 请使用 `preProcessor` 参数替代
+- **移除单参数 customizer 重载**（v1.4.0 已废弃）
+  - `toDto(source, customizer)` → 使用 `toDto(source, null, postProcessor)`
+  - `fromDto(source, customizer)` → 使用 `fromDto(source, null, postProcessor)`
+  - 集合方法同理：`toDtoList(sources, customizer)` → `toDtoList(sources, null, postProcessor)`
+
+### 改进
+
+- **CopyFieldConfig**：新增 `mapKey` 字段支持
+- **FieldMapping**：新增 `mapKey` 字段及 getter/setter
+- **AnnotationExtractor**：新增 `extractMapKey()` 方法
+- **MapCopierProcessor / MapCodeGenerator**：独立 Bean ↔ Map 代码生成体系，与 Bean ↔ Bean 互不影响
+
+### 测试
+
+- 新增 55+ 个 v1.5.0 专项测试用例
+- 新增 `V150ToMapTest`：Bean → Map 转换测试
+- 新增 `V150FromMapTest`：Map → Bean 转换测试
+- 新增 `V150MapAndBeanCopierCoexistenceTest`：MapCopier 与 BeanCopier 共存测试
+- 新增 `V150MapComponentModelTest`：MapCopier 依赖注入模式测试
+- 新增 `V150ApiCleanupRegressionTest`：API 清理回归测试
+- 代码覆盖率：95%+
+
+### 兼容性
+
+- **破坏性变更**：`beforeMapping` 属性和单参数 `customizer` 重载已完全移除
+- **迁移要求**：从 v1.4.x 升级前，需将使用废弃 API 的代码迁移到 `preProcessor`/`postProcessor`
+- **新增功能**：Bean ↔ Map 转换为可选能力，不影响现有 Bean ↔ Bean 代码
+
 ## [1.4.0] - 2026-03-29
 
 ### 新增
@@ -531,6 +587,8 @@
 
 ---
 
+[1.5.0]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.5.0
+[1.4.0]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.4.0
 [1.3.0]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.3.0
 [1.2.1]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.2.1
 [1.2.0]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.2.0

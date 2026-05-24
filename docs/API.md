@@ -1,16 +1,6 @@
 # Fast Bean Copier API 文档
 
-> v1.4.0 新增：函数式处理增强（preProcessor/postProcessor 双处理器）、深拷贝控制（@CopyField.deepCopy）、beforeMapping 废弃。
->
-> v1.3.2 新增：嵌套对象深拷贝支持（自动深拷贝不同类型的嵌套对象、无限层级嵌套、混合模式支持）。
->
-> v1.3.1 新增：统一所有集合类型的 UnaryOperator 行为（List/Set/Map/Array）、Properties 配置文件支持、逆向转换智能跳过。
->
-> v1.3 新增：更新现有对象（updateDto/updateEntity）、映射前回调（beforeMapping）、条件映射（condition）、默认值和常量（defaultValue/constant）、全局配置（@CopyTargetConfig）、Null 值处理策略（NullValueStrategy）。
->
-> v1.2.1 重构：处理器架构重构，代码可维护性显著提升。
->
-> v1.2 新增：多字段映射（多对一、一对多）、TypeConverter 类型转换器、依赖注入支持、函数式定制拷贝。
+> **v1.5.0 新增**：Bean ↔ Map 转换（@CopyToMap/@CopyFromMap/MapKeyStrategy/@CopyField.mapKey）；移除废弃 API（beforeMapping、单参数 customizer 重载）。
 
 ## 注解
 
@@ -24,30 +14,10 @@
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.SOURCE)
 public @interface CopyTarget {
-    /**
-     * 源类的类型。必需。
-     */
     Class<?> source();
-    
-    /**
-     * 要忽略的字段名数组。可选。
-     */
     String[] ignore() default {};
-    
-    /**
-     * 自定义转换器类列表。可选。
-     */
     Class<?>[] uses() default {};
-    
-    /**
-     * 组件模型（依赖注入框架）。可选。
-     */
     ComponentModel componentModel() default ComponentModel.DEFAULT;
-    
-    /**
-     * 映射前回调方法名。可选。（v1.3）
-     */
-    String beforeMapping() default "";
 }
 ```
 
@@ -57,46 +27,20 @@ public @interface CopyTarget {
 |------|------|------|------|
 | `source` | `Class<?>` | 是 | 源类的类型 |
 | `ignore` | `String[]` | 否 | 要忽略的字段名数组 |
-| `uses` | `Class<?>[]` | 否 | 自定义转换器类列表（v1.2） |
-| `componentModel` | `ComponentModel` | 否 | 依赖注入框架选择（v1.2） |
-| `beforeMapping` | `String` | 否 | 映射前回调方法名（v1.3） |
+| `uses` | `Class<?>[]` | 否 | 自定义转换器类列表 |
+| `componentModel` | `ComponentModel` | 否 | 依赖注入框架选择 |
 
 #### 示例
 
 ```java
-// 基本用法
 @CopyTarget(source = User.class)
-public class UserDto {
-    // ...
-}
+public class UserDto { ... }
 
-// 忽略字段
 @CopyTarget(source = User.class, ignore = {"password", "token"})
-public class UserResponse {
-    // ...
-}
+public class UserResponse { ... }
 
-// 使用自定义转换器
-@CopyTarget(source = User.class, uses = {StringToListConverter.class})
-public class UserDto {
-    // ...
-}
-
-// Spring 集成
 @CopyTarget(source = User.class, componentModel = ComponentModel.SPRING)
-public class UserDto {
-    // ...
-}
-
-// 映射前回调（v1.3）
-@CopyTarget(source = User.class, beforeMapping = "validateAndPrepare")
-public class UserDto {
-    default void validateAndPrepare(User source) {
-        if (source.getName() == null) {
-            throw new IllegalArgumentException("Name cannot be null");
-        }
-    }
-}
+public class UserDto { ... }
 ```
 
 ### @CopyField（v1.2 新增）
@@ -158,6 +102,11 @@ public @interface CopyField {
      * 深拷贝控制，决定嵌套对象/集合是否深拷贝（v1.4）
      */
     boolean deepCopy() default true;
+    
+    /**
+     * 自定义 Map key，仅 Bean ↔ Map 转换时生效（v1.5）
+     */
+    String mapKey() default "";
 }
 ```
 
@@ -174,7 +123,8 @@ public @interface CopyField {
 | `condition` | `String` | 否 | 条件表达式（v1.3） |
 | `defaultValue` | `String` | 否 | 默认值（v1.3） |
 | `constant` | `String` | 否 | 常量值（v1.3） |
-| `deepCopy` | `boolean` | 否 | 深拷贝控制（v1.4） |
+| `deepCopy` | `boolean` | 否 | 深拷贝控制，默认 true（v1.4） |
+| `mapKey` | `String` | 否 | 自定义 Map key，仅 Bean ↔ Map 转换时生效（v1.5） |
 
 #### 示例
 
@@ -332,6 +282,103 @@ public enum NullValueStrategy {
 }
 ```
 
+### @CopyToMap（v1.5 新增）
+
+标记类支持 Bean → Map 转换，编译期生成 `{Class}MapCopier` 类。
+
+#### 声明
+
+```java
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.SOURCE)
+public @interface CopyToMap {
+    String[] ignore() default {};
+    Class<?>[] uses() default {};
+    ComponentModel componentModel() default ComponentModel.DEFAULT;
+    MapKeyStrategy keyStrategy() default MapKeyStrategy.FIELD_NAME;
+}
+```
+
+#### 属性
+
+| 属性 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `ignore` | `String[]` | 否 | 不参与转换的字段名 |
+| `uses` | `Class<?>[]` | 否 | 自定义转换器类列表 |
+| `componentModel` | `ComponentModel` | 否 | 依赖注入框架（与 Bean Copier 相同） |
+| `keyStrategy` | `MapKeyStrategy` | 否 | Map key 命名策略，默认 `FIELD_NAME` |
+
+#### 示例
+
+```java
+@CopyToMap(keyStrategy = MapKeyStrategy.SNAKE_CASE)
+public class UserDto {
+    private Long id;
+    private String firstName;          // key: "first_name"
+    @CopyField(mapKey = "email_addr")
+    private String email;              // key: "email_addr"（字段级优先）
+}
+```
+
+可与 `@CopyFromMap`、`@CopyTarget` 同时标注在同一类上，分别生成 MapCopier 与 BeanCopier，互不影响。
+
+### @CopyFromMap（v1.5 新增）
+
+标记类支持 Map → Bean 转换，与 `@CopyToMap` 共用 `{Class}MapCopier` 类名。
+
+#### 声明
+
+```java
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.SOURCE)
+public @interface CopyFromMap {
+    String[] ignore() default {};
+    Class<?>[] uses() default {};
+    ComponentModel componentModel() default ComponentModel.DEFAULT;
+    MapKeyStrategy keyStrategy() default MapKeyStrategy.FIELD_NAME;
+}
+```
+
+#### 属性
+
+| 属性 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `ignore` | `String[]` | 否 | 不参与转换的字段名 |
+| `uses` | `Class<?>[]` | 否 | 自定义转换器类列表 |
+| `componentModel` | `ComponentModel` | 否 | 依赖注入框架 |
+| `keyStrategy` | `MapKeyStrategy` | 否 | 解析 Map key 时的命名策略 |
+
+#### 示例
+
+```java
+@CopyFromMap(keyStrategy = MapKeyStrategy.SNAKE_CASE)
+public class UserDto {
+    private Long id;
+    private String firstName;
+}
+```
+
+### MapKeyStrategy 枚举（v1.5 新增）
+
+Bean ↔ Map 转换时，字段名到 Map key 的命名策略。
+
+**优先级**：`@CopyField(mapKey)` > `keyStrategy` > 字段名
+
+| 枚举值 | 说明 | 示例（字段 `firstName`） |
+|--------|------|--------------------------|
+| `FIELD_NAME` | 使用字段名（默认） | `"firstName"` |
+| `CAMEL_CASE` | 驼峰（与字段名相同） | `"firstName"` |
+| `SNAKE_CASE` | 下划线命名 | `"first_name"` |
+| `CUSTOM` | 配合 `@CopyField(mapKey)` 逐字段指定 | 由 `mapKey` 决定 |
+
+```java
+@CopyToMap(keyStrategy = MapKeyStrategy.CUSTOM)
+public class UserDto {
+    @CopyField(mapKey = "user_id")
+    private Long id;
+}
+```
+
 ## 内置 TypeConverter
 
 ### NumberFormatter
@@ -390,7 +437,7 @@ private String dataJson;  // Object -> JSON String
 
 ## 生成的 Copier 类
 
-### 方法
+### Bean Copier 方法
 
 #### toDto(source)
 
@@ -413,25 +460,13 @@ User user = new User(1L, "张三", "zhangsan@example.com", 25);
 UserDto userDto = UserDtoCopier.toDto(user);
 ```
 
-#### toDto(source, customizer)（v1.2 新增）
+#### toDto(source, customizer)（v1.2 新增，v1.5 已移除）
 
-将源对象转换为目标 DTO 对象，并应用自定义逻辑。
+单参数 customizer 重载已在 v1.5.0 中完全移除。请使用双处理器 API：
 
-**签名**：
 ```java
-public static TargetType toDto(SourceType source, UnaryOperator<TargetType> customizer)
-```
-
-**参数**：
-- `source` - 源对象
-- `customizer` - 自定义函数
-
-**返回值**：
-- 经过自定义处理的目标 DTO 对象
-
-**示例**：
-```java
-UserDto dto = UserDtoCopier.toDto(user, result -> {
+// 新方法
+UserDto dto = UserDtoCopier.toDto(user, null, result -> {
     result.setDisplayName(result.getName().toUpperCase());
     return result;
 });
@@ -478,10 +513,6 @@ UserDto dto = UserDtoCopier.toDto(user,
 );
 ```
 
-**注意**：
-- `toDto(source, customizer)` 方法已标记为 `@Deprecated`，建议使用 `toDto(source, null, postProcessor)` 替代
-- 旧方法仍可使用，内部委托到新方法实现
-
 #### fromDto(source)
 
 将目标 DTO 对象转换回源对象（反向拷贝）。
@@ -503,14 +534,9 @@ UserDto userDto = new UserDto(1L, "张三", "zhangsan@example.com", 25);
 User user = UserDtoCopier.fromDto(userDto);
 ```
 
-#### fromDto(source, customizer)（v1.2 新增）
+#### fromDto(source, customizer)（v1.2 新增，v1.5 已移除）
 
-将目标 DTO 对象转换回源对象，并应用自定义逻辑。
-
-**签名**：
-```java
-public static SourceType fromDto(TargetType source, UnaryOperator<SourceType> customizer)
-```
+单参数 customizer 重载已在 v1.5.0 中完全移除。请使用 `fromDto(source, null, postProcessor)` 替代。
 
 #### fromDto(source, preProcessor, postProcessor)（v1.4 新增）
 
@@ -551,10 +577,7 @@ User user = UserDtoCopier.fromDto(userDto,
 );
 ```
 
-**注意**：
-- `fromDto(source, customizer)` 方法已标记为 `@Deprecated`，建议使用 `fromDto(source, null, postProcessor)` 替代
-
-#### updateDto(target, source)（v1.3 新增）
+#### updateDto(target, source)
 
 更新已存在的目标 DTO 对象，而不是创建新对象。
 
@@ -1062,16 +1085,67 @@ UserDto dto = UserDtoCopier.toDto(user);
 // dto.name 也为 null
 ```
 
-### 函数式定制的 null 处理（v1.2）
+### 函数式处理的 null 处理（v1.4+）
 
-当源对象为 null 时，customizer 函数不会被调用：
+当源对象为 null 时，`preProcessor` 和 `postProcessor` 均不会被调用：
 
 ```java
-UserDto dto = UserDtoCopier.toDto(null, result -> {
-    // 这里不会执行
-    return result;
-});
-// dto 为 null
+UserDto dto = UserDtoCopier.toDto(null, 
+    source -> { return source; },
+    result -> { return result; }
+);
+// dto 为 null，处理器不执行
+```
+
+## 生成的 MapCopier 类（v1.5 新增）
+
+标注 `@CopyToMap` 和/或 `@CopyFromMap` 后，生成 `{Class}MapCopier`（如 `UserDtoMapCopier`）。
+
+### Bean → Map 方法
+
+| 方法 | 说明 |
+|------|------|
+| `toMap(T source)` | 单对象转 `Map<String, Object>` |
+| `toMap(T source, preProcessor, postProcessor)` | 拷贝前处理 Bean，拷贝后处理 Map |
+| `toMapList(List<T> sources)` | 批量 List 转换 |
+| `toMapList(sources, preProcessor, postProcessor)` | 带处理器的 List 转换 |
+| `toMapSet(Set<T> sources)` | 批量 Set 转换 |
+| `toMapSet(sources, preProcessor, postProcessor)` | 带处理器的 Set 转换 |
+
+**执行顺序**：`preProcessor` → 字段写入 Map → `postProcessor`
+
+```java
+Map<String, Object> map = UserDtoMapCopier.toMap(userDto);
+List<Map<String, Object>> maps = UserDtoMapCopier.toMapList(userDtos);
+```
+
+### Map → Bean 方法
+
+| 方法 | 说明 |
+|------|------|
+| `fromMap(Map<String, Object> source)` | 单 Map 转 Bean |
+| `fromMap(source, preProcessor, postProcessor)` | 拷贝前处理 Map，拷贝后处理 Bean |
+| `fromMapList(List<Map<String, Object>> sources)` | 批量 List 转换 |
+| `fromMapList(sources, preProcessor, postProcessor)` | 带处理器的 List 转换 |
+| `fromMapSet(Set<Map<String, Object>> sources)` | 批量 Set 转换 |
+| `fromMapSet(sources, preProcessor, postProcessor)` | 带处理器的 Set 转换 |
+
+```java
+UserDto dto = UserDtoMapCopier.fromMap(map);
+List<UserDto> dtos = UserDtoMapCopier.fromMapList(mapList);
+```
+
+### 与 Bean Copier 共存
+
+```java
+@CopyTarget(source = User.class)
+@CopyToMap
+@CopyFromMap
+public class UserDto { ... }
+
+UserDto dto = UserDtoCopier.toDto(user);
+Map<String, Object> map = UserDtoMapCopier.toMap(dto);
+UserDto restored = UserDtoMapCopier.fromMap(map);
 ```
 
 ## 依赖注入模式（v1.2）
