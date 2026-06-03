@@ -98,7 +98,6 @@ v1.5.0 移除了 `beforeMapping` 和单参数 `customizer` 重载，请改用 `p
 - [API 文档](docs/API.md)
 - [常见问题解答](docs/FAQ.md)
 - [更新日志](docs/CHANGELOG.md)
-- [Release Notes v1.5.0](docs/RELEASE_NOTES_v1.5.0.md)（英文）
 
 ## 许可证
 
