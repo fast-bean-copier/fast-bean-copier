@@ -1497,7 +1497,7 @@ public class OrderDto {
 
 ## 29. 版本历史
 
-### 1.5.0（2026-04-26）
+### 1.5.0（2026-06-03）
 - Bean ↔ Map 转换：@CopyToMap/@CopyFromMap 注解
 - MapKeyStrategy 枚举：FIELD_NAME / CAMEL_CASE / SNAKE_CASE / CUSTOM
 - @CopyField.mapKey 属性：字段级自定义 Map key

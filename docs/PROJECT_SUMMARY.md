@@ -10,7 +10,7 @@
 
 - **项目名称**：Fast Bean Copier
 - **版本**：1.5.0
-- **发布日期**：2026-04-26
+- **发布日期**：2026-06-03
 - **Java 版本**：Java 8+
 - **构建工具**：Maven
 - **许可证**：Apache License 2.0
@@ -461,7 +461,7 @@ mvn jacoco:report
 
 ## 版本历史
 
-### 1.5.0（2026-04-26）
+### 1.5.0（2026-06-03）
 - Bean ↔ Map 转换：@CopyToMap/@CopyFromMap 注解
 - MapKeyStrategy 枚举：FIELD_NAME / CAMEL_CASE / SNAKE_CASE / CUSTOM
 - @CopyField.mapKey 属性：字段级自定义 Map key
