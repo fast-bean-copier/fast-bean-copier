@@ -8,10 +8,8 @@
     <!-- 项目坐标 -->
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier</artifactId>
-    <version>1.4.0</version>
+    <version>1.5.0</version>
     <packaging>pom</packaging>
-
-    <!-- 项目信息 -->
     <name>Fast Bean Copier</name>
     <description>高性能、易用的 Bean 拷贝工具，纯 APT 编译期代码生成</description>
     <url>https://github.com/fast-bean-copier/fast-bean-copier</url>
