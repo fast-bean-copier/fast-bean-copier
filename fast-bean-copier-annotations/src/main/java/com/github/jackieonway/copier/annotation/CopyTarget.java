@@ -131,4 +131,28 @@ public @interface CopyTarget {
      */
     ComponentModel componentModel() default ComponentModel.DEFAULT;
 
+    /**
+     * 循环检测策略，可选，默认为 {@link CycleDetectionStrategy#FAIL_FAST}。
+     *
+     * <p>定义在处理嵌套对象时检测到循环引用时的行为：
+     * <ul>
+     *   <li>{@link CycleDetectionStrategy#FAIL_FAST}：编译期检测到循环直接报错终止（默认）</li>
+     *   <li>{@link CycleDetectionStrategy#RETURN_NULL}：运行期循环字段置 null</li>
+     *   <li>{@link CycleDetectionStrategy#AUTOMATIC_CACHE}：运行期维护缓存打破循环</li>
+     * </ul>
+     *
+     * <p>示例：
+     * <pre>
+     * &#64;CopyTarget(source = User.class, cycleDetection = CycleDetectionStrategy.RETURN_NULL)
+     * public class UserDto {
+     *     private UserDto self;  // 自引用字段，循环检测会生效
+     * }
+     * </pre>
+     *
+     * @return 循环检测策略
+     * @since 1.6.0
+     * @see CycleDetectionStrategy
+     */
+    CycleDetectionStrategy cycleDetection() default CycleDetectionStrategy.FAIL_FAST;
+
 }

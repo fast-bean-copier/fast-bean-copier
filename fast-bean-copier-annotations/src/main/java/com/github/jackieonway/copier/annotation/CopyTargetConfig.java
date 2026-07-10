@@ -91,4 +91,13 @@ public @interface CopyTargetConfig {
      * @see NullValueStrategy
      */
     NullValueStrategy nullValueStrategy() default NullValueStrategy.IGNORE;
+
+    /**
+     * 默认循环检测策略。
+     *
+     * @return 循环检测策略，默认为 {@link CycleDetectionStrategy#FAIL_FAST}
+     * @since 1.6.0
+     * @see CycleDetectionStrategy
+     */
+    CycleDetectionStrategy cycleDetection() default CycleDetectionStrategy.FAIL_FAST;
 }

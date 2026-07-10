@@ -3,12 +3,16 @@ package com.github.jackieonway.copier.processor.generator;
 import com.github.jackieonway.copier.processor.FieldMapping;
 import com.github.jackieonway.copier.processor.TypeUtils;
 import com.github.jackieonway.copier.processor.context.ProcessorContext;
+import com.github.jackieonway.copier.annotation.CopyTarget;
+import com.github.jackieonway.copier.annotation.CycleDetectionStrategy;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.WildcardType;
 import java.util.Collections;
@@ -210,10 +214,10 @@ public class DeepCopyGenerator {
 
         if (sourceComponentType != null && TypeUtils.needsDeepCopy(sourceComponentType) && dtoComponentType != null) {
             ClassName copierClass = ClassName.bestGuess(dtoComponentType.toString() + "Copier");
-            String methodName = reverse ? "fromDto" : "toDto";
+            String methodName = nestedCopierMethod(reverse);
             methodBuilder.addStatement("$T element = sourceArray[i]", TypeName.get(sourceComponentType))
                     .beginControlFlow("if (element != null)")
-                    .addStatement("targetArray[i] = $T.$L(element)", copierClass, methodName)
+                    .addStatement("targetArray[i] = $T.$L(element$L)", copierClass, methodName, cacheArg(dtoComponentType))
                     .nextControlFlow("else")
                     .addStatement("targetArray[i] = null")
                     .endControlFlow();
@@ -299,10 +303,10 @@ public class DeepCopyGenerator {
 
         if (needsKeyDeepCopy && dtoKeyType != null) {
             ClassName keyCopierClass = ClassName.bestGuess(dtoKeyType.toString() + "Copier");
-            String keyMethodName = reverse ? "fromDto" : "toDto";
+            String keyMethodName = nestedCopierMethod(reverse);
             TypeName targetKeyTypeNameForCopy = targetKeyType != null ? safeTypeName(targetKeyType) : keyTypeName;
             methodBuilder.beginControlFlow("if (key != null)")
-                    .addStatement("$T copiedKey = $T.$L(key)", targetKeyTypeNameForCopy, keyCopierClass, keyMethodName)
+                    .addStatement("$T copiedKey = $T.$L(key$L)", targetKeyTypeNameForCopy, keyCopierClass, keyMethodName, cacheArg(dtoKeyType))
                     .nextControlFlow("else")
                     .addStatement("$T copiedKey = null", targetKeyTypeNameForCopy)
                     .endControlFlow();
@@ -314,12 +318,12 @@ public class DeepCopyGenerator {
 
         if (sourceValueType != null && TypeUtils.needsDeepCopy(sourceValueType) && dtoValueType != null) {
             ClassName copierClass = ClassName.bestGuess(dtoValueType.toString() + "Copier");
-            String methodName = reverse ? "fromDto" : "toDto";
-            methodBuilder.addStatement("targetMap.put(copiedKey, $T.$L(value))", copierClass, methodName);
+            String methodName = nestedCopierMethod(reverse);
+            methodBuilder.addStatement("targetMap.put(copiedKey, $T.$L(value$L))", copierClass, methodName, cacheArg(dtoValueType));
         } else if (targetValueType != null && TypeUtils.needsDeepCopy(targetValueType) && dtoValueType != null) {
             ClassName copierClass = ClassName.bestGuess(dtoValueType.toString() + "Copier");
-            String methodName = reverse ? "fromDto" : "toDto";
-            methodBuilder.addStatement("targetMap.put(copiedKey, $T.$L(value))", copierClass, methodName);
+            String methodName = nestedCopierMethod(reverse);
+            methodBuilder.addStatement("targetMap.put(copiedKey, $T.$L(value$L))", copierClass, methodName, cacheArg(dtoValueType));
         } else if (sourceValueType != null && TypeUtils.isList(sourceValueType)) {
             // Map<K, List<V>> 场景
             generateNestedListInMapCopyCode(methodBuilder, sourceValueType, targetValueType, dtoValueType, reverse);
@@ -348,9 +352,9 @@ public class DeepCopyGenerator {
     private void generateElementDeepCopy(MethodSpec.Builder methodBuilder, TypeMirror dtoElementType,
                                          boolean reverse, String addStatement) {
         ClassName copierClass = ClassName.bestGuess(dtoElementType.toString() + "Copier");
-        String methodName = reverse ? "fromDto" : "toDto";
+        String methodName = nestedCopierMethod(reverse);
         methodBuilder.beginControlFlow("if (item != null)")
-                .addStatement(addStatement + "($T.$L(item))", copierClass, methodName)
+                .addStatement(addStatement + "($T.$L(item$L))", copierClass, methodName, cacheArg(dtoElementType))
                 .nextControlFlow("else")
                 .addStatement(addStatement + "(null)")
                 .endControlFlow();
@@ -390,12 +394,12 @@ public class DeepCopyGenerator {
 
         if (nestedSourceElementType != null && TypeUtils.needsDeepCopy(nestedSourceElementType) && nestedDtoElementType != null) {
             ClassName copierClass = ClassName.bestGuess(nestedDtoElementType.toString() + "Copier");
-            String methodName = reverse ? "fromDto" : "toDto";
-            methodBuilder.addStatement("nestedTarget.add($T.$L(nestedItem))", copierClass, methodName);
+            String methodName = nestedCopierMethod(reverse);
+            methodBuilder.addStatement("nestedTarget.add($T.$L(nestedItem$L))", copierClass, methodName, cacheArg(nestedDtoElementType));
         } else if (nestedTargetElementType != null && TypeUtils.needsDeepCopy(nestedTargetElementType) && nestedDtoElementType != null) {
             ClassName copierClass = ClassName.bestGuess(nestedDtoElementType.toString() + "Copier");
-            String methodName = reverse ? "fromDto" : "toDto";
-            methodBuilder.addStatement("nestedTarget.add($T.$L(nestedItem))", copierClass, methodName);
+            String methodName = nestedCopierMethod(reverse);
+            methodBuilder.addStatement("nestedTarget.add($T.$L(nestedItem$L))", copierClass, methodName, cacheArg(nestedDtoElementType));
         } else {
             methodBuilder.addStatement("nestedTarget.add(nestedItem)");
         }
@@ -450,10 +454,10 @@ public class DeepCopyGenerator {
 
         if (needsNestedKeyDeepCopy && nestedDtoKeyType != null) {
             ClassName nestedKeyCopierClass = ClassName.bestGuess(nestedDtoKeyType.toString() + "Copier");
-            String nestedKeyMethodName = reverse ? "fromDto" : "toDto";
+            String nestedKeyMethodName = nestedCopierMethod(reverse);
             TypeName nestedTargetKeyTypeNameForCopy = nestedTargetKeyType != null ? safeTypeName(nestedTargetKeyType) : nestedKeyTypeName;
             methodBuilder.beginControlFlow("if (nestedKey != null)")
-                    .addStatement("$T nestedCopiedKey = $T.$L(nestedKey)", nestedTargetKeyTypeNameForCopy, nestedKeyCopierClass, nestedKeyMethodName)
+                    .addStatement("$T nestedCopiedKey = $T.$L(nestedKey$L)", nestedTargetKeyTypeNameForCopy, nestedKeyCopierClass, nestedKeyMethodName, cacheArg(nestedDtoKeyType))
                     .nextControlFlow("else")
                     .addStatement("$T nestedCopiedKey = null", nestedTargetKeyTypeNameForCopy)
                     .endControlFlow();
@@ -465,12 +469,12 @@ public class DeepCopyGenerator {
 
         if (nestedSourceValueType != null && TypeUtils.needsDeepCopy(nestedSourceValueType) && nestedDtoValueType != null) {
             ClassName copierClass = ClassName.bestGuess(nestedDtoValueType.toString() + "Copier");
-            String methodName = reverse ? "fromDto" : "toDto";
-            methodBuilder.addStatement("nestedTarget.put(nestedCopiedKey, $T.$L(nestedValue))", copierClass, methodName);
+            String methodName = nestedCopierMethod(reverse);
+            methodBuilder.addStatement("nestedTarget.put(nestedCopiedKey, $T.$L(nestedValue$L))", copierClass, methodName, cacheArg(nestedDtoValueType));
         } else if (nestedTargetValueType != null && TypeUtils.needsDeepCopy(nestedTargetValueType) && nestedDtoValueType != null) {
             ClassName copierClass = ClassName.bestGuess(nestedDtoValueType.toString() + "Copier");
-            String methodName = reverse ? "fromDto" : "toDto";
-            methodBuilder.addStatement("nestedTarget.put(nestedCopiedKey, $T.$L(nestedValue))", copierClass, methodName);
+            String methodName = nestedCopierMethod(reverse);
+            methodBuilder.addStatement("nestedTarget.put(nestedCopiedKey, $T.$L(nestedValue$L))", copierClass, methodName, cacheArg(nestedDtoValueType));
         } else {
             methodBuilder.addStatement("nestedTarget.put(nestedCopiedKey, nestedValue)");
         }
@@ -520,12 +524,12 @@ public class DeepCopyGenerator {
 
         if (nestedSourceElementType != null && TypeUtils.needsDeepCopy(nestedSourceElementType) && nestedDtoElementType != null) {
             ClassName copierClass = ClassName.bestGuess(nestedDtoElementType.toString() + "Copier");
-            String methodName = reverse ? "fromDto" : "toDto";
-            methodBuilder.addStatement("nestedTarget.add($T.$L(nestedItem))", copierClass, methodName);
+            String methodName = nestedCopierMethod(reverse);
+            methodBuilder.addStatement("nestedTarget.add($T.$L(nestedItem$L))", copierClass, methodName, cacheArg(nestedDtoElementType));
         } else if (nestedTargetElementType != null && TypeUtils.needsDeepCopy(nestedTargetElementType) && nestedDtoElementType != null) {
             ClassName copierClass = ClassName.bestGuess(nestedDtoElementType.toString() + "Copier");
-            String methodName = reverse ? "fromDto" : "toDto";
-            methodBuilder.addStatement("nestedTarget.add($T.$L(nestedItem))", copierClass, methodName);
+            String methodName = nestedCopierMethod(reverse);
+            methodBuilder.addStatement("nestedTarget.add($T.$L(nestedItem$L))", copierClass, methodName, cacheArg(nestedDtoElementType));
         } else {
             methodBuilder.addStatement("nestedTarget.add(nestedItem)");
         }
@@ -552,6 +556,41 @@ public class DeepCopyGenerator {
             return bound != null ? TypeName.get(bound) : TypeName.get(Object.class);
         }
         return TypeName.get(typeMirror);
+    }
+
+    private boolean isRuntimeCycleStrategy() {
+        CycleDetectionStrategy strategy = context.getCycleDetectionStrategy();
+        return strategy == CycleDetectionStrategy.RETURN_NULL
+                || strategy == CycleDetectionStrategy.AUTOMATIC_CACHE;
+    }
+
+    private String nestedCopierMethod(boolean reverse) {
+        return reverse ? "fromDto" : "toDto";
+    }
+
+    private String cacheArg(TypeMirror dtoType) {
+        return shouldUseCycleCacheFor(dtoType) ? ", __cache" : "";
+    }
+
+    private boolean shouldUseCycleCacheFor(TypeMirror dtoType) {
+        if (!isRuntimeCycleStrategy() || dtoType == null) {
+            return false;
+        }
+        if (context.getTargetType() != null
+                && context.getTargetType().asType().toString().equals(dtoType.toString())) {
+            return true;
+        }
+        Element element = context.getTypeUtils().asElement(dtoType);
+        if (!(element instanceof TypeElement)) {
+            return false;
+        }
+        CopyTarget copyTarget = ((TypeElement) element).getAnnotation(CopyTarget.class);
+        return copyTarget != null && isRuntimeCycleStrategy(copyTarget.cycleDetection());
+    }
+
+    private boolean isRuntimeCycleStrategy(CycleDetectionStrategy strategy) {
+        return strategy == CycleDetectionStrategy.RETURN_NULL
+                || strategy == CycleDetectionStrategy.AUTOMATIC_CACHE;
     }
 
     /**

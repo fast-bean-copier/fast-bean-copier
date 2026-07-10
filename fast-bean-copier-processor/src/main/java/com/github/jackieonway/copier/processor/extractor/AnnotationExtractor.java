@@ -4,6 +4,7 @@ import com.github.jackieonway.copier.annotation.ComponentModel;
 import com.github.jackieonway.copier.annotation.CopyField;
 import com.github.jackieonway.copier.annotation.CopyTarget;
 import com.github.jackieonway.copier.annotation.CopyTargetConfig;
+import com.github.jackieonway.copier.annotation.CycleDetectionStrategy;
 import com.github.jackieonway.copier.annotation.NullValueStrategy;
 import com.github.jackieonway.copier.converter.TypeConverter;
 import com.github.jackieonway.copier.processor.ExpressionUtils;
@@ -15,6 +16,7 @@ import com.github.jackieonway.copier.processor.model.CopyFieldConfig;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.MirroredTypeException;
@@ -161,6 +163,43 @@ public class AnnotationExtractor {
     }
 
     /**
+     * 从 @CopyTarget 注解中提取 cycleDetection 配置。
+     *
+     * @param annotation CopyTarget 注解
+     * @return 循环检测策略配置
+     * @since 1.6.0
+     */
+    public CycleDetectionStrategy extractCycleDetection(CopyTarget annotation) {
+        CycleDetectionStrategy strategy = annotation.cycleDetection();
+        return strategy != null ? strategy : CycleDetectionStrategy.FAIL_FAST;
+    }
+
+    /**
+     * 获取有效的循环检测策略。
+     *
+     * <p>配置优先级：类级别显式配置 > 包级别显式配置 > 配置文件 > 默认值。</p>
+     *
+     * @param targetType 目标类型
+     * @param annotation CopyTarget 注解
+     * @param packageConfig 包级别配置
+     * @return 有效的循环检测策略
+     * @since 1.6.0
+     */
+    public CycleDetectionStrategy getEffectiveCycleDetection(TypeElement targetType,
+                                                             CopyTarget annotation,
+                                                             PackageConfig packageConfig) {
+        String fileCycleDetection = getFileCycleDetection();
+        String classLevel = hasExplicitAnnotationValue(targetType,
+                CopyTarget.class.getName(), "cycleDetection")
+                ? annotation.cycleDetection().name() : null;
+        String packageLevel = packageConfig != null && packageConfig.getCycleDetection() != null
+                ? packageConfig.getCycleDetection().name() : null;
+
+        String merged = configMerger.mergeCycleDetection(classLevel, packageLevel, fileCycleDetection);
+        return CycleDetectionStrategy.valueOf(merged);
+    }
+
+    /**
      * 从 @CopyField 注解中提取字段映射配置。
      *
      * @param annotation CopyField 注解
@@ -289,10 +328,14 @@ public class AnnotationExtractor {
 
         ComponentModel componentModel = config.componentModel();
         NullValueStrategy nullValueStrategy = config.nullValueStrategy();
+        CycleDetectionStrategy cycleDetection = hasExplicitAnnotationValue(packageElement,
+                CopyTargetConfig.class.getName(), "cycleDetection")
+                ? config.cycleDetection() : null;
 
         return new PackageConfig(
                 componentModel != null ? componentModel : ComponentModel.DEFAULT,
-                nullValueStrategy != null ? nullValueStrategy : NullValueStrategy.IGNORE
+                nullValueStrategy != null ? nullValueStrategy : NullValueStrategy.IGNORE,
+                cycleDetection
         );
     }
 
@@ -368,6 +411,33 @@ public class AnnotationExtractor {
     private String getFileNullValueStrategy() {
         Properties props = getOrLoadProperties();
         return propertiesConfigLoader.parseNullValueStrategy(props);
+    }
+
+    private String getFileCycleDetection() {
+        Properties props = getOrLoadProperties();
+        return propertiesConfigLoader.parseCycleDetection(props);
+    }
+
+    private boolean hasExplicitAnnotationValue(Element element, String annotationClassName, String attributeName) {
+        if (element == null) {
+            return false;
+        }
+        for (AnnotationMirror mirror : element.getAnnotationMirrors()) {
+            Element annotationElement = mirror.getAnnotationType().asElement();
+            if (!(annotationElement instanceof TypeElement)) {
+                continue;
+            }
+            String qualifiedName = ((TypeElement) annotationElement).getQualifiedName().toString();
+            if (!annotationClassName.equals(qualifiedName)) {
+                continue;
+            }
+            for (ExecutableElement method : mirror.getElementValues().keySet()) {
+                if (attributeName.equals(method.getSimpleName().toString())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -468,10 +538,18 @@ public class AnnotationExtractor {
     public static class PackageConfig {
         private final ComponentModel componentModel;
         private final NullValueStrategy nullValueStrategy;
+        private final CycleDetectionStrategy cycleDetection;
 
         public PackageConfig(ComponentModel componentModel, NullValueStrategy nullValueStrategy) {
+            this(componentModel, nullValueStrategy, null);
+        }
+
+        public PackageConfig(ComponentModel componentModel,
+                             NullValueStrategy nullValueStrategy,
+                             CycleDetectionStrategy cycleDetection) {
             this.componentModel = componentModel;
             this.nullValueStrategy = nullValueStrategy;
+            this.cycleDetection = cycleDetection;
         }
 
         public ComponentModel getComponentModel() {
@@ -480,6 +558,10 @@ public class AnnotationExtractor {
 
         public NullValueStrategy getNullValueStrategy() {
             return nullValueStrategy;
+        }
+
+        public CycleDetectionStrategy getCycleDetection() {
+            return cycleDetection;
         }
     }
 }

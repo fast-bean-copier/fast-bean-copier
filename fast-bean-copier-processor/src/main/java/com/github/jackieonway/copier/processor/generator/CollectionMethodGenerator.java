@@ -1,5 +1,6 @@
 package com.github.jackieonway.copier.processor.generator;
 
+import com.github.jackieonway.copier.annotation.CycleDetectionStrategy;
 import com.github.jackieonway.copier.processor.context.ProcessorContext;
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
@@ -10,6 +11,8 @@ import com.squareup.javapoet.TypeVariableName;
 
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import java.util.IdentityHashMap;
+import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 
 /**
@@ -163,9 +166,12 @@ public class CollectionMethodGenerator {
 
         methodBuilder.addStatement("$T result = new $T<>(sources.size())",
                 listOfTarget, ClassName.get(java.util.ArrayList.class));
+        addBatchCycleContext(methodBuilder);
 
         methodBuilder.beginControlFlow("for ($T source : sources)", sourceTypeName);
-        if (useStaticMethods) {
+        if (isRuntimeCycleStrategy()) {
+            methodBuilder.addStatement("result.add(toDto(source, __cache))");
+        } else if (useStaticMethods) {
             methodBuilder.addStatement("result.add(toDto(source))");
         } else {
             methodBuilder.addStatement("result.add(this.toDto(source))");
@@ -187,7 +193,7 @@ public class CollectionMethodGenerator {
         TypeName preProcessorType = ParameterizedTypeName.get(
                 ClassName.get(UnaryOperator.class), setOfSource);
         TypeName postProcessorType = ParameterizedTypeName.get(
-                ClassName.get(UnaryOperator.class), setOfTarget);
+                ClassName.get(BiFunction.class), setOfSource, setOfTarget, setOfTarget);
 
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDtoSet")
                 .addModifiers(Modifier.PUBLIC)
@@ -219,7 +225,7 @@ public class CollectionMethodGenerator {
         }
 
         methodBuilder.beginControlFlow("if (result != null && postProcessor != null)")
-                .addStatement("result = postProcessor.apply(result)")
+                .addStatement("result = postProcessor.apply(sources, result)")
                 .endControlFlow()
                 .addStatement("return result");
 
@@ -234,7 +240,7 @@ public class CollectionMethodGenerator {
         TypeName preProcessorType = ParameterizedTypeName.get(
                 ClassName.get(UnaryOperator.class), setOfTarget);
         TypeName postProcessorType = ParameterizedTypeName.get(
-                ClassName.get(UnaryOperator.class), setOfSource);
+                ClassName.get(BiFunction.class), setOfTarget, setOfSource, setOfSource);
 
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDtoSet")
                 .addModifiers(Modifier.PUBLIC)
@@ -266,7 +272,7 @@ public class CollectionMethodGenerator {
         }
 
         methodBuilder.beginControlFlow("if (result != null && postProcessor != null)")
-                .addStatement("result = postProcessor.apply(result)")
+                .addStatement("result = postProcessor.apply(sources, result)")
                 .endControlFlow()
                 .addStatement("return result");
 
@@ -282,7 +288,7 @@ public class CollectionMethodGenerator {
         TypeName preProcessorType = ParameterizedTypeName.get(
                 ClassName.get(UnaryOperator.class), mapOfSource);
         TypeName postProcessorType = ParameterizedTypeName.get(
-                ClassName.get(UnaryOperator.class), mapOfTarget);
+                ClassName.get(BiFunction.class), mapOfSource, mapOfTarget, mapOfTarget);
 
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDtoMap")
                 .addModifiers(Modifier.PUBLIC)
@@ -315,7 +321,7 @@ public class CollectionMethodGenerator {
         }
 
         methodBuilder.beginControlFlow("if (result != null && postProcessor != null)")
-                .addStatement("result = postProcessor.apply(result)")
+                .addStatement("result = postProcessor.apply(sources, result)")
                 .endControlFlow()
                 .addStatement("return result");
 
@@ -331,7 +337,7 @@ public class CollectionMethodGenerator {
         TypeName preProcessorType = ParameterizedTypeName.get(
                 ClassName.get(UnaryOperator.class), mapOfTarget);
         TypeName postProcessorType = ParameterizedTypeName.get(
-                ClassName.get(UnaryOperator.class), mapOfSource);
+                ClassName.get(BiFunction.class), mapOfTarget, mapOfSource, mapOfSource);
 
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDtoMap")
                 .addModifiers(Modifier.PUBLIC)
@@ -364,7 +370,7 @@ public class CollectionMethodGenerator {
         }
 
         methodBuilder.beginControlFlow("if (result != null && postProcessor != null)")
-                .addStatement("result = postProcessor.apply(result)")
+                .addStatement("result = postProcessor.apply(sources, result)")
                 .endControlFlow()
                 .addStatement("return result");
 
@@ -377,7 +383,7 @@ public class CollectionMethodGenerator {
         TypeName preProcessorType = ParameterizedTypeName.get(
                 ClassName.get(UnaryOperator.class), sourceArrayType);
         TypeName postProcessorType = ParameterizedTypeName.get(
-                ClassName.get(UnaryOperator.class), targetArrayType);
+                ClassName.get(BiFunction.class), sourceArrayType, targetArrayType, targetArrayType);
 
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDtoArray")
                 .addModifiers(Modifier.PUBLIC)
@@ -409,7 +415,7 @@ public class CollectionMethodGenerator {
         }
 
         methodBuilder.beginControlFlow("if (result != null && postProcessor != null)")
-                .addStatement("result = postProcessor.apply(result)")
+                .addStatement("result = postProcessor.apply(sources, result)")
                 .endControlFlow()
                 .addStatement("return result");
 
@@ -422,7 +428,7 @@ public class CollectionMethodGenerator {
         TypeName preProcessorType = ParameterizedTypeName.get(
                 ClassName.get(UnaryOperator.class), targetArrayType);
         TypeName postProcessorType = ParameterizedTypeName.get(
-                ClassName.get(UnaryOperator.class), sourceArrayType);
+                ClassName.get(BiFunction.class), targetArrayType, sourceArrayType, sourceArrayType);
 
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDtoArray")
                 .addModifiers(Modifier.PUBLIC)
@@ -454,7 +460,7 @@ public class CollectionMethodGenerator {
         }
 
         methodBuilder.beginControlFlow("if (result != null && postProcessor != null)")
-                .addStatement("result = postProcessor.apply(result)")
+                .addStatement("result = postProcessor.apply(sources, result)")
                 .endControlFlow()
                 .addStatement("return result");
 
@@ -469,7 +475,7 @@ public class CollectionMethodGenerator {
         TypeName preProcessorType = ParameterizedTypeName.get(
                 ClassName.get(UnaryOperator.class), listOfTarget);
         TypeName postProcessorType = ParameterizedTypeName.get(
-                ClassName.get(UnaryOperator.class), listOfSource);
+                ClassName.get(BiFunction.class), listOfTarget, listOfSource, listOfSource);
 
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDtoList")
                 .addModifiers(Modifier.PUBLIC)
@@ -501,7 +507,7 @@ public class CollectionMethodGenerator {
         }
 
         methodBuilder.beginControlFlow("if (result != null && postProcessor != null)")
-                .addStatement("result = postProcessor.apply(result)")
+                .addStatement("result = postProcessor.apply(sources, result)")
                 .endControlFlow()
                 .addStatement("return result");
 
@@ -516,7 +522,7 @@ public class CollectionMethodGenerator {
         TypeName preProcessorType = ParameterizedTypeName.get(
                 ClassName.get(UnaryOperator.class), listOfSource);
         TypeName postProcessorType = ParameterizedTypeName.get(
-                ClassName.get(UnaryOperator.class), listOfTarget);
+                ClassName.get(BiFunction.class), listOfSource, listOfTarget, listOfTarget);
 
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDtoList")
                 .addModifiers(Modifier.PUBLIC)
@@ -548,7 +554,7 @@ public class CollectionMethodGenerator {
         }
 
         methodBuilder.beginControlFlow("if (result != null && postProcessor != null)")
-                .addStatement("result = postProcessor.apply(result)")
+                .addStatement("result = postProcessor.apply(sources, result)")
                 .endControlFlow()
                 .addStatement("return result");
 
@@ -581,9 +587,12 @@ public class CollectionMethodGenerator {
 
         methodBuilder.addStatement("$T result = new $T<>(sources.size())",
                 listOfSource, ClassName.get(java.util.ArrayList.class));
+        addBatchCycleContext(methodBuilder);
 
         methodBuilder.beginControlFlow("for ($T source : sources)", targetTypeName);
-        if (useStaticMethods) {
+        if (isRuntimeCycleStrategy()) {
+            methodBuilder.addStatement("result.add(fromDto(source, __cache))");
+        } else if (useStaticMethods) {
             methodBuilder.addStatement("result.add(fromDto(source))");
         } else {
             methodBuilder.addStatement("result.add(this.fromDto(source))");
@@ -625,9 +634,12 @@ public class CollectionMethodGenerator {
 
         methodBuilder.addStatement("$T result = new $T<>(sources.size())",
                 setOfTarget, ClassName.get(java.util.LinkedHashSet.class));
+        addBatchCycleContext(methodBuilder);
 
         methodBuilder.beginControlFlow("for ($T source : sources)", sourceTypeName);
-        if (useStaticMethods) {
+        if (isRuntimeCycleStrategy()) {
+            methodBuilder.addStatement("result.add(toDto(source, __cache))");
+        } else if (useStaticMethods) {
             methodBuilder.addStatement("result.add(toDto(source))");
         } else {
             methodBuilder.addStatement("result.add(this.toDto(source))");
@@ -665,9 +677,12 @@ public class CollectionMethodGenerator {
 
         methodBuilder.addStatement("$T result = new $T<>(sources.size())",
                 setOfSource, ClassName.get(java.util.LinkedHashSet.class));
+        addBatchCycleContext(methodBuilder);
 
         methodBuilder.beginControlFlow("for ($T source : sources)", targetTypeName);
-        if (useStaticMethods) {
+        if (isRuntimeCycleStrategy()) {
+            methodBuilder.addStatement("result.add(fromDto(source, __cache))");
+        } else if (useStaticMethods) {
             methodBuilder.addStatement("result.add(fromDto(source))");
         } else {
             methodBuilder.addStatement("result.add(this.fromDto(source))");
@@ -710,12 +725,16 @@ public class CollectionMethodGenerator {
                 .addStatement("return null")
                 .endControlFlow();
 
-        methodBuilder.addStatement("$T result = new $T($L)", mapOfTarget, mapImpl, buildInitialCapacity("sources.size()"))
+        methodBuilder.addStatement("$T result = new $T($L)", mapOfTarget, mapImpl, buildInitialCapacity("sources.size()"));
+        addBatchCycleContext(methodBuilder);
+        methodBuilder
                 .beginControlFlow("for ($T entry : sources.entrySet())", entryType)
                 .addStatement("$T key = entry.getKey()", keyType)
                 .beginControlFlow("if (entry.getValue() != null)");
 
-        if (useStaticMethods) {
+        if (isRuntimeCycleStrategy()) {
+            methodBuilder.addStatement("result.put(key, toDto(entry.getValue(), __cache))");
+        } else if (useStaticMethods) {
             methodBuilder.addStatement("result.put(key, toDto(entry.getValue()))");
         } else {
             methodBuilder.addStatement("result.put(key, this.toDto(entry.getValue()))");
@@ -758,12 +777,16 @@ public class CollectionMethodGenerator {
                 .addStatement("return null")
                 .endControlFlow();
 
-        methodBuilder.addStatement("$T result = new $T($L)", mapOfSource, mapImpl, buildInitialCapacity("sources.size()"))
+        methodBuilder.addStatement("$T result = new $T($L)", mapOfSource, mapImpl, buildInitialCapacity("sources.size()"));
+        addBatchCycleContext(methodBuilder);
+        methodBuilder
                 .beginControlFlow("for ($T entry : sources.entrySet())", entryType)
                 .addStatement("$T key = entry.getKey()", keyType)
                 .beginControlFlow("if (entry.getValue() != null)");
 
-        if (useStaticMethods) {
+        if (isRuntimeCycleStrategy()) {
+            methodBuilder.addStatement("result.put(key, fromDto(entry.getValue(), __cache))");
+        } else if (useStaticMethods) {
             methodBuilder.addStatement("result.put(key, fromDto(entry.getValue()))");
         } else {
             methodBuilder.addStatement("result.put(key, this.fromDto(entry.getValue()))");
@@ -803,12 +826,16 @@ public class CollectionMethodGenerator {
                 .addStatement("return null")
                 .endControlFlow();
 
-        methodBuilder.addStatement("$T result = new $T[sources.length]", targetArrayType, ClassName.get(targetType))
+        methodBuilder.addStatement("$T result = new $T[sources.length]", targetArrayType, ClassName.get(targetType));
+        addBatchCycleContext(methodBuilder);
+        methodBuilder
                 .beginControlFlow("for (int i = 0; i < sources.length; i++)")
                 .addStatement("$T element = sources[i]", sourceElementType)
                 .beginControlFlow("if (element != null)");
 
-        if (useStaticMethods) {
+        if (isRuntimeCycleStrategy()) {
+            methodBuilder.addStatement("result[i] = toDto(element, __cache)");
+        } else if (useStaticMethods) {
             methodBuilder.addStatement("result[i] = toDto(element)");
         } else {
             methodBuilder.addStatement("result[i] = this.toDto(element)");
@@ -846,12 +873,16 @@ public class CollectionMethodGenerator {
                 .addStatement("return null")
                 .endControlFlow();
 
-        methodBuilder.addStatement("$T result = new $T[sources.length]", sourceArrayType, ClassName.get(sourceType))
+        methodBuilder.addStatement("$T result = new $T[sources.length]", sourceArrayType, ClassName.get(sourceType));
+        addBatchCycleContext(methodBuilder);
+        methodBuilder
                 .beginControlFlow("for (int i = 0; i < sources.length; i++)")
                 .addStatement("$T element = sources[i]", targetElementType)
                 .beginControlFlow("if (element != null)");
 
-        if (useStaticMethods) {
+        if (isRuntimeCycleStrategy()) {
+            methodBuilder.addStatement("result[i] = fromDto(element, __cache)");
+        } else if (useStaticMethods) {
             methodBuilder.addStatement("result[i] = fromDto(element)");
         } else {
             methodBuilder.addStatement("result[i] = this.fromDto(element)");
@@ -878,5 +909,18 @@ public class CollectionMethodGenerator {
      */
     private String buildInitialCapacity(String sizeExpression) {
         return "Math.max((int)(" + sizeExpression + " / 0.75f) + 1, 16)";
+    }
+
+    private boolean isRuntimeCycleStrategy() {
+        CycleDetectionStrategy strategy = context.getCycleDetectionStrategy();
+        return strategy == CycleDetectionStrategy.RETURN_NULL
+                || strategy == CycleDetectionStrategy.AUTOMATIC_CACHE;
+    }
+
+    private void addBatchCycleContext(MethodSpec.Builder methodBuilder) {
+        if (isRuntimeCycleStrategy()) {
+            methodBuilder.addStatement("$T<$T, $T> __cache = new $T<>()",
+                    IdentityHashMap.class, Object.class, Object.class, IdentityHashMap.class);
+        }
     }
 }

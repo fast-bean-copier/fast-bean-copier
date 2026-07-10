@@ -35,6 +35,8 @@ public class ConfigMerger {
      */
     private static final String DEFAULT_NULL_VALUE_STRATEGY = "IGNORE";
 
+    private static final String DEFAULT_CYCLE_DETECTION = "FAIL_FAST";
+
     /**
      * 合并组件模型配置。
      *
@@ -93,6 +95,28 @@ public class ConfigMerger {
 
         // 使用默认值
         return DEFAULT_NULL_VALUE_STRATEGY;
+    }
+
+    /**
+     * 合并循环检测策略配置。
+     *
+     * @param classLevel 类级别配置
+     * @param packageLevel 包级别配置
+     * @param fileLevel 配置文件配置
+     * @return 合并后的循环检测策略
+     * @since 1.6.0
+     */
+    public String mergeCycleDetection(String classLevel, String packageLevel, String fileLevel) {
+        if (isValidConfig(classLevel)) {
+            return classLevel;
+        }
+        if (isValidConfig(packageLevel)) {
+            return packageLevel;
+        }
+        if (isValidConfig(fileLevel)) {
+            return fileLevel;
+        }
+        return DEFAULT_CYCLE_DETECTION;
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.github.jackieonway.copier.processor.context;
 
 import com.github.jackieonway.copier.annotation.ComponentModel;
+import com.github.jackieonway.copier.annotation.CycleDetectionStrategy;
 import com.github.jackieonway.copier.annotation.NullValueStrategy;
 import com.github.jackieonway.copier.processor.FieldMapping;
 import com.github.jackieonway.copier.processor.extractor.AnnotationExtractor;
@@ -98,6 +99,27 @@ public class ProcessorContext {
      * @since 1.3.0
      */
     private NullValueStrategy nullValueStrategy = NullValueStrategy.IGNORE;
+
+    /**
+     * 循环检测策略。
+     *
+     * @since 1.6.0
+     */
+    private CycleDetectionStrategy cycleDetectionStrategy = CycleDetectionStrategy.FAIL_FAST;
+
+    /**
+     * 当前处理链上的类型全限定名集合，用于编译期循环检测。
+     *
+     * @since 1.6.0
+     */
+    private Set<String> processingTypeChain = new HashSet<>();
+
+    /**
+     * 记录处理路径，用于生成清晰的循环错误信息。
+     *
+     * @since 1.6.0
+     */
+    private List<String> processingPath = new ArrayList<>();
 
     // ========== 分析结果 ==========
 
@@ -347,6 +369,95 @@ public class ProcessorContext {
         return NullValueStrategy.IGNORE;
     }
 
+    // ========== 循环检测状态管理 (v1.6.0) ==========
+
+    /**
+     * 获取循环检测策略。
+     *
+     * @return 循环检测策略
+     * @since 1.6.0
+     */
+    public CycleDetectionStrategy getCycleDetectionStrategy() {
+        return cycleDetectionStrategy;
+    }
+
+    /**
+     * 设置循环检测策略。
+     *
+     * @param cycleDetectionStrategy 循环检测策略
+     * @since 1.6.0
+     */
+    public void setCycleDetectionStrategy(CycleDetectionStrategy cycleDetectionStrategy) {
+        this.cycleDetectionStrategy = cycleDetectionStrategy != null 
+                ? cycleDetectionStrategy : CycleDetectionStrategy.FAIL_FAST;
+    }
+
+    /**
+     * 进入类型处理时调用，将类型加入处理链。
+     *
+     * @param typeName 类型全限定名
+     * @since 1.6.0
+     */
+    public void enterType(String typeName) {
+        processingTypeChain.add(typeName);
+        processingPath.add(typeName);
+    }
+
+    /**
+     * 离开类型处理时调用，将类型从处理链移除。
+     *
+     * @param typeName 类型全限定名
+     * @since 1.6.0
+     */
+    public void exitType(String typeName) {
+        processingTypeChain.remove(typeName);
+        if (!processingPath.isEmpty()) {
+            processingPath.remove(processingPath.size() - 1);
+        }
+    }
+
+    /**
+     * 检查类型是否在当前处理链中（即是否存在循环）。
+     *
+     * @param typeName 类型全限定名
+     * @return 如果类型在处理链中返回 true
+     * @since 1.6.0
+     */
+    public boolean isInCycle(String typeName) {
+        return processingTypeChain.contains(typeName);
+    }
+
+    /**
+     * 获取当前处理路径的字符串表示，用于生成清晰的错误信息。
+     *
+     * @return 处理路径字符串，例如 "A -> B -> C -> A"
+     * @since 1.6.0
+     */
+    public String getProcessingPathString() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < processingPath.size(); i++) {
+            if (i > 0) {
+                sb.append(" -> ");
+            }
+            // 只显示简单类名
+            String fullName = processingPath.get(i);
+            int lastDot = fullName.lastIndexOf('.');
+            sb.append(lastDot >= 0 ? fullName.substring(lastDot + 1) : fullName);
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 重置循环检测状态。
+     *
+     * @since 1.6.0
+     */
+    private void resetCycleDetection() {
+        this.processingTypeChain.clear();
+        this.processingPath.clear();
+        this.cycleDetectionStrategy = CycleDetectionStrategy.FAIL_FAST;
+    }
+
     // ========== 分析结果访问方法 ==========
 
     /**
@@ -476,6 +587,7 @@ public class ProcessorContext {
         this.fieldMappings = new ArrayList<>();
         this.packageConfig = null;
         this.nullValueStrategy = NullValueStrategy.IGNORE;
+        resetCycleDetection();
     }
 
     /**

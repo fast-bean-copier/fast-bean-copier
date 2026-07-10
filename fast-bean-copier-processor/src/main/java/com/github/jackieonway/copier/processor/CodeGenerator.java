@@ -1,6 +1,7 @@
 package com.github.jackieonway.copier.processor;
 
 import com.github.jackieonway.copier.annotation.ComponentModel;
+import com.github.jackieonway.copier.annotation.CycleDetectionStrategy;
 import com.github.jackieonway.copier.annotation.NullValueStrategy;
 import com.github.jackieonway.copier.processor.context.ProcessorContext;
 import com.github.jackieonway.copier.processor.generator.BasicMethodGenerator;
@@ -58,6 +59,9 @@ public final class CodeGenerator {
 
     /** null 值处理策略 */
     private NullValueStrategy nullValueStrategy = NullValueStrategy.IGNORE;
+
+    /** 循环检测策略（v1.6 新增） */
+    private CycleDetectionStrategy cycleDetectionStrategy = CycleDetectionStrategy.FAIL_FAST;
 
     /** 需要的转换器类名集合 */
     private Set<String> requiredConverters = new HashSet<>();
@@ -133,6 +137,18 @@ public final class CodeGenerator {
     }
 
     /**
+     * 设置循环检测策略。
+     *
+     * @param cycleDetectionStrategy 循环检测策略
+     * @since 1.6.0
+     */
+    public void setCycleDetectionStrategy(CycleDetectionStrategy cycleDetectionStrategy) {
+        this.cycleDetectionStrategy = cycleDetectionStrategy != null
+                ? cycleDetectionStrategy : CycleDetectionStrategy.FAIL_FAST;
+        this.context.setCycleDetectionStrategy(this.cycleDetectionStrategy);
+    }
+
+    /**
      * 收集需要的转换器类。
      */
     private void collectRequiredConverters() {
@@ -181,6 +197,10 @@ public final class CodeGenerator {
             classBuilder.addMethod(basicMethodGenerator.generateToDtoWithProcessors());
             classBuilder.addMethod(basicMethodGenerator.generateFromDto());
             classBuilder.addMethod(basicMethodGenerator.generateFromDtoWithProcessors());
+            if (isRuntimeCycleStrategy()) {
+                classBuilder.addMethod(basicMethodGenerator.generateToDtoWithCycleCache());
+                classBuilder.addMethod(basicMethodGenerator.generateFromDtoWithCycleCache());
+            }
 
             // 2.1 生成更新方法（v1.3 新增）
             classBuilder.addMethod(basicMethodGenerator.generateUpdateDto());
@@ -233,6 +253,11 @@ public final class CodeGenerator {
         collectionMethodGenerator.setSourceType(sourceType);
         collectionMethodGenerator.setTargetType(targetType);
         collectionMethodGenerator.setUseStaticMethods(useStatic);
+    }
+
+    private boolean isRuntimeCycleStrategy() {
+        return cycleDetectionStrategy == CycleDetectionStrategy.RETURN_NULL
+                || cycleDetectionStrategy == CycleDetectionStrategy.AUTOMATIC_CACHE;
     }
 
     /**

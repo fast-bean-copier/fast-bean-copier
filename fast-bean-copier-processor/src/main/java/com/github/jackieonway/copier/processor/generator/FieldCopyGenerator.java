@@ -3,6 +3,8 @@ package com.github.jackieonway.copier.processor.generator;
 import com.github.jackieonway.copier.processor.FieldMapping;
 import com.github.jackieonway.copier.processor.TypeUtils;
 import com.github.jackieonway.copier.processor.context.ProcessorContext;
+import com.github.jackieonway.copier.annotation.CopyTarget;
+import com.github.jackieonway.copier.annotation.CycleDetectionStrategy;
 import com.squareup.javapoet.MethodSpec;
 
 import javax.lang.model.element.Element;
@@ -635,6 +637,37 @@ public class FieldCopyGenerator {
         return str.substring(0, 1).toUpperCase() + str.substring(1);
     }
 
+    private boolean isRuntimeCycleStrategy() {
+        CycleDetectionStrategy strategy = context.getCycleDetectionStrategy();
+        return strategy == CycleDetectionStrategy.RETURN_NULL
+                || strategy == CycleDetectionStrategy.AUTOMATIC_CACHE;
+    }
+
+    private String nestedCopierMethod(boolean reverse) {
+        return reverse ? "fromDto" : "toDto";
+    }
+
+    private boolean shouldUseCycleCacheFor(TypeMirror dtoType) {
+        if (!isRuntimeCycleStrategy() || dtoType == null) {
+            return false;
+        }
+        if (context.getTargetType() != null
+                && context.getTargetType().asType().toString().equals(dtoType.toString())) {
+            return true;
+        }
+        Element element = context.getTypeUtils().asElement(dtoType);
+        if (!(element instanceof TypeElement)) {
+            return false;
+        }
+        CopyTarget copyTarget = ((TypeElement) element).getAnnotation(CopyTarget.class);
+        return copyTarget != null && isRuntimeCycleStrategy(copyTarget.cycleDetection());
+    }
+
+    private boolean isRuntimeCycleStrategy(CycleDetectionStrategy strategy) {
+        return strategy == CycleDetectionStrategy.RETURN_NULL
+                || strategy == CycleDetectionStrategy.AUTOMATIC_CACHE;
+    }
+
     /**
      * 检查目标类型是否有对应的 Copier 类。
      *
@@ -730,11 +763,12 @@ public class FieldCopyGenerator {
             String copierSimpleName = copierClassName.substring(copierClassName.lastIndexOf('.') + 1);
             
             // 根据转换方向选择方法名
-            String copierMethod = reverse ? "fromDto" : "toDto";
+            String copierMethod = nestedCopierMethod(reverse);
+            String cacheArg = shouldUseCycleCacheFor(dtoType) ? ", __cache" : "";
             
             // 生成三元表达式形式的 Copier 调用
-            methodBuilder.addStatement("target.$L(source.$L() != null ? $L.$L(source.$L()) : null)", 
-                    setterName, getterName, copierSimpleName, copierMethod, getterName);
+            methodBuilder.addStatement("target.$L(source.$L() != null ? $L.$L(source.$L()$L) : null)",
+                    setterName, getterName, copierSimpleName, copierMethod, getterName, cacheArg);
         } else {
             // 没有 Copier，使用字段拷贝
             generateFieldBasedCopy(methodBuilder, sourceFieldType, targetFieldType, 
@@ -849,11 +883,12 @@ public class FieldCopyGenerator {
                         // 有 Copier，使用 Copier 进行拷贝（使用三元表达式简化）
                         String copierClassName = nestedDtoType.toString() + "Copier";
                         String copierSimpleName = copierClassName.substring(copierClassName.lastIndexOf('.') + 1);
-                        String copierMethod = reverse ? "fromDto" : "toDto";
+                        String copierMethod = nestedCopierMethod(reverse);
+                        String cacheArg = shouldUseCycleCacheFor(nestedDtoType) ? ", __cache" : "";
                         
-                        methodBuilder.addStatement("$L.$L($L.$L() != null ? $L.$L($L.$L()) : null)", 
+                        methodBuilder.addStatement("$L.$L($L.$L() != null ? $L.$L($L.$L()$L) : null)",
                                 targetTempVarName, fieldSetterName, sourceTempVarName, fieldGetterName,
-                                copierSimpleName, copierMethod, sourceTempVarName, fieldGetterName);
+                                copierSimpleName, copierMethod, sourceTempVarName, fieldGetterName, cacheArg);
                     } else {
                         // 没有 Copier，递归生成字段拷贝
                         String nestedSourceGetter = sourceTempVarName + "." + fieldGetterName + "()";

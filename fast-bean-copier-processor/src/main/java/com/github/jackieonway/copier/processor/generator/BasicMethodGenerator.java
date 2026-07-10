@@ -1,5 +1,6 @@
 package com.github.jackieonway.copier.processor.generator;
 
+import com.github.jackieonway.copier.annotation.CycleDetectionStrategy;
 import com.github.jackieonway.copier.annotation.NullValueStrategy;
 import com.github.jackieonway.copier.processor.FieldMapping;
 import com.github.jackieonway.copier.processor.context.ProcessorContext;
@@ -11,7 +12,9 @@ import com.squareup.javapoet.TypeName;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 
 /**
@@ -131,6 +134,11 @@ public class BasicMethodGenerator {
         if (useStaticMethods) {
             methodBuilder.addModifiers(Modifier.STATIC);
         }
+
+        if (isRuntimeCycleStrategy()) {
+            methodBuilder.addStatement("return toDto(source, new $T<>())", IdentityHashMap.class);
+            return methodBuilder.build();
+        }
         
         // 添加 null 检查
         methodBuilder.beginControlFlow("if (source == null)")
@@ -165,7 +173,7 @@ public class BasicMethodGenerator {
         TypeName preProcessorType = ParameterizedTypeName.get(
                 ClassName.get(UnaryOperator.class), targetTypeName);
         TypeName postProcessorType = ParameterizedTypeName.get(
-                ClassName.get(UnaryOperator.class), sourceTypeName);
+                ClassName.get(BiFunction.class), targetTypeName, sourceTypeName, sourceTypeName);
 
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDto")
                 .addModifiers(Modifier.PUBLIC)
@@ -176,6 +184,25 @@ public class BasicMethodGenerator {
 
         if (useStaticMethods) {
             methodBuilder.addModifiers(Modifier.STATIC);
+        }
+
+        if (isRuntimeCycleStrategy()) {
+            methodBuilder.beginControlFlow("if (source == null)")
+                    .addStatement("return null")
+                    .endControlFlow();
+            methodBuilder.beginControlFlow("if (preProcessor != null)")
+                    .addStatement("source = preProcessor.apply(source)")
+                    .endControlFlow();
+            methodBuilder.beginControlFlow("if (source == null)")
+                    .addStatement("return null")
+                    .endControlFlow();
+            methodBuilder.addStatement("$T target = fromDto(source, new $T<>())",
+                    ClassName.get(sourceType), IdentityHashMap.class);
+            methodBuilder.beginControlFlow("if (postProcessor != null)")
+                    .addStatement("target = postProcessor.apply(source, target)")
+                    .endControlFlow();
+            methodBuilder.addStatement("return target");
+            return methodBuilder.build();
         }
 
         methodBuilder.beginControlFlow("if (source == null)")
@@ -198,7 +225,7 @@ public class BasicMethodGenerator {
         }
 
         methodBuilder.beginControlFlow("if (postProcessor != null)")
-                .addStatement("target = postProcessor.apply(target)")
+                .addStatement("target = postProcessor.apply(source, target)")
                 .endControlFlow();
 
         methodBuilder.addStatement("return target");
@@ -219,7 +246,7 @@ public class BasicMethodGenerator {
         TypeName preProcessorType = ParameterizedTypeName.get(
                 ClassName.get(UnaryOperator.class), sourceTypeName);
         TypeName postProcessorType = ParameterizedTypeName.get(
-                ClassName.get(UnaryOperator.class), targetTypeName);
+                ClassName.get(BiFunction.class), sourceTypeName, targetTypeName, targetTypeName);
 
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDto")
                 .addModifiers(Modifier.PUBLIC)
@@ -230,6 +257,25 @@ public class BasicMethodGenerator {
 
         if (useStaticMethods) {
             methodBuilder.addModifiers(Modifier.STATIC);
+        }
+
+        if (isRuntimeCycleStrategy()) {
+            methodBuilder.beginControlFlow("if (source == null)")
+                    .addStatement("return null")
+                    .endControlFlow();
+            methodBuilder.beginControlFlow("if (preProcessor != null)")
+                    .addStatement("source = preProcessor.apply(source)")
+                    .endControlFlow();
+            methodBuilder.beginControlFlow("if (source == null)")
+                    .addStatement("return null")
+                    .endControlFlow();
+            methodBuilder.addStatement("$T target = toDto(source, new $T<>())",
+                    ClassName.get(targetType), IdentityHashMap.class);
+            methodBuilder.beginControlFlow("if (postProcessor != null)")
+                    .addStatement("target = postProcessor.apply(source, target)")
+                    .endControlFlow();
+            methodBuilder.addStatement("return target");
+            return methodBuilder.build();
         }
 
         methodBuilder.beginControlFlow("if (source == null)")
@@ -252,7 +298,7 @@ public class BasicMethodGenerator {
         }
 
         methodBuilder.beginControlFlow("if (postProcessor != null)")
-                .addStatement("target = postProcessor.apply(target)")
+                .addStatement("target = postProcessor.apply(source, target)")
                 .endControlFlow();
 
         methodBuilder.addStatement("return target");
@@ -273,6 +319,14 @@ public class BasicMethodGenerator {
                 .addModifiers(Modifier.PUBLIC)
                 .returns(ClassName.get(sourceType))
                 .addParameter(ClassName.get(targetType), "source");
+
+        if (isRuntimeCycleStrategy()) {
+            if (useStaticMethods) {
+                methodBuilder.addModifiers(Modifier.STATIC);
+            }
+            methodBuilder.addStatement("return fromDto(source, new $T<>())", IdentityHashMap.class);
+            return methodBuilder.build();
+        }
         
         if (useStaticMethods) {
             methodBuilder.addModifiers(Modifier.STATIC);
@@ -310,6 +364,60 @@ public class BasicMethodGenerator {
      * @return 生成的方法规范
      * @since 1.3.0
      */
+    public MethodSpec generateToDtoWithCycleCache() {
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("toDto")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(ClassName.get(targetType))
+                .addParameter(ClassName.get(sourceType), "source")
+                .addParameter(ParameterizedTypeName.get(ClassName.get(IdentityHashMap.class),
+                        TypeName.OBJECT, TypeName.OBJECT), "__cache");
+        if (useStaticMethods) {
+            methodBuilder.addModifiers(Modifier.STATIC);
+        }
+
+        methodBuilder.beginControlFlow("if (source == null)")
+                .addStatement("return null")
+                .endControlFlow();
+        addCycleEntry(methodBuilder, ClassName.get(targetType));
+        methodBuilder.addStatement("$T target = new $T()", ClassName.get(targetType), ClassName.get(targetType));
+        addAutomaticCacheStore(methodBuilder);
+
+        for (FieldMapping mapping : fieldMappings) {
+            fieldCopyGenerator.generateFieldCopyCode(methodBuilder, mapping, false);
+        }
+
+        addCycleExit(methodBuilder);
+        methodBuilder.addStatement("return target");
+        return methodBuilder.build();
+    }
+
+    public MethodSpec generateFromDtoWithCycleCache() {
+        MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("fromDto")
+                .addModifiers(Modifier.PUBLIC)
+                .returns(ClassName.get(sourceType))
+                .addParameter(ClassName.get(targetType), "source")
+                .addParameter(ParameterizedTypeName.get(ClassName.get(IdentityHashMap.class),
+                        TypeName.OBJECT, TypeName.OBJECT), "__cache");
+        if (useStaticMethods) {
+            methodBuilder.addModifiers(Modifier.STATIC);
+        }
+
+        methodBuilder.beginControlFlow("if (source == null)")
+                .addStatement("return null")
+                .endControlFlow();
+        addCycleEntry(methodBuilder, ClassName.get(sourceType));
+        methodBuilder.addStatement("$T target = new $T()", ClassName.get(sourceType), ClassName.get(sourceType));
+        addAutomaticCacheStore(methodBuilder);
+
+        for (FieldMapping mapping : fieldMappings) {
+            fieldCopyGenerator.generateFieldCopyCode(methodBuilder, mapping, true);
+        }
+
+        addCycleExit(methodBuilder);
+        methodBuilder.addStatement("return target");
+        return methodBuilder.build();
+    }
+
     public MethodSpec generateUpdateDto() {
         MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("updateDto")
                 .addModifiers(Modifier.PUBLIC)
@@ -325,6 +433,7 @@ public class BasicMethodGenerator {
         methodBuilder.beginControlFlow("if (source == null || target == null)")
                 .addStatement("return")
                 .endControlFlow();
+        addUpdateCycleContext(methodBuilder);
         
         // 生成字段更新代码
         for (FieldMapping mapping : fieldMappings) {
@@ -358,6 +467,7 @@ public class BasicMethodGenerator {
         methodBuilder.beginControlFlow("if (source == null || target == null)")
                 .addStatement("return")
                 .endControlFlow();
+        addUpdateCycleContext(methodBuilder);
         
         // 生成反向字段更新代码
         for (FieldMapping mapping : fieldMappings) {
@@ -428,5 +538,50 @@ public class BasicMethodGenerator {
             return str;
         }
         return str.substring(0, 1).toUpperCase() + str.substring(1);
+    }
+
+    private boolean isRuntimeCycleStrategy() {
+        CycleDetectionStrategy strategy = context.getCycleDetectionStrategy();
+        return strategy == CycleDetectionStrategy.RETURN_NULL
+                || strategy == CycleDetectionStrategy.AUTOMATIC_CACHE;
+    }
+
+    private void addCycleEntry(MethodSpec.Builder methodBuilder, TypeName returnType) {
+        CycleDetectionStrategy strategy = context.getCycleDetectionStrategy();
+        if (strategy == CycleDetectionStrategy.RETURN_NULL) {
+            methodBuilder.beginControlFlow("if (__cache.containsKey(source))")
+                    .addStatement("return null")
+                    .endControlFlow()
+                    .addStatement("__cache.put(source, $T.TRUE)", Boolean.class);
+        } else if (strategy == CycleDetectionStrategy.AUTOMATIC_CACHE) {
+            methodBuilder.beginControlFlow("if (__cache.containsKey(source))")
+                    .addStatement("return ($T) __cache.get(source)", returnType)
+                    .endControlFlow();
+        }
+    }
+
+    private void addAutomaticCacheStore(MethodSpec.Builder methodBuilder) {
+        if (context.getCycleDetectionStrategy() == CycleDetectionStrategy.AUTOMATIC_CACHE) {
+            methodBuilder.addStatement("__cache.put(source, target)");
+        }
+    }
+
+    private void addCycleExit(MethodSpec.Builder methodBuilder) {
+        if (context.getCycleDetectionStrategy() == CycleDetectionStrategy.RETURN_NULL) {
+            methodBuilder.addStatement("__cache.remove(source)");
+        }
+    }
+
+    private void addUpdateCycleContext(MethodSpec.Builder methodBuilder) {
+        if (!isRuntimeCycleStrategy()) {
+            return;
+        }
+        methodBuilder.addStatement("$T<$T, $T> __cache = new $T<>()",
+                IdentityHashMap.class, Object.class, Object.class, IdentityHashMap.class);
+        if (context.getCycleDetectionStrategy() == CycleDetectionStrategy.AUTOMATIC_CACHE) {
+            methodBuilder.addStatement("__cache.put(source, target)");
+        } else {
+            methodBuilder.addStatement("__cache.put(source, $T.TRUE)", Boolean.class);
+        }
     }
 }

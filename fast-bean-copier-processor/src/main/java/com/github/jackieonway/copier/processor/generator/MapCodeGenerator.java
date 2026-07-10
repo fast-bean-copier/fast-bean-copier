@@ -25,6 +25,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 
 /**
@@ -175,7 +176,8 @@ public class MapCodeGenerator {
     private MethodSpec generateToMapWithProcessors() {
         TypeName beanType = ClassName.get(targetType);
         TypeName preType = ParameterizedTypeName.get(ClassName.get(UnaryOperator.class), beanType);
-        TypeName postType = ParameterizedTypeName.get(ClassName.get(UnaryOperator.class), MAP_STRING_OBJECT);
+        TypeName postType = ParameterizedTypeName.get(ClassName.get(BiFunction.class), beanType,
+                MAP_STRING_OBJECT, MAP_STRING_OBJECT);
 
         MethodSpec.Builder m = MethodSpec.methodBuilder("toMap")
                 .addModifiers(Modifier.PUBLIC)
@@ -198,7 +200,7 @@ public class MapCodeGenerator {
         }
 
         m.beginControlFlow("if (result != null && postProcessor != null)")
-                .addStatement("result = postProcessor.apply(result)")
+                .addStatement("result = postProcessor.apply(source, result)")
                 .endControlFlow();
         m.addStatement("return result");
         return m.build();
@@ -233,7 +235,8 @@ public class MapCodeGenerator {
         TypeName beanType = ClassName.get(targetType);
         TypeName listOfBean = ParameterizedTypeName.get(LIST_CLASS, beanType);
         TypeName preType = ParameterizedTypeName.get(ClassName.get(UnaryOperator.class), listOfBean);
-        TypeName postType = ParameterizedTypeName.get(ClassName.get(UnaryOperator.class), LIST_OF_MAP);
+        TypeName postType = ParameterizedTypeName.get(ClassName.get(BiFunction.class), listOfBean,
+                LIST_OF_MAP, LIST_OF_MAP);
 
         MethodSpec.Builder m = MethodSpec.methodBuilder("toMapList")
                 .addModifiers(Modifier.PUBLIC)
@@ -254,7 +257,7 @@ public class MapCodeGenerator {
             m.addStatement("$T result = this.toMapList(sources)", LIST_OF_MAP);
         }
         m.beginControlFlow("if (result != null && postProcessor != null)")
-                .addStatement("result = postProcessor.apply(result)").endControlFlow();
+                .addStatement("result = postProcessor.apply(sources, result)").endControlFlow();
         m.addStatement("return result");
         return m.build();
     }
@@ -288,7 +291,8 @@ public class MapCodeGenerator {
         TypeName beanType = ClassName.get(targetType);
         TypeName setOfBean = ParameterizedTypeName.get(SET_CLASS, beanType);
         TypeName preType = ParameterizedTypeName.get(ClassName.get(UnaryOperator.class), setOfBean);
-        TypeName postType = ParameterizedTypeName.get(ClassName.get(UnaryOperator.class), SET_OF_MAP);
+        TypeName postType = ParameterizedTypeName.get(ClassName.get(BiFunction.class), setOfBean,
+                SET_OF_MAP, SET_OF_MAP);
 
         MethodSpec.Builder m = MethodSpec.methodBuilder("toMapSet")
                 .addModifiers(Modifier.PUBLIC)
@@ -309,7 +313,7 @@ public class MapCodeGenerator {
             m.addStatement("$T result = this.toMapSet(sources)", SET_OF_MAP);
         }
         m.beginControlFlow("if (result != null && postProcessor != null)")
-                .addStatement("result = postProcessor.apply(result)").endControlFlow();
+                .addStatement("result = postProcessor.apply(sources, result)").endControlFlow();
         m.addStatement("return result");
         return m.build();
     }
@@ -403,7 +407,8 @@ public class MapCodeGenerator {
     private MethodSpec generateFromMapWithProcessors() {
         TypeName beanType = ClassName.get(targetType);
         TypeName preType = ParameterizedTypeName.get(ClassName.get(UnaryOperator.class), MAP_STRING_OBJECT);
-        TypeName postType = ParameterizedTypeName.get(ClassName.get(UnaryOperator.class), beanType);
+        TypeName postType = ParameterizedTypeName.get(ClassName.get(BiFunction.class), MAP_STRING_OBJECT,
+                beanType, beanType);
 
         MethodSpec.Builder m = MethodSpec.methodBuilder("fromMap")
                 .addModifiers(Modifier.PUBLIC)
@@ -424,7 +429,7 @@ public class MapCodeGenerator {
             m.addStatement("$T result = this.fromMap(source)", beanType);
         }
         m.beginControlFlow("if (result != null && postProcessor != null)")
-                .addStatement("result = postProcessor.apply(result)").endControlFlow();
+                .addStatement("result = postProcessor.apply(source, result)").endControlFlow();
         m.addStatement("return result");
         return m.build();
     }
@@ -458,7 +463,8 @@ public class MapCodeGenerator {
         TypeName beanType = ClassName.get(targetType);
         TypeName listOfBean = ParameterizedTypeName.get(LIST_CLASS, beanType);
         TypeName preType = ParameterizedTypeName.get(ClassName.get(UnaryOperator.class), LIST_OF_MAP);
-        TypeName postType = ParameterizedTypeName.get(ClassName.get(UnaryOperator.class), listOfBean);
+        TypeName postType = ParameterizedTypeName.get(ClassName.get(BiFunction.class), LIST_OF_MAP,
+                listOfBean, listOfBean);
 
         MethodSpec.Builder m = MethodSpec.methodBuilder("fromMapList")
                 .addModifiers(Modifier.PUBLIC)
@@ -479,7 +485,7 @@ public class MapCodeGenerator {
             m.addStatement("$T result = this.fromMapList(sources)", listOfBean);
         }
         m.beginControlFlow("if (result != null && postProcessor != null)")
-                .addStatement("result = postProcessor.apply(result)").endControlFlow();
+                .addStatement("result = postProcessor.apply(sources, result)").endControlFlow();
         m.addStatement("return result");
         return m.build();
     }
@@ -513,7 +519,8 @@ public class MapCodeGenerator {
         TypeName beanType = ClassName.get(targetType);
         TypeName setOfBean = ParameterizedTypeName.get(SET_CLASS, beanType);
         TypeName preType = ParameterizedTypeName.get(ClassName.get(UnaryOperator.class), SET_OF_MAP);
-        TypeName postType = ParameterizedTypeName.get(ClassName.get(UnaryOperator.class), setOfBean);
+        TypeName postType = ParameterizedTypeName.get(ClassName.get(BiFunction.class), SET_OF_MAP,
+                setOfBean, setOfBean);
 
         MethodSpec.Builder m = MethodSpec.methodBuilder("fromMapSet")
                 .addModifiers(Modifier.PUBLIC)
@@ -534,7 +541,7 @@ public class MapCodeGenerator {
             m.addStatement("$T result = this.fromMapSet(sources)", setOfBean);
         }
         m.beginControlFlow("if (result != null && postProcessor != null)")
-                .addStatement("result = postProcessor.apply(result)").endControlFlow();
+                .addStatement("result = postProcessor.apply(sources, result)").endControlFlow();
         m.addStatement("return result");
         return m.build();
     }

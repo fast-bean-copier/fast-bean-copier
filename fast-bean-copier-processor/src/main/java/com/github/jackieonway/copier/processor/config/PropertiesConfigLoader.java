@@ -50,6 +50,8 @@ public class PropertiesConfigLoader {
      */
     private static final String KEY_NULL_VALUE_STRATEGY = "fast.bean.copier.nullValueStrategy";
 
+    private static final String KEY_CYCLE_DETECTION = "fast.bean.copier.cycleDetection";
+
     /**
      * Filer 用于读取资源文件。
      */
@@ -182,6 +184,31 @@ public class PropertiesConfigLoader {
         // 无效的配置值
         System.err.println("警告: 无效的 nullValueStrategy 配置值: " + value + 
                          "，有效值为: IGNORE, SET_NULL, THROW_EXCEPTION");
+        return null;
+    }
+
+    /**
+     * 解析循环检测策略配置。
+     *
+     * @param props Properties 对象
+     * @return 循环检测策略字符串，如果未配置或无效则返回 null
+     * @since 1.6.0
+     */
+    public String parseCycleDetection(Properties props) {
+        String value = props.getProperty(KEY_CYCLE_DETECTION);
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+
+        value = value.trim().toUpperCase();
+
+        if ("FAIL_FAST".equals(value) || "RETURN_NULL".equals(value)
+                || "AUTOMATIC_CACHE".equals(value)) {
+            return value;
+        }
+
+        System.err.println("Warning: invalid cycleDetection configuration value: " + value
+                + ". Supported values: FAIL_FAST, RETURN_NULL, AUTOMATIC_CACHE");
         return null;
     }
 }
