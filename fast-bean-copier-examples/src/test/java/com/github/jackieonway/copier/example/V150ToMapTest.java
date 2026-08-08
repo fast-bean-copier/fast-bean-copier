@@ -13,6 +13,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
@@ -105,8 +106,9 @@ public class V150ToMapTest {
         dto.setId(1L);
         dto.setName("Alice");
 
-        UnaryOperator<Map<String, Object>> post = map -> {
+        BiFunction<MapUserDto, Map<String, Object>, Map<String, Object>> post = (source, map) -> {
             map.put("extra", "added");
+            map.put("sourceName", source.getName());
             return map;
         };
 
@@ -114,6 +116,7 @@ public class V150ToMapTest {
 
         assertNotNull(result);
         assertEquals("added", result.get("extra"));
+        assertEquals("Alice", result.get("sourceName"));
         assertEquals(1L, result.get("id"));
     }
 
@@ -170,8 +173,10 @@ public class V150ToMapTest {
         MapUserDto dto2 = new MapUserDto();
         dto2.setId(2L); dto2.setName("Bob");
 
-        UnaryOperator<List<Map<String, Object>>> post = list ->
-                list.stream().filter(m -> Long.valueOf(2L).equals(m.get("id"))).collect(Collectors.toList());
+        BiFunction<List<MapUserDto>, List<Map<String, Object>>, List<Map<String, Object>>> post = (sources, list) ->
+                list.stream()
+                        .filter(m -> Long.valueOf(sources.get(1).getId()).equals(m.get("id")))
+                        .collect(Collectors.toList());
 
         List<Map<String, Object>> result = MapUserDtoMapCopier.toMapList(
                 Arrays.asList(dto1, dto2), null, post);
@@ -200,5 +205,24 @@ public class V150ToMapTest {
     @Test
     public void testToMapSet_nullSources_returnsNull() {
         assertNull(MapUserDtoMapCopier.toMapSet(null));
+    }
+
+    @Test
+    public void testToMapSet_withProcessors_readsSourcesAndResult() {
+        Set<MapUserDto> sources = new LinkedHashSet<>();
+        MapUserDto dto = new MapUserDto();
+        dto.setId(1L);
+        dto.setName("Alice");
+        sources.add(dto);
+
+        BiFunction<Set<MapUserDto>, Set<Map<String, Object>>, Set<Map<String, Object>>> post = (input, result) -> {
+            result.iterator().next().put("sourceSize", input.size());
+            return result;
+        };
+
+        Set<Map<String, Object>> result = MapUserDtoMapCopier.toMapSet(sources, null, post);
+
+        assertNotNull(result);
+        assertEquals(1, result.iterator().next().get("sourceSize"));
     }
 }

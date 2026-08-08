@@ -8,10 +8,10 @@ import org.junit.Test;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
@@ -44,7 +44,7 @@ public class V131UnaryOperatorIntegrationTest {
         );
 
         // Define customizer: filter products with price > 100
-        UnaryOperator<List<SimpleProductDto>> customizer = list -> 
+        BiFunction<List<SimpleProduct>, List<SimpleProductDto>, List<SimpleProductDto>> customizer = (s, list) ->
                 list.stream()
                         .filter(dto -> dto.getPrice() > 100.0)
                         .collect(Collectors.toList());
@@ -69,7 +69,7 @@ public class V131UnaryOperatorIntegrationTest {
         );
 
         // Define customizer: sort by name
-        UnaryOperator<List<SimpleProductDto>> customizer = list -> {
+        BiFunction<List<SimpleProduct>, List<SimpleProductDto>, List<SimpleProductDto>> customizer = (s, list) -> {
             list.sort(Comparator.comparing(SimpleProductDto::getName));
             return list;
         };
@@ -95,7 +95,7 @@ public class V131UnaryOperatorIntegrationTest {
         );
 
         // Define customizer: limit to first 2 elements
-        UnaryOperator<List<SimpleProductDto>> customizer = list -> 
+        BiFunction<List<SimpleProduct>, List<SimpleProductDto>, List<SimpleProductDto>> customizer = (s, list) ->
                 list.stream().limit(2).collect(Collectors.toList());
 
         // Execute conversion
@@ -116,7 +116,8 @@ public class V131UnaryOperatorIntegrationTest {
         );
 
         // Define customizer: convert to unmodifiable list
-        UnaryOperator<List<SimpleProductDto>> customizer = Collections::unmodifiableList;
+        BiFunction<List<SimpleProduct>, List<SimpleProductDto>, List<SimpleProductDto>> customizer = (s, list) ->
+                Collections.unmodifiableList(list);
 
         // Execute conversion
         List<SimpleProductDto> result = SimpleProductDtoCopier.toDtoList(sources, null, customizer);
@@ -148,7 +149,7 @@ public class V131UnaryOperatorIntegrationTest {
         List<SimpleProductDto> sources = Arrays.asList(dto1, dto2);
 
         // Define customizer: filter out elements with null id
-        UnaryOperator<List<SimpleProduct>> customizer = list -> 
+        BiFunction<List<SimpleProductDto>, List<SimpleProduct>, List<SimpleProduct>> customizer = (s, list) ->
                 list.stream()
                         .filter(product -> product.getId() != null)
                         .collect(Collectors.toList());
@@ -173,7 +174,7 @@ public class V131UnaryOperatorIntegrationTest {
         sources.add(new SimpleProduct(3L, "Product 3", 200.0));
 
         // Define customizer: filter products with price > 100
-        UnaryOperator<java.util.Set<SimpleProductDto>> customizer = set -> 
+        BiFunction<java.util.Set<SimpleProduct>, java.util.Set<SimpleProductDto>, java.util.Set<SimpleProductDto>> customizer = (s, set) ->
                 set.stream()
                         .filter(dto -> dto.getPrice() > 100.0)
                         .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
@@ -195,7 +196,8 @@ public class V131UnaryOperatorIntegrationTest {
         sources.add(new SimpleProduct(1L, "Product 1", 100.0));
 
         // Define customizer: convert to unmodifiable set
-        UnaryOperator<java.util.Set<SimpleProductDto>> customizer = Collections::unmodifiableSet;
+        BiFunction<java.util.Set<SimpleProduct>, java.util.Set<SimpleProductDto>, java.util.Set<SimpleProductDto>> customizer = (s, set) ->
+                Collections.unmodifiableSet(set);
 
         // Execute conversion
         java.util.Set<SimpleProductDto> result = SimpleProductDtoCopier.toDtoSet(sources, null, customizer);
@@ -229,7 +231,7 @@ public class V131UnaryOperatorIntegrationTest {
         sources.add(dto2);
 
         // Define customizer: filter out elements with null id
-        UnaryOperator<java.util.Set<SimpleProduct>> customizer = set -> 
+        BiFunction<java.util.Set<SimpleProductDto>, java.util.Set<SimpleProduct>, java.util.Set<SimpleProduct>> customizer = (s, set) ->
                 set.stream()
                         .filter(product -> product.getId() != null)
                         .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
@@ -255,7 +257,7 @@ public class V131UnaryOperatorIntegrationTest {
         sources.put("p3", new SimpleProduct(3L, "Product 3", 300.0));
 
         // Define customizer: filter out entries with null id
-        UnaryOperator<Map<String, SimpleProductDto>> customizer = map -> {
+        BiFunction<Map<String, SimpleProduct>, Map<String, SimpleProductDto>, Map<String, SimpleProductDto>> customizer = (s, map) -> {
             Map<String, SimpleProductDto> filtered = new LinkedHashMap<>();
             for (Map.Entry<String, SimpleProductDto> entry : map.entrySet()) {
                 if (entry.getValue() != null && entry.getValue().getId() != null) {
@@ -284,7 +286,8 @@ public class V131UnaryOperatorIntegrationTest {
         sources.put("p1", new SimpleProduct(1L, "Product 1", 100.0));
 
         // Define customizer: convert to unmodifiable map
-        UnaryOperator<Map<String, SimpleProductDto>> customizer = Collections::unmodifiableMap;
+        BiFunction<Map<String, SimpleProduct>, Map<String, SimpleProductDto>, Map<String, SimpleProductDto>> customizer = (s, map) ->
+                Collections.unmodifiableMap(map);
 
         // Execute conversion
         Map<String, SimpleProductDto> result = SimpleProductDtoCopier.toDtoMap(sources, null, customizer);
@@ -320,7 +323,7 @@ public class V131UnaryOperatorIntegrationTest {
     @Test
     public void testToDtoMap_withNullSources() {
         // Execute conversion with null sources
-        Map<String, SimpleProductDto> result = SimpleProductDtoCopier.toDtoMap(null, null, map -> map);
+        Map<String, SimpleProductDto> result = SimpleProductDtoCopier.toDtoMap(null, null, (s, m) -> m);
 
         // Verify result
         assertNull(result);
@@ -344,7 +347,7 @@ public class V131UnaryOperatorIntegrationTest {
         sources.put("p2", dto2);
 
         // Define customizer: filter out entries with null id
-        UnaryOperator<Map<String, SimpleProduct>> customizer = map -> {
+        BiFunction<Map<String, SimpleProductDto>, Map<String, SimpleProduct>, Map<String, SimpleProduct>> customizer = (s, map) -> {
             Map<String, SimpleProduct> filtered = new LinkedHashMap<>();
             for (Map.Entry<String, SimpleProduct> entry : map.entrySet()) {
                 if (entry.getValue() != null && entry.getValue().getId() != null) {
@@ -376,11 +379,10 @@ public class V131UnaryOperatorIntegrationTest {
         };
 
         // Define customizer: filter out elements with null id
-        UnaryOperator<SimpleProductDto[]> customizer = array -> {
-            return Arrays.stream(array)
-                    .filter(dto -> dto != null && dto.getId() != null)
-                    .toArray(SimpleProductDto[]::new);
-        };
+        BiFunction<SimpleProduct[], SimpleProductDto[], SimpleProductDto[]> customizer = (s, array) ->
+                Arrays.stream(array)
+                        .filter(dto -> dto != null && dto.getId() != null)
+                        .toArray(SimpleProductDto[]::new);
 
         // Execute conversion
         SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(sources, null, customizer);
@@ -402,7 +404,7 @@ public class V131UnaryOperatorIntegrationTest {
         };
 
         // Define customizer: sort by id
-        UnaryOperator<SimpleProductDto[]> customizer = array -> {
+        BiFunction<SimpleProduct[], SimpleProductDto[], SimpleProductDto[]> customizer = (s, array) -> {
             Arrays.sort(array, Comparator.comparing(SimpleProductDto::getId));
             return array;
         };
@@ -428,9 +430,8 @@ public class V131UnaryOperatorIntegrationTest {
         };
 
         // Define customizer: limit to first 2 elements
-        UnaryOperator<SimpleProductDto[]> customizer = array -> {
-            return Arrays.copyOf(array, Math.min(2, array.length));
-        };
+        BiFunction<SimpleProduct[], SimpleProductDto[], SimpleProductDto[]> customizer = (s, array) ->
+                Arrays.copyOf(array, Math.min(2, array.length));
 
         // Execute conversion
         SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(sources, null, customizer);
@@ -461,7 +462,7 @@ public class V131UnaryOperatorIntegrationTest {
     @Test
     public void testToDtoArray_withNullSources() {
         // Execute conversion with null sources
-        SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(null, null, array -> array);
+        SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(null, null, (s, a) -> a);
 
         // Verify result
         assertNull(result);
@@ -483,11 +484,10 @@ public class V131UnaryOperatorIntegrationTest {
         SimpleProductDto[] sources = new SimpleProductDto[]{dto1, dto2};
 
         // Define customizer: filter out elements with null id
-        UnaryOperator<SimpleProduct[]> customizer = array -> {
-            return Arrays.stream(array)
-                    .filter(product -> product != null && product.getId() != null)
-                    .toArray(SimpleProduct[]::new);
-        };
+        BiFunction<SimpleProductDto[], SimpleProduct[], SimpleProduct[]> customizer = (s, array) ->
+                Arrays.stream(array)
+                        .filter(product -> product != null && product.getId() != null)
+                        .toArray(SimpleProduct[]::new);
 
         // Execute conversion
         SimpleProduct[] result = SimpleProductDtoCopier.fromDtoArray(sources, null, customizer);
@@ -512,7 +512,7 @@ public class V131UnaryOperatorIntegrationTest {
         SimpleProductDto[] sources = new SimpleProductDto[]{dto1, dto2};
 
         // Define customizer: sort by id
-        UnaryOperator<SimpleProduct[]> customizer = array -> {
+        BiFunction<SimpleProductDto[], SimpleProduct[], SimpleProduct[]> customizer = (s, array) -> {
             Arrays.sort(array, Comparator.comparing(SimpleProduct::getId));
             return array;
         };

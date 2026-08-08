@@ -160,7 +160,7 @@ public class CodeGeneratorIntegrationTest {
         user.setId(3L);
         user.setName("Original");
 
-        UserDto dto = UserDtoCopier.toDto(user, null, d -> {
+        UserDto dto = UserDtoCopier.toDto(user, null, (s, d) -> {
             d.setName("Modified");
             return d;
         });

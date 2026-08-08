@@ -10,6 +10,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 
 import static org.junit.Assert.assertEquals;
@@ -28,9 +29,9 @@ public class V140ProcessorIntegrationTest {
             return account;
         };
 
-        UnaryOperator<AccountDto> postProcessor = dto -> {
-            dto.setUsername(dto.getUsername() + "_post");
-            return dto;
+        BiFunction<Account, AccountDto, AccountDto> postProcessor = (s, t) -> {
+            t.setUsername(t.getUsername() + "_post");
+            return t;
         };
 
         AccountDto result = AccountDtoCopier.toDto(source, preProcessor, postProcessor);
@@ -51,9 +52,9 @@ public class V140ProcessorIntegrationTest {
             return dto;
         };
 
-        UnaryOperator<Account> postProcessor = account -> {
-            account.setUsername(account.getUsername() + "_post");
-            return account;
+        BiFunction<AccountDto, Account, Account> postProcessor = (s, t) -> {
+            t.setUsername(t.getUsername() + "_post");
+            return t;
         };
 
         Account result = AccountDtoCopier.fromDto(source, preProcessor, postProcessor);
@@ -76,7 +77,7 @@ public class V140ProcessorIntegrationTest {
             return reversed;
         };
 
-        UnaryOperator<List<AccountDto>> postProcessor = list -> list.subList(0, 1);
+        BiFunction<List<Account>, List<AccountDto>, List<AccountDto>> postProcessor = (s, t) -> t.subList(0, 1);
 
         List<AccountDto> result = AccountDtoCopier.toDtoList(sources, preProcessor, postProcessor);
 
@@ -102,7 +103,7 @@ public class V140ProcessorIntegrationTest {
             return filtered;
         };
 
-        UnaryOperator<Set<AccountDto>> postProcessor = set -> set;
+        BiFunction<Set<Account>, Set<AccountDto>, Set<AccountDto>> postProcessor = (s, t) -> t;
 
         Set<AccountDto> result = AccountDtoCopier.toDtoSet(sources, preProcessor, postProcessor);
 
@@ -123,7 +124,7 @@ public class V140ProcessorIntegrationTest {
             return filtered;
         };
 
-        UnaryOperator<Map<String, AccountDto>> postProcessor = map -> map;
+        BiFunction<Map<String, Account>, Map<String, AccountDto>, Map<String, AccountDto>> postProcessor = (s, t) -> t;
 
         Map<String, AccountDto> result = AccountDtoCopier.toDtoMap(sources, preProcessor, postProcessor);
 
@@ -141,7 +142,7 @@ public class V140ProcessorIntegrationTest {
 
         UnaryOperator<Account[]> preProcessor = array -> Arrays.copyOf(array, 1);
 
-        UnaryOperator<AccountDto[]> postProcessor = array -> array;
+        BiFunction<Account[], AccountDto[], AccountDto[]> postProcessor = (s, t) -> t;
 
         AccountDto[] result = AccountDtoCopier.toDtoArray(sources, preProcessor, postProcessor);
 
@@ -167,9 +168,9 @@ public class V140ProcessorIntegrationTest {
         List<Account> sources = new ArrayList<>();
         sources.add(new Account(1L, "u1", "p1", "u1@test.com"));
 
-        UnaryOperator<List<AccountDto>> postProcessor = list -> {
-            list.get(0).setUsername("u1_custom");
-            return list;
+        BiFunction<List<Account>, List<AccountDto>, List<AccountDto>> postProcessor = (s, t) -> {
+            t.get(0).setUsername("u1_custom");
+            return t;
         };
 
         List<AccountDto> result = AccountDtoCopier.toDtoList(sources, null, postProcessor);

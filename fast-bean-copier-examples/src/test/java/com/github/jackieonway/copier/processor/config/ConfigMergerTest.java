@@ -199,4 +199,31 @@ public class ConfigMergerTest {
         assertEquals("DEFAULT", componentModel);
         assertEquals("IGNORE", nullValueStrategy);
     }
+    @Test
+    public void testMergeCycleDetection_classLevelOverridesAll() {
+        String result = merger.mergeCycleDetection("AUTOMATIC_CACHE", "RETURN_NULL", "FAIL_FAST");
+
+        assertEquals("AUTOMATIC_CACHE", result);
+    }
+
+    @Test
+    public void testMergeCycleDetection_packageLevelOverridesFile() {
+        String result = merger.mergeCycleDetection(null, "RETURN_NULL", "FAIL_FAST");
+
+        assertEquals("RETURN_NULL", result);
+    }
+
+    @Test
+    public void testMergeCycleDetection_fileOverridesDefault() {
+        String result = merger.mergeCycleDetection(null, null, "AUTOMATIC_CACHE");
+
+        assertEquals("AUTOMATIC_CACHE", result);
+    }
+
+    @Test
+    public void testMergeCycleDetection_allNull_usesDefault() {
+        String result = merger.mergeCycleDetection(null, null, null);
+
+        assertEquals("FAIL_FAST", result);
+    }
 }

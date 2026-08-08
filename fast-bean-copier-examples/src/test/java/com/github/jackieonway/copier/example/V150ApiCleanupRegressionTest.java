@@ -11,6 +11,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
@@ -78,7 +79,7 @@ public class V150ApiCleanupRegressionTest {
     @Test
     public void testToDto_withPostProcessor_modifiesTarget() {
         SimpleProduct source = new SimpleProduct(1L, "name", 10.0);
-        UnaryOperator<SimpleProductDto> post = dto -> { dto.setName("post_name"); return dto; };
+        BiFunction<SimpleProduct, SimpleProductDto, SimpleProductDto> post = (s, dto) -> { dto.setName("post_name"); return dto; };
         SimpleProductDto result = SimpleProductDtoCopier.toDto(source, null, post);
         assertNotNull(result);
         assertEquals("post_name", result.getName());
@@ -91,7 +92,7 @@ public class V150ApiCleanupRegressionTest {
         source.setName("dto_name");
         source.setPrice(5.0);
         UnaryOperator<SimpleProductDto> pre = dto -> { dto.setName("pre_name"); return dto; };
-        UnaryOperator<SimpleProduct> post = p -> { p.setName(p.getName() + "_post"); return p; };
+        BiFunction<SimpleProductDto, SimpleProduct, SimpleProduct> post = (d, p) -> { p.setName(p.getName() + "_post"); return p; };
         SimpleProduct result = SimpleProductDtoCopier.fromDto(source, pre, post);
         assertNotNull(result);
         assertEquals("pre_name_post", result.getName());
@@ -105,7 +106,7 @@ public class V150ApiCleanupRegressionTest {
                 new SimpleProduct(1L, "P1", 10.0),
                 new SimpleProduct(2L, "P2", 20.0)
         );
-        UnaryOperator<List<SimpleProductDto>> post = list ->
+        BiFunction<List<SimpleProduct>, List<SimpleProductDto>, List<SimpleProductDto>> post = (s, list) ->
                 list.stream().filter(d -> d.getPrice() > 15.0).collect(Collectors.toList());
         List<SimpleProductDto> result = SimpleProductDtoCopier.toDtoList(sources, null, post);
         assertNotNull(result);
@@ -120,7 +121,7 @@ public class V150ApiCleanupRegressionTest {
         SimpleProductDto dto2 = new SimpleProductDto();
         dto2.setId(2L); dto2.setName("D2"); dto2.setPrice(20.0);
         List<SimpleProductDto> sources = Arrays.asList(dto1, dto2);
-        UnaryOperator<List<SimpleProduct>> post = list ->
+        BiFunction<List<SimpleProductDto>, List<SimpleProduct>, List<SimpleProduct>> post = (s, list) ->
                 list.stream().filter(p -> p.getId() != null && p.getId() > 1L).collect(Collectors.toList());
         List<SimpleProduct> result = SimpleProductDtoCopier.fromDtoList(sources, null, post);
         assertNotNull(result);
@@ -133,7 +134,7 @@ public class V150ApiCleanupRegressionTest {
         Set<SimpleProduct> sources = new LinkedHashSet<>();
         sources.add(new SimpleProduct(1L, "P1", 10.0));
         sources.add(new SimpleProduct(2L, "P2", 20.0));
-        UnaryOperator<Set<SimpleProductDto>> post = set ->
+        BiFunction<Set<SimpleProduct>, Set<SimpleProductDto>, Set<SimpleProductDto>> post = (s, set) ->
                 set.stream().filter(d -> d.getPrice() > 15.0)
                         .collect(Collectors.toCollection(LinkedHashSet::new));
         Set<SimpleProductDto> result = SimpleProductDtoCopier.toDtoSet(sources, null, post);
@@ -147,7 +148,7 @@ public class V150ApiCleanupRegressionTest {
         Map<String, SimpleProduct> sources = new LinkedHashMap<>();
         sources.put("a", new SimpleProduct(1L, "P1", 10.0));
         sources.put("b", new SimpleProduct(2L, "P2", 20.0));
-        UnaryOperator<Map<String, SimpleProductDto>> post = map -> {
+        BiFunction<Map<String, SimpleProduct>, Map<String, SimpleProductDto>, Map<String, SimpleProductDto>> post = (s, map) -> {
             Map<String, SimpleProductDto> filtered = new LinkedHashMap<>();
             map.forEach((k, v) -> { if (v.getPrice() > 15.0) filtered.put(k, v); });
             return filtered;
@@ -164,7 +165,7 @@ public class V150ApiCleanupRegressionTest {
                 new SimpleProduct(1L, "P1", 10.0),
                 new SimpleProduct(2L, "P2", 20.0)
         };
-        UnaryOperator<SimpleProductDto[]> post = arr ->
+        BiFunction<SimpleProduct[], SimpleProductDto[], SimpleProductDto[]> post = (s, arr) ->
                 Arrays.stream(arr).filter(d -> d.getPrice() > 15.0).toArray(SimpleProductDto[]::new);
         SimpleProductDto[] result = SimpleProductDtoCopier.toDtoArray(sources, null, post);
         assertNotNull(result);

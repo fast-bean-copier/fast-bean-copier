@@ -278,4 +278,42 @@ public class PropertiesConfigLoaderTest {
         // 验证没有解析出我们期望的配置项
         assertNull(props.getProperty("fast.bean.copier.componentModel"));
     }
+    @Test
+    public void testParseCycleDetection_returnNullValue() {
+        Properties props = new Properties();
+        props.setProperty("fast.bean.copier.cycleDetection", "RETURN_NULL");
+
+        String result = loader.parseCycleDetection(props);
+
+        assertEquals("RETURN_NULL", result);
+    }
+
+    @Test
+    public void testParseCycleDetection_automaticCacheValue() {
+        Properties props = new Properties();
+        props.setProperty("fast.bean.copier.cycleDetection", "automatic_cache");
+
+        String result = loader.parseCycleDetection(props);
+
+        assertEquals("AUTOMATIC_CACHE", result);
+    }
+
+    @Test
+    public void testParseCycleDetection_notConfigured() {
+        Properties props = new Properties();
+
+        String result = loader.parseCycleDetection(props);
+
+        assertNull(result);
+    }
+
+    @Test
+    public void testParseCycleDetection_invalidValue() {
+        Properties props = new Properties();
+        props.setProperty("fast.bean.copier.cycleDetection", "RETURN_EMPTY_OBJECT");
+
+        String result = loader.parseCycleDetection(props);
+
+        assertNull(result);
+    }
 }

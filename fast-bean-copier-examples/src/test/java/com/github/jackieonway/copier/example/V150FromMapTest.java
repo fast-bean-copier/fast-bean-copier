@@ -14,6 +14,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
@@ -166,7 +167,10 @@ public class V150FromMapTest {
         map.put("id", 1L);
         map.put("name", "Alice");
 
-        UnaryOperator<MapUserDto> post = dto -> { dto.setName("post_" + dto.getName()); return dto; };
+        BiFunction<Map<String, Object>, MapUserDto, MapUserDto> post = (source, dto) -> {
+            dto.setName("post_" + source.get("name"));
+            return dto;
+        };
 
         MapUserDto result = MapUserDtoMapCopier.fromMap(map, null, post);
 
@@ -213,8 +217,10 @@ public class V150FromMapTest {
         Map<String, Object> m2 = new HashMap<>();
         m2.put("id", 2L); m2.put("name", "Bob");
 
-        UnaryOperator<List<MapUserDto>> post = list ->
-                list.stream().filter(d -> Long.valueOf(2L).equals(d.getId())).collect(Collectors.toList());
+        BiFunction<List<Map<String, Object>>, List<MapUserDto>, List<MapUserDto>> post = (sources, list) ->
+                list.stream()
+                        .filter(d -> sources.get(1).get("id").equals(d.getId()))
+                        .collect(Collectors.toList());
 
         List<MapUserDto> result = MapUserDtoMapCopier.fromMapList(Arrays.asList(m1, m2), null, post);
 
@@ -242,5 +248,24 @@ public class V150FromMapTest {
     @Test
     public void testFromMapSet_nullSources_returnsNull() {
         assertNull(MapUserDtoMapCopier.fromMapSet(null));
+    }
+
+    @Test
+    public void testFromMapSet_withProcessors_readsSourcesAndResult() {
+        Set<Map<String, Object>> sources = new LinkedHashSet<>();
+        Map<String, Object> m = new HashMap<>();
+        m.put("id", 1L);
+        m.put("name", "Alice");
+        sources.add(m);
+
+        BiFunction<Set<Map<String, Object>>, Set<MapUserDto>, Set<MapUserDto>> post = (input, result) -> {
+            result.iterator().next().setName(result.iterator().next().getName() + "_" + input.size());
+            return result;
+        };
+
+        Set<MapUserDto> result = MapUserDtoMapCopier.fromMapSet(sources, null, post);
+
+        assertNotNull(result);
+        assertEquals("Alice_1", result.iterator().next().getName());
     }
 }

@@ -196,7 +196,7 @@ public class TypeConverterIntegrationTest {
         person.setStatus(1);
         person.setAddress("123 Main St");
         
-        PersonDto dto = PersonDtoCopier.toDto(person, null, result -> {
+        PersonDto dto = PersonDtoCopier.toDto(person, null, (s, result) -> {
             result.setAddress(result.getAddress().toUpperCase());
             return result;
         });
