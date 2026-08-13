@@ -6,6 +6,31 @@
 
 ## 版本特性
 
+### Q: v1.6.0 有哪些新增功能？
+**A**: v1.6.0 主要增强 Bean ↔ Bean 与 Bean ↔ Map 的函数式回调，并加入循环检测配置：
+- **postProcessor 改为 BiFunction**：`postProcessor` 现在可同时访问处理后的 source 和 result，签名为 `BiFunction<Source, Result, Result>`。
+- **CycleDetectionStrategy**：新增 `FAIL_FAST`、`RETURN_NULL`、`AUTOMATIC_CACHE` 三个策略值。
+- **@CopyTarget.cycleDetection**：可通过 `@CopyTarget(cycleDetection = CycleDetectionStrategy.FAIL_FAST)` 配置循环检测策略，默认 `FAIL_FAST`。
+
+### Q: 从 v1.5.0 升级到 v1.6.0 需要改什么？
+**A**: Bean ↔ Bean 与 Bean ↔ Map 的 `postProcessor` lambda 需要从单参数改为双参数：
+
+```java
+// v1.5.x
+UserDto dto = UserDtoCopier.toDto(user, null, target -> {
+    target.setDisplayName(target.getName().toUpperCase());
+    return target;
+});
+
+// v1.6.0
+UserDto dto = UserDtoCopier.toDto(user, null, (source, target) -> {
+    target.setDisplayName(source.getName().toUpperCase());
+    return target;
+});
+```
+
+集合、Map、数组批量转换同理，将 `result -> result` 改为 `(sources, result) -> result`。`preProcessor` 仍然是 `UnaryOperator`，无需迁移。
+
 ### Q: v1.5.0 有哪些新增功能？
 **A**: v1.5.0 主要新增 Bean ↔ Map 转换支持，并清理了废弃 API：
 - **@CopyToMap**：Bean → Map 转换，生成 `{Class}MapCopier` 的 toMap/toMapList/toMapSet 方法
@@ -47,7 +72,7 @@ UserDto dto = UserDtoCopier.toDto(user,
 
 **2. 单参数 customizer 重载**（使用 postProcessor 替代）：
 ```java
-UserDto dto = UserDtoCopier.toDto(user, null, result -> {
+UserDto dto = UserDtoCopier.toDto(user, null, (source, result) -> {
     result.setDisplayName(result.getName().toUpperCase());
     return result;
 });
@@ -72,8 +97,8 @@ UserDto dto = UserDtoCopier.toDto(user, null, result -> {
 **A**: 可以。在 `build.gradle` 中添加：
 ```gradle
 dependencies {
-    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.5.0'
-    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.5.0'
+    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.6.0'
+    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.6.0'
 }
 ```
 
@@ -91,7 +116,7 @@ UserDto dto = UserDtoCopier.toDto(
         source.setName(source.getName().trim());
         return source;
     },
-    target -> {
+    (source, target) -> {
         // postProcessor: 拷贝后对 target 后处理
         target.setDisplayName(target.getName().toUpperCase());
         return target;
@@ -102,7 +127,7 @@ UserDto dto = UserDtoCopier.toDto(
 List<UserDto> dtos = UserDtoCopier.toDtoList(
     users,
     source -> { /* 预处理每个 source */ return source; },
-    target -> { /* 后处理每个 target */ return target; }
+    (sources, targets) -> { /* 后处理整个 target 集合 */ return targets; }
 );
 ```
 
@@ -151,7 +176,7 @@ public class EmployeeDto {
 UserDto dto = UserDtoCopier.toDto(user, result -> { ... return result; });
 
 // 新方法
-UserDto dto = UserDtoCopier.toDto(user, null, result -> {
+UserDto dto = UserDtoCopier.toDto(user, null, (source, result) -> {
     result.setDisplayName(result.getName().toUpperCase());
     return result;
 });
@@ -260,7 +285,24 @@ public class AddressDto {
 **A**: 字段拷贝模式下，只拷贝同名且类型兼容的字段，其他字段保持默认值。如果需要自定义映射，建议为嵌套对象添加 @CopyTarget 注解并使用 @CopyField 配置。
 
 ### Q: 循环引用怎么处理？
-**A**: 当前版本不支持循环引用（如 A 包含 B，B 又包含 A）。建议避免循环引用的设计，或使用 `@CopyTarget(ignore = {"fieldName"})` 忽略其中一个字段。
+**A**: v1.6.0 起可以通过 `@CopyTarget.cycleDetection` 配置循环检测策略：
+
+```java
+@CopyTarget(
+    source = Node.class,
+    cycleDetection = CycleDetectionStrategy.FAIL_FAST
+)
+public class NodeDto {
+    private String name;
+    private NodeDto parent;
+}
+```
+
+- `FAIL_FAST`：默认策略，检测到循环引用时快速失败，适合希望尽早发现模型问题的场景。
+- `RETURN_NULL`：检测到循环时将循环字段置为 `null`，适合只需要截断对象图的场景。
+- `AUTOMATIC_CACHE`：维护引用缓存并复用已创建对象，适合需要保持对象引用关系的场景。
+
+如果某个循环字段本身不需要拷贝，也可以继续使用 `@CopyTarget(ignore = {"fieldName"})` 忽略它。
 
 ### Q: 有 Copier 和无 Copier 的性能差异？
 **A**: 
@@ -357,7 +399,7 @@ public class UserService {
 ```java
 UserDto dto = UserDtoCopier.toDto(user,
     source -> { /* 拷贝前处理 source */ return source; },
-    result -> {
+    (source, result) -> {
         result.setDisplayName(result.getName().toUpperCase());
         return result;
     }
@@ -538,31 +580,31 @@ public class AddressDto {
 
 ## v1.3.1 新功能问题
 
-### Q: 如何使用 Map 批量转换的 UnaryOperator 重载？
-**A**: 使用带 `UnaryOperator` 参数的重载方法：
+### Q: 如何使用 Map 批量转换的 BiFunction 后处理？
+**A**: v1.6.0 起 Bean ↔ Bean 与 Bean ↔ Map 的 Map 批量转换使用 `preProcessor + postProcessor` 双处理器，postProcessor 可同时访问原始 sources 和转换结果：
 ```java
 // 过滤 Map 条目
-Map<String, UserDto> filteredMap = UserDtoCopier.toDtoMap(userMap, result -> {
+Map<String, UserDto> filteredMap = UserDtoCopier.toDtoMap(userMap, null, (sources, result) -> {
     result.entrySet().removeIf(entry -> entry.getValue().getId() == null);
     return result;
 });
 
 // 转换为不可变 Map
-Map<String, UserDto> immutableMap = UserDtoCopier.toDtoMap(userMap, 
-    result -> Collections.unmodifiableMap(result));
+Map<String, UserDto> immutableMap = UserDtoCopier.toDtoMap(userMap, null,
+    (sources, result) -> Collections.unmodifiableMap(result));
 ```
 
-### Q: 如何使用 Array 批量转换的 UnaryOperator 重载？
-**A**: 使用带 `UnaryOperator` 参数的重载方法：
+### Q: 如何使用 Array 批量转换的 BiFunction 后处理？
+**A**: v1.6.0 起数组批量转换的后处理器签名为 `(sources, result) -> result`：
 ```java
 // 过滤数组元素
-UserDto[] filteredArray = UserDtoCopier.toDtoArray(users, result -> 
+UserDto[] filteredArray = UserDtoCopier.toDtoArray(users, null, (sources, result) ->
     Arrays.stream(result)
         .filter(dto -> dto.getId() != null)
         .toArray(UserDto[]::new));
 
 // 排序数组
-UserDto[] sortedArray = UserDtoCopier.toDtoArray(users, result -> {
+UserDto[] sortedArray = UserDtoCopier.toDtoArray(users, null, (sources, result) -> {
     Arrays.sort(result, Comparator.comparing(UserDto::getName));
     return result;
 });

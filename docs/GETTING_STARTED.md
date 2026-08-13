@@ -1,6 +1,6 @@
 # Fast Bean Copier 快速入门指南
 
-> **v1.5.0 新特性**：Bean ↔ Map 转换支持（@CopyToMap/@CopyFromMap 注解、MapKeyStrategy 枚举、@CopyField.mapKey 属性）；API 清理（移除 beforeMapping 和单参数 customizer 废弃 API）。
+> **v1.6.0 新特性**：Bean ↔ Bean 与 Bean ↔ Map 的 `postProcessor` 升级为 `BiFunction<Source, Result, Result>`，回调可同时访问源输入和转换结果；新增 `CycleDetectionStrategy` 与 `@CopyTarget(cycleDetection = ...)` 配置。
 
 ## 5 分钟快速开始
 
@@ -12,13 +12,13 @@
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-annotations</artifactId>
-    <version>1.5.0</version>
+    <version>1.6.0</version>
 </dependency>
 
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-processor</artifactId>
-    <version>1.5.0</version>
+    <version>1.6.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -93,7 +93,78 @@ List<UserDto> dtos = UserDtoCopier.toDtoList(users);
 Set<UserDto> dtoSet = UserDtoCopier.toDtoSet(users);
 ```
 
-## v1.5.0 新功能
+## v1.6.0 新功能
+
+### BiFunction 后置回调
+
+v1.6.0 将 Bean ↔ Bean 的后置回调从单参数 `UnaryOperator<Target>` 改为双参数 `BiFunction<Source, Target, Target>`：
+
+```java
+UserDto dto = UserDtoCopier.toDto(
+    user,
+    source -> {
+        source.setName(source.getName().trim());
+        return source;
+    },
+    (source, target) -> {
+        target.setDisplayName(source.getName().toUpperCase());
+        return target;
+    }
+);
+```
+
+集合方法同样传入“处理后的源集合”和“拷贝后的目标集合”：
+
+```java
+List<UserDto> dtos = UserDtoCopier.toDtoList(
+    users,
+    sources -> sources,
+    (sources, targets) -> {
+        targets.removeIf(dto -> dto.getName() == null);
+        return targets;
+    }
+);
+```
+
+Bean ↔ Map 的 `MapCopier` 方法同样使用双参数后置回调：
+
+```java
+Map<String, Object> map = UserDtoMapCopier.toMap(userDto, null, (source, result) -> {
+    result.put("displayName", source.getName().toUpperCase());
+    return result;
+});
+```
+
+### 循环检测配置
+
+```java
+import com.github.jackieonway.copier.annotation.CopyTarget;
+import com.github.jackieonway.copier.annotation.CycleDetectionStrategy;
+
+@CopyTarget(
+    source = Node.class,
+    cycleDetection = CycleDetectionStrategy.FAIL_FAST
+)
+public class NodeDto {
+    private String name;
+    private NodeDto parent;
+}
+```
+
+`FAIL_FAST` 为默认策略，检测到循环引用时快速失败。`RETURN_NULL` 会在运行期把循环字段置为 `null`，`AUTOMATIC_CACHE` 会复用已创建的目标对象以保持引用一致。也可以通过 `@CopyTargetConfig(cycleDetection = ...)` 或 `fast.bean.copier.cycleDetection` 全局配置。
+
+### 从 v1.5.0 迁移到 v1.6.0
+
+| 旧用法 | 新用法 |
+|--------|--------|
+| `toDto(source, null, target -> target)` | `toDto(source, null, (source, target) -> target)` |
+| `fromDto(dto, null, entity -> entity)` | `fromDto(dto, null, (dto, entity) -> entity)` |
+| `toDtoList(sources, null, targets -> targets)` | `toDtoList(sources, null, (sources, targets) -> targets)` |
+| `UserDtoMapCopier.toMap(dto, null, map -> map)` | `UserDtoMapCopier.toMap(dto, null, (dto, map) -> map)` |
+
+`preProcessor` 仍然保持 `UnaryOperator`，无需迁移。
+
+## v1.5.0 功能
 
 ### Bean → Map 转换
 
@@ -131,14 +202,14 @@ List<UserDto> dtos = UserDtoMapCopier.fromMapList(mapList);
 Map<String, Object> map = UserDtoMapCopier.toMap(
     userDto,
     src -> { src.setName(src.getName().trim()); return src; },
-    result -> { result.put("_ts", System.currentTimeMillis()); return result; }
+    (src, result) -> { result.put("_ts", System.currentTimeMillis()); return result; }
 );
 
 // Map → Bean 带处理器
 UserDto dto = UserDtoMapCopier.fromMap(
     map,
     src -> { src.remove("_ts"); return src; },
-    result -> { result.setDisplayName(result.getName().toUpperCase()); return result; }
+    (src, result) -> { result.setDisplayName(result.getName().toUpperCase()); return result; }
 );
 ```
 
@@ -177,7 +248,7 @@ UserDto dto = UserDtoCopier.toDto(
         source.setName(source.getName().trim());
         return source;
     },
-    target -> {
+    (source, target) -> {
         // postProcessor: 拷贝后对 target 后处理
         target.setDisplayName(target.getName().toUpperCase());
         return target;
@@ -188,7 +259,7 @@ UserDto dto = UserDtoCopier.toDto(
 List<UserDto> dtos = UserDtoCopier.toDtoList(
     users,
     source -> { /* 预处理每个 source */ return source; },
-    target -> { /* 后处理每个 target */ return target; }
+    (sources, targets) -> { /* 后处理整个 target 集合 */ return targets; }
 );
 ```
 

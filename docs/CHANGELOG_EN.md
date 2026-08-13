@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-06-23
+
+### Changed
+
+#### postProcessor upgraded to BiFunction
+- Bean ↔ Bean and Bean ↔ Map postProcessor callbacks now use `BiFunction<Source, Result, Result>` style callbacks.
+- Batch postProcessor callbacks now receive both the original sources and converted result, for example `(sources, result) -> result`.
+- `preProcessor` remains `UnaryOperator` and keeps the existing execution order: `preProcessor` → field copy → `postProcessor`.
+
+### Added
+
+#### Cycle detection configuration
+- Added `CycleDetectionStrategy` enum with `FAIL_FAST`, `RETURN_NULL`, and `AUTOMATIC_CACHE`.
+- Added `@CopyTarget.cycleDetection`, defaulting to `FAIL_FAST`.
+- Added package/global configuration via `@CopyTargetConfig.cycleDetection` and `fast.bean.copier.cycleDetection`.
+- Runtime strategies are implemented: `RETURN_NULL` nulls cyclic fields, and `AUTOMATIC_CACHE` preserves repeated object references.
+
+### Testing
+- Added `V160BiFunctionCallbackTest` and `V160MapBiFunctionCallbackTest` for Bean, collection, array, and Bean ↔ Map callback coverage.
+- Verified examples module test suite with 556 passing tests.
+
+### Compatibility
+- **Breaking Change**: postProcessor lambdas must be migrated from `target -> { ... }` / `result -> { ... }` to `(source, target) -> { ... }` / `(sources, result) -> { ... }`.
+
+---
+
 ## [1.5.0] - 2026-06-03
 
 ### Added

@@ -1,4 +1,4 @@
-# Fast Bean Copier 1.5.0 参考文档
+# Fast Bean Copier 1.6.0 参考文档
 
 ## 前言
 
@@ -21,6 +21,8 @@ Fast Bean Copier 是一个 Java 注解处理器，用于生成类型安全的 Be
 - **清晰的编译时错误报告** - 映射不完整或不正确时报错
 - **零运行时依赖** - 生成的代码不依赖任何外部库
 - **丰富的映射功能** - 支持多字段映射、类型转换、依赖注入等
+- **BiFunction 回调** - Bean ↔ Bean 与 Bean ↔ Map 的 postProcessor 可同时访问 source 和 result（v1.6.0）
+- **循环检测策略** - @CopyTarget.cycleDetection + CycleDetectionStrategy 配置（v1.6.0）
 - **Bean ↔ Map 转换** - @CopyToMap/@CopyFromMap 注解，生成 MapCopier 类（v1.5.0）
 - **函数式处理** - preProcessor + postProcessor 双处理器 API（v1.5.0）
 - **深拷贝控制** - @CopyField.deepCopy 字段级控制（v1.5.0）
@@ -36,13 +38,13 @@ Fast Bean Copier 是一个 Java 注解处理器，用于生成类型安全的 Be
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-annotations</artifactId>
-    <version>1.5.0</version>
+    <version>1.6.0</version>
 </dependency>
 
 <dependency>
     <groupId>com.github.jackieonway</groupId>
     <artifactId>fast-bean-copier-processor</artifactId>
-    <version>1.5.0</version>
+    <version>1.6.0</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -51,8 +53,8 @@ Fast Bean Copier 是一个 Java 注解处理器，用于生成类型安全的 Be
 
 ```gradle
 dependencies {
-    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.5.0'
-    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.5.0'
+    implementation 'com.github.jackieonway:fast-bean-copier-annotations:1.6.0'
+    annotationProcessor 'com.github.jackieonway:fast-bean-copier-processor:1.6.0'
 }
 ```
 
@@ -105,7 +107,8 @@ List<UserDto> userDtos = UserDtoCopier.toDtoList(users);
     source = User.class,           // 必需：指定源类
     ignore = {"password"},         // 可选：忽略的字段
     uses = {CustomConverter.class},// 可选：自定义转换器（v1.2）
-    componentModel = ComponentModel.DEFAULT // 可选：组件模型（v1.2）
+    componentModel = ComponentModel.DEFAULT, // 可选：组件模型（v1.2）
+    cycleDetection = CycleDetectionStrategy.FAIL_FAST // 可选：循环检测策略（v1.6）
 )
 public class UserDto { }
 ```
@@ -116,6 +119,25 @@ public class UserDto { }
 @CopyTarget(source = User.class, ignore = {"password", "token"})
 public class UserDto { }
 ```
+
+### 4.3. 循环检测策略（v1.6）
+
+```java
+import com.github.jackieonway.copier.annotation.CopyTarget;
+import com.github.jackieonway.copier.annotation.CycleDetectionStrategy;
+
+@CopyTarget(
+    source = User.class,
+    cycleDetection = CycleDetectionStrategy.FAIL_FAST
+)
+public class UserDto { }
+```
+
+`CycleDetectionStrategy` 提供三个策略值：
+
+- `FAIL_FAST`：默认策略，检测到循环引用时快速失败。
+- `RETURN_NULL`：运行期检测到循环引用时，将循环字段置为 null。
+- `AUTOMATIC_CACHE`：运行期维护引用缓存，复用已拷贝的目标对象。
 
 ## 5. @CopyField 注解（v1.2）
 
@@ -345,7 +367,7 @@ public final class UserDtoCopier { ... }
 ### 9.1. 基本用法
 
 ```java
-UserDto dto = UserDtoCopier.toDto(user, result -> {
+UserDto dto = UserDtoCopier.toDto(user, null, (source, result) -> {
     result.setDisplayName(result.getName().toUpperCase());
     result.setProcessedAt(LocalDateTime.now());
     return result;
@@ -355,7 +377,7 @@ UserDto dto = UserDtoCopier.toDto(user, result -> {
 ### 9.2. 集合拷贝
 
 ```java
-List<UserDto> dtos = UserDtoCopier.toDtoList(users, result -> {
+List<UserDto> dtos = UserDtoCopier.toDtoList(users, null, (sources, result) -> {
     result.setSource("BATCH_IMPORT");
     return result;
 });
@@ -364,7 +386,7 @@ List<UserDto> dtos = UserDtoCopier.toDtoList(users, result -> {
 ### 9.3. 反向拷贝
 
 ```java
-User entity = UserDtoCopier.fromDto(dto, result -> {
+User entity = UserDtoCopier.fromDto(dto, null, (source, result) -> {
     result.setLastModified(Instant.now());
     return result;
 });
@@ -375,7 +397,7 @@ User entity = UserDtoCopier.fromDto(dto, result -> {
 当源对象为 null 时，customizer 函数不会被调用：
 
 ```java
-UserDto dto = UserDtoCopier.toDto(null, result -> {
+UserDto dto = UserDtoCopier.toDto(null, null, (source, result) -> {
     // 这里不会执行
     return result;
 });
@@ -597,6 +619,7 @@ import com.github.jackieonway.copier.annotation.*;
 |------|------|--------|------|
 | `componentModel` | `ComponentModel` | `DEFAULT` | 默认组件模型 |
 | `nullValueStrategy` | `NullValueStrategy` | `IGNORE` | 默认 null 值处理策略 |
+| `cycleDetection` | `CycleDetectionStrategy` | `FAIL_FAST` | 默认循环检测策略 |
 
 ### 14.3. 配置优先级
 
@@ -642,90 +665,88 @@ UserDtoCopier.updateDto(existingDto, user);
 // existingDto.name 会被设置为 null
 ```
 
-## 16. Map/Array 批量转换的 UnaryOperator 重载（v1.3.1）
+## 16. Map/Array 批量转换的 BiFunction 后处理（v1.6）
 
 ### 16.1. Map 批量转换定制
 
-Map 批量转换方法支持 UnaryOperator 重载，用于立即后处理：
+Map 批量转换方法支持 `preProcessor + postProcessor` 双处理器。`preProcessor` 仍处理单个 value；`postProcessor` 使用 `BiFunction`，可同时访问原始 Map 和转换结果：
 
 ```java
-import java.util.function.UnaryOperator;
 import java.util.Collections;
 
 // 过滤 Map 条目 - 移除 id 为 null 的条目
-Map<String, UserDto> filteredMap = UserDtoCopier.toDtoMap(userMap, result -> {
+Map<String, UserDto> filteredMap = UserDtoCopier.toDtoMap(userMap, null, (sources, result) -> {
     result.entrySet().removeIf(entry -> entry.getValue().getId() == null);
     return result;
 });
 
 // 转换为不可变 Map
-Map<String, UserDto> immutableMap = UserDtoCopier.toDtoMap(userMap, 
-    result -> Collections.unmodifiableMap(result));
+Map<String, UserDto> immutableMap = UserDtoCopier.toDtoMap(userMap, null,
+    (sources, result) -> Collections.unmodifiableMap(result));
 
 // 添加额外条目
-Map<String, UserDto> enrichedMap = UserDtoCopier.toDtoMap(userMap, result -> {
+Map<String, UserDto> enrichedMap = UserDtoCopier.toDtoMap(userMap, null, (sources, result) -> {
     result.put("default", createDefaultUserDto());
     return result;
 });
 
 // 反向转换定制
-Map<Long, User> customizedUsers = UserDtoCopier.fromDtoMap(dtoMap, result -> {
+Map<Long, User> customizedUsers = UserDtoCopier.fromDtoMap(dtoMap, null, (sources, result) -> {
     // 自定义后处理逻辑
     return result;
 });
 ```
 
 **生成的方法签名**：
-- `<K> Map<K, TargetDto> toDtoMap(Map<K, Source> sources, UnaryOperator<Map<K, TargetDto>> customizer)`
-- `<K> Map<K, Source> fromDtoMap(Map<K, TargetDto> sources, UnaryOperator<Map<K, Source>> customizer)`
+- `<K> Map<K, TargetDto> toDtoMap(Map<K, Source> sources, UnaryOperator<Source> preProcessor, BiFunction<Map<K, Source>, Map<K, TargetDto>, Map<K, TargetDto>> postProcessor)`
+- `<K> Map<K, Source> fromDtoMap(Map<K, TargetDto> sources, UnaryOperator<TargetDto> preProcessor, BiFunction<Map<K, TargetDto>, Map<K, Source>, Map<K, Source>> postProcessor)`
 
 **Null 安全**：
-- 当 `sources` 为 null 时，返回 null 而不调用 customizer
-- 当 `customizer` 为 null 时，直接返回转换结果
-- 当转换结果为 null 时，返回 null 而不调用 customizer
+- 当 `sources` 为 null 时，返回 null 而不调用处理器
+- 当 `preProcessor` 为 null 时，跳过预处理
+- 当 `postProcessor` 为 null 时，直接返回转换结果
 
 ### 16.2. Array 批量转换定制
 
-Array 批量转换方法支持 UnaryOperator 重载，用于立即后处理：
+Array 批量转换方法同样支持 `BiFunction` 后处理：
 
 ```java
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.function.UnaryOperator;
 
 // 过滤数组元素 - 移除 id 为 null 的元素
-UserDto[] filteredArray = UserDtoCopier.toDtoArray(users, result -> 
+UserDto[] filteredArray = UserDtoCopier.toDtoArray(users, null, (sources, result) ->
     Arrays.stream(result)
         .filter(dto -> dto.getId() != null)
         .toArray(UserDto[]::new));
 
 // 排序数组
-UserDto[] sortedArray = UserDtoCopier.toDtoArray(users, result -> {
+UserDto[] sortedArray = UserDtoCopier.toDtoArray(users, null, (sources, result) -> {
     Arrays.sort(result, Comparator.comparing(UserDto::getName));
     return result;
 });
 
 // 限制数组大小 - 取前 10 个元素
-UserDto[] limitedArray = UserDtoCopier.toDtoArray(users, result -> 
+UserDto[] limitedArray = UserDtoCopier.toDtoArray(users, null, (sources, result) ->
     Arrays.stream(result)
         .limit(10)
         .toArray(UserDto[]::new));
 
 // 反向转换定制
-User[] customizedUsers = UserDtoCopier.fromDtoArray(dtoArray, result -> {
+User[] customizedUsers = UserDtoCopier.fromDtoArray(dtoArray, null, (sources, result) -> {
     // 自定义后处理逻辑
     return result;
 });
 ```
 
 **生成的方法签名**：
-- `TargetDto[] toDtoArray(Source[] sources, UnaryOperator<TargetDto[]> customizer)`
-- `Source[] fromDtoArray(TargetDto[] sources, UnaryOperator<Source[]> customizer)`
+- `TargetDto[] toDtoArray(Source[] sources, UnaryOperator<Source> preProcessor, BiFunction<Source[], TargetDto[], TargetDto[]> postProcessor)`
+- `Source[] fromDtoArray(TargetDto[] sources, UnaryOperator<TargetDto> preProcessor, BiFunction<TargetDto[], Source[], Source[]> postProcessor)`
 
 **Null 安全**：
-- 当 `sources` 为 null 时，返回 null 而不调用 customizer
-- 当 `customizer` 为 null 时，直接返回转换结果
-- 当转换结果为 null 时，返回 null 而不调用 customizer
+- 当 `sources` 为 null 时，返回 null 而不调用处理器
+- 当 `preProcessor` 为 null 时，跳过预处理
+- 当 `postProcessor` 为 null 时，直接返回转换结果
 
 ## 17. Properties 配置文件支持（v1.3.1）
 
@@ -757,6 +778,14 @@ fast.bean.copier.nullValueStrategy=IGNORE
 默认值
 ```
 
+配置文件支持：
+
+```properties
+fast.bean.copier.componentModel=SPRING
+fast.bean.copier.nullValueStrategy=IGNORE
+fast.bean.copier.cycleDetection=RETURN_NULL
+```
+
 ### 17.3. 使用示例
 
 ```java
@@ -773,6 +802,8 @@ public class ProductDto { }  // 使用配置文件中的 SPRING
 @CopyTargetConfig(componentModel = ComponentModel.CDI)
 package com.example.dto;
 ```
+
+`fast.bean.copier.cycleDetection` 可选值为 `FAIL_FAST`、`RETURN_NULL`、`AUTOMATIC_CACHE`，优先级低于 `@CopyTargetConfig` 和 `@CopyTarget` 中的显式配置。
 
 ### 17.4. 配置优势
 
@@ -984,7 +1015,7 @@ Map<String, Object> map = UserDtoMapCopier.toMap(
         src.setName(src.getName().trim()); 
         return src; 
     },
-    result -> { 
+    (src, result) -> { 
         result.put("_ts", System.currentTimeMillis()); 
         return result; 
     }
@@ -997,7 +1028,7 @@ UserDto dto = UserDtoMapCopier.fromMap(
         src.remove("_ts"); 
         return src; 
     },
-    result -> { 
+    (src, result) -> { 
         result.setDisplayName(result.getName().toUpperCase()); 
         return result; 
     }
@@ -1030,11 +1061,11 @@ public class ProductDto {
 | 缓存存储 | `@CopyToMap` + `@CopyFromMap` | 双向转换，适合缓存场景 |
 | 外部系统集成 | `@CopyToMap` | 转换为通用 Map 格式进行传输 |
 
-## 21. 函数式处理增强（v1.4）
+## 20. 函数式处理增强（v1.4，v1.6 更新）
 
 ### 21.1. preProcessor + postProcessor 双处理器
 
-v1.4.0 引入了统一的双处理器 API，提供更灵活的函数式处理能力：
+v1.4.0 引入了统一的双处理器 API；v1.6.0 将 `postProcessor` 从单参数结果处理升级为 `BiFunction`，使后处理可同时访问 source 和 result：
 
 ```java
 // 单对象转换
@@ -1045,7 +1076,7 @@ UserDto dto = UserDtoCopier.toDto(
         source.setName(source.getName().trim());
         return source;
     },
-    target -> {
+    (source, target) -> {
         // postProcessor: 拷贝后对 target 后处理
         target.setDisplayName(target.getName().toUpperCase());
         return target;
@@ -1056,11 +1087,11 @@ UserDto dto = UserDtoCopier.toDto(
 User entity = UserDtoCopier.fromDto(
     dto,
     source -> { /* 预处理 DTO */ return source; },
-    target -> { /* 后处理 Entity */ return target; }
+    (source, target) -> { /* 后处理 Entity */ return target; }
 );
 ```
 
-### 21.2. 集合方法双处理器支持
+### 20.2. 集合方法双处理器支持
 
 所有集合方法都支持双处理器：
 
@@ -1069,32 +1100,32 @@ User entity = UserDtoCopier.fromDto(
 List<UserDto> dtos = UserDtoCopier.toDtoList(
     users,
     source -> { /* 预处理每个 source */ return source; },
-    target -> { /* 后处理每个 target */ return target; }
+    (sources, targets) -> { /* 后处理集合结果 */ return targets; }
 );
 
 // Set 转换
 Set<UserDto> dtoSet = UserDtoCopier.toDtoSet(
     userSet,
     source -> { /* 预处理 */ return source; },
-    target -> { /* 后处理 */ return target; }
+    (sources, targets) -> { /* 后处理 */ return targets; }
 );
 
 // Map 转换
 Map<String, UserDto> dtoMap = UserDtoCopier.toDtoMap(
     userMap,
     source -> { /* 预处理 */ return source; },
-    target -> { /* 后处理 */ return target; }
+    (sources, targets) -> { /* 后处理 */ return targets; }
 );
 
 // Array 转换
 UserDto[] dtoArray = UserDtoCopier.toDtoArray(
     userArray,
     source -> { /* 预处理 */ return source; },
-    target -> { /* 后处理 */ return target; }
+    (sources, targets) -> { /* 后处理 */ return targets; }
 );
 ```
 
-### 21.3. 执行顺序
+### 20.3. 执行顺序
 
 处理器的执行顺序为：
 
@@ -1102,13 +1133,14 @@ UserDto[] dtoArray = UserDtoCopier.toDtoArray(
 preProcessor → 字段拷贝 → postProcessor
 ```
 
-### 21.4. Null 安全
+### 20.4. Null 安全
 
 - 当 `source` 为 null 时，不调用任何处理器，直接返回 null
 - 当 `preProcessor` 为 null 时，跳过预处理
 - 当 `postProcessor` 为 null 时，跳过后处理
+- v1.6.0 起，所有 `postProcessor` 均为 `BiFunction`：单对象为 `(source, result)`，集合/Map/数组为 `(sources, result)`
 
-### 21.5. 废弃方法迁移（v1.5.0 已移除）
+### 20.5. 废弃方法迁移（v1.5.0 已移除，v1.6.0 需双参数）
 
 单参数 `customizer` 重载已在 v1.5.0 中完全移除，请使用双处理器 API：
 
@@ -1120,15 +1152,15 @@ UserDto dto = UserDtoCopier.toDto(user, result -> {
 });
 
 // 新方法
-UserDto dto = UserDtoCopier.toDto(user, null, result -> {
+UserDto dto = UserDtoCopier.toDto(user, null, (source, result) -> {
     result.setDisplayName(result.getName().toUpperCase());
     return result;
 });
 ```
 
-## 22. 深拷贝控制（v1.4）
+## 21. 深拷贝控制（v1.4）
 
-### 22.1. @CopyField.deepCopy 属性
+### 21.1. @CopyField.deepCopy 属性
 
 v1.4.0 新增 `deepCopy` 属性，用于字段级控制深拷贝行为：
 
@@ -1145,7 +1177,7 @@ public class EmployeeDto {
 }
 ```
 
-### 20.2. 嵌套对象深拷贝控制
+### 21.2. 嵌套对象深拷贝控制
 
 ```java
 @CopyTarget(source = Order.class)
@@ -1179,7 +1211,7 @@ public static OrderDto toDto(Order source) {
 }
 ```
 
-### 20.3. 集合深拷贝控制
+### 21.3. 集合深拷贝控制
 
 ```java
 @CopyTarget(source = Project.class)
@@ -1212,7 +1244,7 @@ if (source.getTags() != null) {
 }
 ```
 
-### 20.4. 数组深拷贝控制
+### 21.4. 数组深拷贝控制
 
 ```java
 @CopyTarget(source = Document.class)
@@ -1227,7 +1259,7 @@ public class DocumentDto {
 }
 ```
 
-### 20.5. 使用场景
+### 21.5. 使用场景
 
 | 场景 | deepCopy 设置 | 说明 |
 |------|--------------|------|
@@ -1238,13 +1270,13 @@ public class DocumentDto {
 | 独立副本 | `true` | 需要完全独立的对象副本 |
 | 修改安全 | `true` | 修改副本不影响原对象 |
 
-### 20.6. 默认行为
+### 21.6. 默认行为
 
 `deepCopy` 的默认值为 `true`，保持与之前版本一致的深拷贝行为。如果需要浅拷贝，显式设置 `deepCopy = false`。
 
-## 21. 数据类型转换
+## 22. 数据类型转换
 
-### 21.1. 基本类型 ↔ 包装类型
+### 22.1. 基本类型 ↔ 包装类型
 
 Fast Bean Copier 自动支持基本类型与包装类型之间的转换：
 
@@ -1259,13 +1291,13 @@ Fast Bean Copier 自动支持基本类型与包装类型之间的转换：
 | `boolean` | `Boolean` | 自动装箱 |
 | `Boolean` | `boolean` | null → false |
 
-### 21.2. 同名字段自动拷贝
+### 22.2. 同名字段自动拷贝
 
 对于同名字段，Fast Bean Copier 会自动拷贝。
 
-## 22. 集合映射
+## 23. 集合映射
 
-### 22.1. List/Set 映射
+### 23.1. List/Set 映射
 
 ```java
 List<UserDto> dtos = UserDtoCopier.toDtoList(users);
@@ -1275,37 +1307,37 @@ List<User> users = UserDtoCopier.fromDtoList(dtos);
 Set<User> userSet = UserDtoCopier.fromDtoSet(dtoSet);
 ```
 
-### 22.2. Map 映射
+### 23.2. Map 映射
 
 ```java
 Map<String, UserDto> dtoMap = UserDtoCopier.toDtoMap(userMap);
 Map<String, User> userMap = UserDtoCopier.fromDtoMap(dtoMap);
 ```
 
-### 22.3. 数组映射
+### 23.3. 数组映射
 
 ```java
 UserDto[] dtoArr = UserDtoCopier.toDtoArray(userArr);
 User[] userArr = UserDtoCopier.fromDtoArray(dtoArr);
 ```
 
-### 22.4. 深拷贝
+### 23.4. 深拷贝
 
 List/Set/Map/数组字段会自动深拷贝，包括嵌套集合和多维数组。
 
-### 22.5. Raw/通配符处理
+### 23.5. Raw/通配符处理
 
 Raw 类型或无界通配符集合会降级为浅拷贝并给出编译期警告。
 
-## 23. Null 值处理
+## 24. Null 值处理
 
-### 23.1. 对象级别
+### 24.1. 对象级别
 
 ```java
 UserDto dto = UserDtoCopier.toDto(null);  // 返回 null
 ```
 
-### 23.2. 字段级别
+### 24.2. 字段级别
 
 null 值会被保留：
 
@@ -1316,9 +1348,9 @@ UserDto dto = UserDtoCopier.toDto(user);
 // dto.name 也为 null
 ```
 
-## 24. 生成的代码示例
+## 25. 生成的代码示例
 
-### 24.1. DEFAULT 模式
+### 25.1. DEFAULT 模式
 
 ```java
 public final class UserDtoCopier {
@@ -1334,22 +1366,34 @@ public final class UserDtoCopier {
         return target;
     }
     
-    public static UserDto toDto(User source, UnaryOperator<UserDto> customizer) {
+    public static UserDto toDto(
+            User source,
+            UnaryOperator<User> preProcessor,
+            BiFunction<User, UserDto, UserDto> postProcessor) {
+        if (source == null) {
+            return null;
+        }
+        if (preProcessor != null) {
+            source = preProcessor.apply(source);
+        }
         UserDto result = toDto(source);
-        if (result != null && customizer != null) {
-            result = customizer.apply(result);
+        if (result != null && postProcessor != null) {
+            result = postProcessor.apply(source, result);
         }
         return result;
     }
     
     public static User fromDto(UserDto source) { ... }
     public static List<UserDto> toDtoList(List<User> sources) { ... }
-    public static List<UserDto> toDtoList(List<User> sources, UnaryOperator<UserDto> customizer) { ... }
+    public static List<UserDto> toDtoList(
+            List<User> sources,
+            UnaryOperator<User> preProcessor,
+            BiFunction<List<User>, List<UserDto>, List<UserDto>> postProcessor) { ... }
     // ... 其他方法
 }
 ```
 
-### 24.2. SPRING 模式
+### 25.2. SPRING 模式
 
 ```java
 @Component
@@ -1375,9 +1419,9 @@ public final class UserDtoCopier {
 }
 ```
 
-## 25. 常见用例
+## 26. 常见用例
 
-### 25.1. API 响应 DTO
+### 26.1. API 响应 DTO
 
 ```java
 @CopyTarget(source = User.class, ignore = {"password"})
@@ -1388,14 +1432,14 @@ public class UserResponse {
 }
 ```
 
-### 25.2. 批量转换
+### 26.2. 批量转换
 
 ```java
 List<User> users = userRepository.findAll();
 List<UserDto> userDtos = UserDtoCopier.toDtoList(users);
 ```
 
-### 25.3. 复杂字段映射
+### 26.3. 复杂字段映射
 
 ```java
 @CopyTarget(source = Order.class, uses = OrderConverter.class)
@@ -1412,7 +1456,7 @@ public class OrderDto {
 }
 ```
 
-### 25.4. 更新现有对象（v1.3）
+### 26.4. 更新现有对象（v1.3）
 
 ```java
 // 部分更新场景
@@ -1420,7 +1464,7 @@ UserDto existingDto = userService.getUser(id);
 UserDtoCopier.updateDto(existingDto, partialUser);
 ```
 
-### 25.5. 函数式处理（v1.4）
+### 26.5. 函数式处理（v1.4）
 
 ```java
 // 预处理和后处理
@@ -1430,14 +1474,14 @@ UserDto dto = UserDtoCopier.toDto(
         source.setName(source.getName().trim());
         return source;
     },
-    target -> {
+    (source, target) -> {
         target.setDisplayName(target.getName().toUpperCase());
         return target;
     }
 );
 ```
 
-### 25.6. 深拷贝控制（v1.4）
+### 26.6. 深拷贝控制（v1.4）
 
 ```java
 @CopyTarget(source = Order.class)
@@ -1452,34 +1496,34 @@ public class OrderDto {
 }
 ```
 
-## 26. 故障排除
+## 27. 故障排除
 
-### 26.1. 生成的代码未出现
+### 27.1. 生成的代码未出现
 
 1. 确保使用了 `@CopyTarget` 注解
 2. 确保有 getter/setter 方法
 3. 运行 `mvn clean compile`
 
-### 26.2. 字段未被拷贝
+### 27.2. 字段未被拷贝
 
 1. 检查字段名是否相同
 2. 检查是否有 getter/setter
 3. 检查是否在 `ignore` 中
 
-### 26.3. 表达式编译错误
+### 27.3. 表达式编译错误
 
 1. 检查表达式语法
 2. 使用 `source` 变量引用源对象
 3. 添加 null 检查
 
-## 27. 性能考虑
+## 28. 性能考虑
 
 - 编译期代码生成，无运行时反射
 - 直接调用 getter/setter
 - TypeConverter 复用（静态实例或单例）
 - 集合容量预分配
 
-## 28. 最佳实践
+## 29. 最佳实践
 
 1. 为每个 DTO 定义一个 `@CopyTarget`
 2. 使用 `ignore` 排除敏感字段
@@ -1488,14 +1532,23 @@ public class OrderDto {
 5. 在 Spring 项目中使用 `ComponentModel.SPRING`
 6. 使用 `@CopyTargetConfig` 减少重复配置（v1.3）
 7. 使用 `updateDto/updateEntity` 进行部分更新（v1.3）
-8. 使用 `UnaryOperator` 重载进行批量转换定制（v1.3.1）
+8. 使用 `preProcessor + BiFunction postProcessor` 进行批量转换定制（v1.6）
 9. 使用 Properties 配置文件统一管理配置（v1.3.1）
 10. 使用 `preProcessor` 和 `postProcessor` 进行函数式处理（v1.4）
 11. 使用 `deepCopy` 属性优化性能和控制拷贝行为（v1.4）
 12. 使用 `@CopyToMap`/`@CopyFromMap` 进行 Bean ↔ Map 转换（v1.5）
 13. 使用 `MapKeyStrategy` 统一控制 Map key 命名风格（v1.5）
+14. 使用 BiFunction 形式的 `postProcessor` 同时读取源对象和目标对象（v1.6）
+15. 使用 `@CopyTarget(cycleDetection = ...)` 显式声明循环检测策略（v1.6）
 
-## 29. 版本历史
+## 30. 版本历史
+
+### 1.6.0（2026-06-23）
+- Bean ↔ Bean 与 Bean ↔ Map 的 `postProcessor` 从单参数 `UnaryOperator<Result>` 升级为 `BiFunction<Source, Result, Result>`
+- 集合批量方法的 `postProcessor` 从单参数结果处理升级为 `(sources, result)` 双参数处理
+- 新增 `CycleDetectionStrategy` 枚举：FAIL_FAST / RETURN_NULL / AUTOMATIC_CACHE
+- `@CopyTarget` 新增 `cycleDetection` 属性，默认 `FAIL_FAST`
+- 新增 `V160BiFunctionCallbackTest` 覆盖单对象、反向转换、集合转换与 null 安全场景
 
 ### 1.5.0（2026-06-03）
 - Bean ↔ Map 转换：@CopyToMap/@CopyFromMap 注解
@@ -1552,11 +1605,11 @@ public class OrderDto {
 ### 1.0.0（2025-12-13）
 - 初始版本
 
-## 30. 许可证
+## 31. 许可证
 
 Fast Bean Copier 采用 Apache License 2.0 许可证。
 
-## 31. 获取帮助
+## 32. 获取帮助
 
 - 查看本参考文档
 - 在 [GitHub Issues](https://github.com/fast-bean-copier/fast-bean-copier/issues) 中搜索或提问

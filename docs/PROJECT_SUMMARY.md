@@ -4,13 +4,13 @@
 
 **Fast Bean Copier** 是一个高性能的 Java Bean 拷贝工具，使用 APT（注解处理工具）在编译期自动生成拷贝代码，实现零运行时开销。
 
-**项目状态**：✅ 已完成，生产就绪（v1.5.0 Bean ↔ Map 转换、API 清理）
+**项目状态**：✅ 已完成，生产就绪（v1.6.0 BiFunction 回调、循环检测策略配置）
 
 ## 项目信息
 
 - **项目名称**：Fast Bean Copier
-- **版本**：1.5.0
-- **发布日期**：2026-06-03
+- **版本**：1.6.0
+- **发布日期**：2026-06-23
 - **Java 版本**：Java 8+
 - **构建工具**：Maven
 - **许可证**：Apache License 2.0
@@ -130,6 +130,14 @@ fast-bean-copier/
 49. **移除 beforeMapping** - 完全移除 v1.4.0 废弃的 beforeMapping 属性
 50. **移除单参数 customizer** - 完全移除 v1.4.0 废弃的单参数 customizer 重载
 
+### ✅ v1.6.0 功能
+
+51. **BiFunction postProcessor** - Bean ↔ Bean 与 Bean ↔ Map 的 postProcessor 可同时访问 source 和 result
+52. **批量 BiFunction postProcessor** - List/Set/Map/Array 批量方法支持 `(sources, result)` 后处理
+53. **CycleDetectionStrategy 枚举** - 新增 FAIL_FAST / RETURN_NULL / AUTOMATIC_CACHE 策略值
+54. **@CopyTarget.cycleDetection 属性** - 支持在注解中声明循环检测策略，默认 FAIL_FAST
+55. **BiFunction 回归测试** - 覆盖正向、反向、集合、null 安全与 preProcessor 组合场景
+
 ## 技术栈
 
 - **Java 8** - 编程语言
@@ -142,10 +150,14 @@ fast-bean-copier/
 
 ## 测试覆盖
 
-- **测试用例**：481 个（涵盖所有功能）
+- **测试用例**：556 个（涵盖所有功能）
 - **示例模块指令覆盖率**：95%+（Jacoco）
 - **处理器模块覆盖率**：80%+（Jacoco）
 - **所有测试通过** ✅
+
+### v1.6.0 测试类
+
+- `V160BiFunctionCallbackTest` - BiFunction postProcessor 回调测试（覆盖单对象、反向转换、集合转换、null 安全）
 
 ### v1.5.0 测试类
 
@@ -289,7 +301,7 @@ public class UserService {
 ### 函数式定制（v1.2）
 
 ```java
-UserDto dto = UserDtoCopier.toDto(user, result -> {
+UserDto dto = UserDtoCopier.toDto(user, null, (source, result) -> {
     result.setDisplayName(result.getName().toUpperCase());
     return result;
 });
@@ -312,14 +324,14 @@ UserDtoCopier.updateEntity(existingUser, userDto);
 
 ```java
 // 过滤 Map 条目
-Map<String, UserDto> filteredMap = UserDtoCopier.toDtoMap(userMap, result -> {
+Map<String, UserDto> filteredMap = UserDtoCopier.toDtoMap(userMap, null, (sources, result) -> {
     result.entrySet().removeIf(entry -> entry.getValue().getId() == null);
     return result;
 });
 
 // 转换为不可变 Map
-Map<String, UserDto> immutableMap = UserDtoCopier.toDtoMap(userMap, 
-    result -> Collections.unmodifiableMap(result));
+Map<String, UserDto> immutableMap = UserDtoCopier.toDtoMap(userMap, null,
+    (sources, result) -> Collections.unmodifiableMap(result));
 ```
 
 ### Properties 配置文件（v1.3.1）
@@ -361,7 +373,7 @@ UserDto dto = UserDtoCopier.toDto(
         source.setName(source.getName().trim());
         return source;
     },
-    target -> {
+    (source, target) -> {
         target.setDisplayName(target.getName().toUpperCase());
         return target;
     }
@@ -460,6 +472,13 @@ mvn jacoco:report
 - **框架**：Spring、CDI、JSR-330 等
 
 ## 版本历史
+
+### 1.6.0（2026-06-23）
+- Bean ↔ Bean 与 Bean ↔ Map postProcessor 从 UnaryOperator 升级为 BiFunction，可同时访问 source 和 result
+- 集合批量方法 postProcessor 升级为 `(sources, result)` 双参数形式
+- 新增 CycleDetectionStrategy 枚举与 @CopyTarget.cycleDetection 配置
+- 新增 v1.6.0 BiFunction 专项测试
+- 示例模块 556 个测试通过
 
 ### 1.5.0（2026-06-03）
 - Bean ↔ Map 转换：@CopyToMap/@CopyFromMap 注解

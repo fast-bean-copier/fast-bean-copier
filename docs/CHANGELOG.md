@@ -5,6 +5,24 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/),
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.6.0] - 2026-06-23
+
+### 变更
+
+- **postProcessor 改为 BiFunction**：Bean ↔ Bean 与 Bean ↔ Map 的函数式方法中，`postProcessor` 从 `UnaryOperator<Result>` 升级为 `BiFunction<Source, Result, Result>`，回调可同时读取源输入和转换结果。
+- **迁移方式**：将 `target -> { ... }` / `result -> { ... }` 改为 `(source, target) -> { ... }` / `(sources, result) -> { ... }`；`preProcessor` 仍保持 `UnaryOperator` 不变。
+
+### 新增
+
+- **CycleDetectionStrategy 枚举**：新增 `FAIL_FAST`、`RETURN_NULL`、`AUTOMATIC_CACHE` 三个策略值。
+- **@CopyTarget.cycleDetection**：新增循环检测策略配置，默认 `FAIL_FAST`。
+- **BiFunction 专项测试**：新增 `V160BiFunctionCallbackTest`，覆盖单对象、集合、Map、数组、空回调、返回新实例、原地修改、preProcessor 组合等场景。
+
+### 验证
+
+- `mvn clean compile -DskipTests`
+- `mvn clean test`（在 `fast-bean-copier-examples` 模块目录执行，556 tests）
+
 ## [1.5.0] - 2026-06-03
 
 ### 新增
@@ -587,6 +605,7 @@
 
 ---
 
+[1.6.0]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.6.0
 [1.5.0]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.5.0
 [1.4.0]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.4.0
 [1.3.0]: https://github.com/fast-bean-copier/fast-bean-copier/releases/tag/v1.3.0

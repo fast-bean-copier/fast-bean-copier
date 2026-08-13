@@ -1,6 +1,6 @@
 # Fast Bean Copier API 文档
 
-> **v1.5.0 新增**：Bean ↔ Map 转换（@CopyToMap/@CopyFromMap/MapKeyStrategy/@CopyField.mapKey）；移除废弃 API（beforeMapping、单参数 customizer 重载）。
+> **v1.6.0 新增**：Bean ↔ Bean 与 Bean ↔ Map 的 `postProcessor` 从单参数 `UnaryOperator<Result>` 升级为 `BiFunction<Source, Result, Result>`，并新增 `CycleDetectionStrategy` 与 `@CopyTarget(cycleDetection = ...)`。
 
 ## 注解
 
@@ -18,6 +18,7 @@ public @interface CopyTarget {
     String[] ignore() default {};
     Class<?>[] uses() default {};
     ComponentModel componentModel() default ComponentModel.DEFAULT;
+    CycleDetectionStrategy cycleDetection() default CycleDetectionStrategy.FAIL_FAST;
 }
 ```
 
@@ -29,6 +30,7 @@ public @interface CopyTarget {
 | `ignore` | `String[]` | 否 | 要忽略的字段名数组 |
 | `uses` | `Class<?>[]` | 否 | 自定义转换器类列表 |
 | `componentModel` | `ComponentModel` | 否 | 依赖注入框架选择 |
+| `cycleDetection` | `CycleDetectionStrategy` | 否 | 循环引用检测策略，默认 `FAIL_FAST` |
 
 #### 示例
 
@@ -195,6 +197,30 @@ public enum ComponentModel {
 }
 ```
 
+### CycleDetectionStrategy 枚举（v1.6 新增）
+
+定义嵌套对象深拷贝遇到循环引用时的处理策略。
+
+```java
+public enum CycleDetectionStrategy {
+    FAIL_FAST,        // 默认：编译期检测到循环引用时报错
+    RETURN_NULL,      // 运行期检测到循环引用时，将循环字段置为 null
+    AUTOMATIC_CACHE   // 运行期维护引用缓存，复用已拷贝的目标对象
+}
+```
+
+示例：
+
+```java
+@CopyTarget(
+    source = Node.class,
+    cycleDetection = CycleDetectionStrategy.FAIL_FAST
+)
+public class NodeDto {
+    private NodeDto parent;
+}
+```
+
 ### TypeConverter 接口（v1.2 新增）
 
 类型转换器接口，用于自定义类型转换。
@@ -241,6 +267,11 @@ public @interface CopyTargetConfig {
      * 默认 null 值处理策略
      */
     NullValueStrategy nullValueStrategy() default NullValueStrategy.IGNORE;
+
+    /**
+     * 默认循环检测策略
+     */
+    CycleDetectionStrategy cycleDetection() default CycleDetectionStrategy.FAIL_FAST;
 }
 ```
 
@@ -250,6 +281,7 @@ public @interface CopyTargetConfig {
 |------|------|------|------|
 | `componentModel` | `ComponentModel` | 否 | 默认组件模型 |
 | `nullValueStrategy` | `NullValueStrategy` | 否 | 默认 null 值处理策略 |
+| `cycleDetection` | `CycleDetectionStrategy` | 否 | 默认循环检测策略 |
 
 #### 示例
 
@@ -257,7 +289,8 @@ public @interface CopyTargetConfig {
 // package-info.java
 @CopyTargetConfig(
     componentModel = ComponentModel.SPRING,
-    nullValueStrategy = NullValueStrategy.IGNORE
+    nullValueStrategy = NullValueStrategy.IGNORE,
+    cycleDetection = CycleDetectionStrategy.RETURN_NULL
 )
 package com.example.dto;
 
@@ -466,7 +499,7 @@ UserDto userDto = UserDtoCopier.toDto(user);
 
 ```java
 // 新方法
-UserDto dto = UserDtoCopier.toDto(user, null, result -> {
+UserDto dto = UserDtoCopier.toDto(user, null, (source, result) -> {
     result.setDisplayName(result.getName().toUpperCase());
     return result;
 });
@@ -480,7 +513,7 @@ UserDto dto = UserDtoCopier.toDto(user, null, result -> {
 ```java
 public static TargetType toDto(SourceType source, 
                                 UnaryOperator<SourceType> preProcessor, 
-                                UnaryOperator<TargetType> postProcessor)
+                                BiFunction<SourceType, TargetType, TargetType> postProcessor)
 ```
 
 **参数**：
@@ -505,7 +538,7 @@ UserDto dto = UserDtoCopier.toDto(user,
         source.setEmail(source.getEmail().toLowerCase());
         return source;
     },
-    result -> {
+    (source, result) -> {
         // 后处理：添加显示名称
         result.setDisplayName(result.getName().toUpperCase());
         return result;
@@ -546,7 +579,7 @@ User user = UserDtoCopier.fromDto(userDto);
 ```java
 public static SourceType fromDto(TargetType source, 
                                   UnaryOperator<TargetType> preProcessor, 
-                                  UnaryOperator<SourceType> postProcessor)
+                                  BiFunction<TargetType, SourceType, SourceType> postProcessor)
 ```
 
 **参数**：
@@ -567,7 +600,7 @@ User user = UserDtoCopier.fromDto(userDto,
         }
         return dto;
     },
-    result -> {
+    (dto, result) -> {
         // 后处理：设置默认值
         if (result.getStatus() == null) {
             result.setStatus("ACTIVE");
@@ -644,32 +677,33 @@ List<User> users = userRepository.findAll();
 List<UserDto> userDtos = UserDtoCopier.toDtoList(users);
 ```
 
-#### toDtoList(sources, customizer)（v1.2 新增 / v1.3.1 统一行为）
+#### toDtoList(sources, preProcessor, postProcessor)（v1.6.0 更新）
 
-将源对象列表转换为目标 DTO 对象列表，并对整个列表应用自定义逻辑。
+将源对象列表转换为目标 DTO 对象列表，并应用预处理和后处理逻辑。
 
-**v1.3.1 变更**：customizer 现在操作整个列表而非单个元素，支持过滤、排序、限制等操作。
+**v1.6.0 变更**：`postProcessor` 使用 `BiFunction<List<SourceType>, List<TargetType>, List<TargetType>>`，可同时访问源列表和转换结果。
 
 **签名**：
 ```java
 public static java.util.List<TargetType> toDtoList(
     java.util.List<SourceType> sources, 
-    UnaryOperator<java.util.List<TargetType>> customizer)
+    UnaryOperator<SourceType> preProcessor,
+    BiFunction<java.util.List<SourceType>, java.util.List<TargetType>, java.util.List<TargetType>> postProcessor)
 ```
 
 **示例**：
 ```java
 // 过滤列表
-List<UserDto> filtered = UserDtoCopier.toDtoList(users, list -> 
-    list.stream()
+List<UserDto> filtered = UserDtoCopier.toDtoList(users, null, (sources, result) -> 
+    result.stream()
         .filter(dto -> dto.getPrice() >= 100)
         .collect(Collectors.toList())
 );
 
 // 排序列表
-List<UserDto> sorted = UserDtoCopier.toDtoList(users, list -> {
-    list.sort(Comparator.comparing(UserDto::getName));
-    return list;
+List<UserDto> sorted = UserDtoCopier.toDtoList(users, null, (sources, result) -> {
+    result.sort(Comparator.comparing(UserDto::getName));
+    return result;
 });
 ```
 
@@ -682,17 +716,18 @@ List<UserDto> sorted = UserDtoCopier.toDtoList(users, list -> {
 public static java.util.Set<TargetType> toDtoSet(java.util.Set<SourceType> sources)
 ```
 
-#### toDtoSet(sources, customizer)（v1.2 新增 / v1.3.1 统一行为）
+#### toDtoSet(sources, preProcessor, postProcessor)（v1.6.0 更新）
 
-将源对象集合转换为目标 DTO 对象集合，并对整个集合应用自定义逻辑。
+将源对象集合转换为目标 DTO 对象集合，并应用预处理和后处理逻辑。
 
-**v1.3.1 变更**：customizer 现在操作整个集合而非单个元素。
+**v1.6.0 变更**：`postProcessor` 使用 `BiFunction<Set<SourceType>, Set<TargetType>, Set<TargetType>>`。
 
 **签名**：
 ```java
 public static java.util.Set<TargetType> toDtoSet(
     java.util.Set<SourceType> sources, 
-    UnaryOperator<java.util.Set<TargetType>> customizer)
+    UnaryOperator<SourceType> preProcessor,
+    BiFunction<java.util.Set<SourceType>, java.util.Set<TargetType>, java.util.Set<TargetType>> postProcessor)
 ```
 
 #### fromDtoList(sources)
@@ -704,17 +739,16 @@ public static java.util.Set<TargetType> toDtoSet(
 public static java.util.List<SourceType> fromDtoList(java.util.List<TargetType> sources)
 ```
 
-#### fromDtoList(sources, customizer)（v1.2 新增 / v1.3.1 统一行为）
+#### fromDtoList(sources, preProcessor, postProcessor)（v1.6.0 更新）
 
-将目标 DTO 对象列表转换回源对象列表，并对整个列表应用自定义逻辑。
-
-**v1.3.1 变更**：customizer 现在操作整个列表而非单个元素。
+将目标 DTO 对象列表转换回源对象列表，并应用预处理和后处理逻辑。
 
 **签名**：
 ```java
 public static java.util.List<SourceType> fromDtoList(
     java.util.List<TargetType> sources, 
-    UnaryOperator<java.util.List<SourceType>> customizer)
+    UnaryOperator<TargetType> preProcessor,
+    BiFunction<java.util.List<TargetType>, java.util.List<SourceType>, java.util.List<SourceType>> postProcessor)
 ```
 
 #### fromDtoSet(sources)
@@ -726,17 +760,16 @@ public static java.util.List<SourceType> fromDtoList(
 public static java.util.Set<SourceType> fromDtoSet(java.util.Set<TargetType> sources)
 ```
 
-#### fromDtoSet(sources, customizer)（v1.2 新增 / v1.3.1 统一行为）
+#### fromDtoSet(sources, preProcessor, postProcessor)（v1.6.0 更新）
 
-将目标 DTO 对象集合转换回源对象集合，并对整个集合应用自定义逻辑。
-
-**v1.3.1 变更**：customizer 现在操作整个集合而非单个元素。
+将目标 DTO 对象集合转换回源对象集合，并应用预处理和后处理逻辑。
 
 **签名**：
 ```java
 public static java.util.Set<SourceType> fromDtoSet(
     java.util.Set<TargetType> sources, 
-    UnaryOperator<java.util.Set<SourceType>> customizer)
+    UnaryOperator<TargetType> preProcessor,
+    BiFunction<java.util.Set<TargetType>, java.util.Set<SourceType>, java.util.Set<SourceType>> postProcessor)
 ```
 
 #### toDtoMap(sources)
@@ -748,35 +781,37 @@ public static java.util.Set<SourceType> fromDtoSet(
 public static <K> java.util.Map<K, TargetType> toDtoMap(java.util.Map<K, SourceType> sources)
 ```
 
-#### toDtoMap(sources, customizer)（v1.3.1 新增）
+#### toDtoMap(sources, preProcessor, postProcessor)（v1.6.0 更新）
 
-将源对象 Map 转换为目标 DTO Map，并应用自定义逻辑。
+将源对象 Map 转换为目标 DTO Map，并应用预处理和后处理逻辑。
 
 **签名**：
 ```java
 public static <K> java.util.Map<K, TargetType> toDtoMap(
     java.util.Map<K, SourceType> sources, 
-    UnaryOperator<java.util.Map<K, TargetType>> customizer)
+    UnaryOperator<SourceType> preProcessor,
+    BiFunction<java.util.Map<K, SourceType>, java.util.Map<K, TargetType>, java.util.Map<K, TargetType>> postProcessor)
 ```
 
 **参数**：
 - `sources` - 源对象 Map
-- `customizer` - 自定义函数
+- `preProcessor` - 单个源对象预处理器
+- `postProcessor` - Map 转换结果后处理器，可同时访问原始 sources 和 result
 
 **返回值**：
-- 经过自定义处理的目标 DTO Map
+- 经过处理器处理的目标 DTO Map
 
 **示例**：
 ```java
 // 过滤 Map 条目
-Map<String, UserDto> filteredMap = UserDtoCopier.toDtoMap(userMap, result -> {
+Map<String, UserDto> filteredMap = UserDtoCopier.toDtoMap(userMap, null, (sources, result) -> {
     result.entrySet().removeIf(entry -> entry.getValue().getId() == null);
     return result;
 });
 
 // 转换为不可变 Map
-Map<String, UserDto> immutableMap = UserDtoCopier.toDtoMap(userMap, 
-    result -> Collections.unmodifiableMap(result));
+Map<String, UserDto> immutableMap = UserDtoCopier.toDtoMap(userMap, null,
+    (sources, result) -> Collections.unmodifiableMap(result));
 ```
 
 #### fromDtoMap(sources)
@@ -788,7 +823,7 @@ Map<String, UserDto> immutableMap = UserDtoCopier.toDtoMap(userMap,
 public static <K> java.util.Map<K, SourceType> fromDtoMap(java.util.Map<K, TargetType> sources)
 ```
 
-#### fromDtoMap(sources, customizer)（v1.3.1 新增）
+#### fromDtoMap(sources, preProcessor, postProcessor)（v1.6.0 更新）
 
 将目标 DTO Map 反向转换为源对象 Map，并应用自定义逻辑。
 
@@ -796,7 +831,8 @@ public static <K> java.util.Map<K, SourceType> fromDtoMap(java.util.Map<K, Targe
 ```java
 public static <K> java.util.Map<K, SourceType> fromDtoMap(
     java.util.Map<K, TargetType> sources, 
-    UnaryOperator<java.util.Map<K, SourceType>> customizer)
+    UnaryOperator<TargetType> preProcessor,
+    BiFunction<java.util.Map<K, TargetType>, java.util.Map<K, SourceType>, java.util.Map<K, SourceType>> postProcessor)
 ```
 
 #### toDtoArray(sources)
@@ -808,32 +844,36 @@ public static <K> java.util.Map<K, SourceType> fromDtoMap(
 public static TargetType[] toDtoArray(SourceType[] sources)
 ```
 
-#### toDtoArray(sources, customizer)（v1.3.1 新增）
+#### toDtoArray(sources, preProcessor, postProcessor)（v1.6.0 更新）
 
-将源对象数组转换为目标 DTO 数组，并应用自定义逻辑。
+将源对象数组转换为目标 DTO 数组，并应用预处理和后处理逻辑。
 
 **签名**：
 ```java
-public static TargetType[] toDtoArray(SourceType[] sources, UnaryOperator<TargetType[]> customizer)
+public static TargetType[] toDtoArray(
+    SourceType[] sources,
+    UnaryOperator<SourceType> preProcessor,
+    BiFunction<SourceType[], TargetType[], TargetType[]> postProcessor)
 ```
 
 **参数**：
 - `sources` - 源对象数组
-- `customizer` - 自定义函数
+- `preProcessor` - 单个源对象预处理器
+- `postProcessor` - 数组转换结果后处理器，可同时访问原始 sources 和 result
 
 **返回值**：
-- 经过自定义处理的目标 DTO 数组
+- 经过处理器处理的目标 DTO 数组
 
 **示例**：
 ```java
 // 过滤数组元素
-UserDto[] filteredArray = UserDtoCopier.toDtoArray(users, result -> 
+UserDto[] filteredArray = UserDtoCopier.toDtoArray(users, null, (sources, result) ->
     Arrays.stream(result)
         .filter(dto -> dto.getId() != null)
         .toArray(UserDto[]::new));
 
 // 排序数组
-UserDto[] sortedArray = UserDtoCopier.toDtoArray(users, result -> {
+UserDto[] sortedArray = UserDtoCopier.toDtoArray(users, null, (sources, result) -> {
     Arrays.sort(result, Comparator.comparing(UserDto::getName));
     return result;
 });
@@ -848,13 +888,16 @@ UserDto[] sortedArray = UserDtoCopier.toDtoArray(users, result -> {
 public static SourceType[] fromDtoArray(TargetType[] sources)
 ```
 
-#### fromDtoArray(sources, customizer)（v1.3.1 新增）
+#### fromDtoArray(sources, preProcessor, postProcessor)（v1.6.0 更新）
 
-将目标 DTO 数组转换回源对象数组，并应用自定义逻辑。
+将目标 DTO 数组转换回源对象数组，并应用预处理和后处理逻辑。
 
 **签名**：
 ```java
-public static SourceType[] fromDtoArray(TargetType[] sources, UnaryOperator<SourceType[]> customizer)
+public static SourceType[] fromDtoArray(
+    TargetType[] sources,
+    UnaryOperator<TargetType> preProcessor,
+    BiFunction<TargetType[], SourceType[], SourceType[]> postProcessor)
 ```
 
 ## 嵌套对象深拷贝（v1.3.2 新增）
@@ -1024,7 +1067,7 @@ EmployeeDto dto = EmployeeDtoCopier.toDto(employee);
 
 ### 注意事项
 
-1. **不支持循环引用**：如果 A 包含 B，B 又包含 A，会导致无限递归
+1. **循环引用需配置策略**：默认 `FAIL_FAST` 会在检测到循环引用时快速失败；如需按 null 截断或保持引用一致，可显式使用 `RETURN_NULL` 或 `AUTOMATIC_CACHE`
 2. **字段名必须匹配**：字段拷贝模式下，只拷贝同名字段
 3. **类型必须兼容**：字段类型必须兼容（基本类型、包装类型、自定义对象）
 4. **同类型引用传递**：如果嵌套对象类型相同（如 `Address` → `Address`），使用引用传递而非深拷贝
@@ -1092,7 +1135,7 @@ UserDto dto = UserDtoCopier.toDto(user);
 ```java
 UserDto dto = UserDtoCopier.toDto(null, 
     source -> { return source; },
-    result -> { return result; }
+    (source, result) -> { return result; }
 );
 // dto 为 null，处理器不执行
 ```
@@ -1106,11 +1149,11 @@ UserDto dto = UserDtoCopier.toDto(null,
 | 方法 | 说明 |
 |------|------|
 | `toMap(T source)` | 单对象转 `Map<String, Object>` |
-| `toMap(T source, preProcessor, postProcessor)` | 拷贝前处理 Bean，拷贝后处理 Map |
+| `toMap(T source, preProcessor, postProcessor)` | 拷贝前处理 Bean，拷贝后用 `BiFunction<T, Map<String,Object>, Map<String,Object>>` 处理 Map |
 | `toMapList(List<T> sources)` | 批量 List 转换 |
-| `toMapList(sources, preProcessor, postProcessor)` | 带处理器的 List 转换 |
+| `toMapList(sources, preProcessor, postProcessor)` | postProcessor 可同时访问原始 List 和转换后的 Map List |
 | `toMapSet(Set<T> sources)` | 批量 Set 转换 |
-| `toMapSet(sources, preProcessor, postProcessor)` | 带处理器的 Set 转换 |
+| `toMapSet(sources, preProcessor, postProcessor)` | postProcessor 可同时访问原始 Set 和转换后的 Map Set |
 
 **执行顺序**：`preProcessor` → 字段写入 Map → `postProcessor`
 
@@ -1124,11 +1167,11 @@ List<Map<String, Object>> maps = UserDtoMapCopier.toMapList(userDtos);
 | 方法 | 说明 |
 |------|------|
 | `fromMap(Map<String, Object> source)` | 单 Map 转 Bean |
-| `fromMap(source, preProcessor, postProcessor)` | 拷贝前处理 Map，拷贝后处理 Bean |
+| `fromMap(source, preProcessor, postProcessor)` | 拷贝前处理 Map，拷贝后用 `BiFunction<Map<String,Object>, T, T>` 处理 Bean |
 | `fromMapList(List<Map<String, Object>> sources)` | 批量 List 转换 |
-| `fromMapList(sources, preProcessor, postProcessor)` | 带处理器的 List 转换 |
+| `fromMapList(sources, preProcessor, postProcessor)` | postProcessor 可同时访问原始 Map List 和转换后的 Bean List |
 | `fromMapSet(Set<Map<String, Object>> sources)` | 批量 Set 转换 |
-| `fromMapSet(sources, preProcessor, postProcessor)` | 带处理器的 Set 转换 |
+| `fromMapSet(sources, preProcessor, postProcessor)` | postProcessor 可同时访问原始 Map Set 和转换后的 Bean Set |
 
 ```java
 UserDto dto = UserDtoMapCopier.fromMap(map);
